@@ -22,7 +22,7 @@ namespace Stackshot
         class Particle
         {
             public char Kind;          // h heart, s star, z sleep, p spark, b bat
-            public double X, Y, Vx, Vy, Age, Life, Rot, Vr, Size;
+            public double X, Y, Vx, Vy, Age, Life, Rot, Vr, Size, Born;
             public int Tint;
         }
 
@@ -58,6 +58,7 @@ namespace Stackshot
         double actStart, actUntil, stretch, actKNow, actTNow;
 
         double Clock() { return TestClock != null ? TestClock() : Anim.Now; }
+        const double MaxStep = 0.75;     // seconds; above this a step is a resume (owners tick at 500 ms at most)
         public int LastAlone { get { return lastAlone; } }
 
         public Mascot()
@@ -69,14 +70,23 @@ namespace Stackshot
         public Mood Current { get { return mood; } }
         public bool Sleeping { get { return mood == Mood.Sleep; } }
 
-        // Doing more than floating (owners raise the frame rate only then).
+        // Doing more than floating (owners raise the frame rate only then). A nap's slow "z"s and its hidden blinks don't count.
         public bool Lively
         {
             get
             {
-                return parts.Count > 0 || (mood != Mood.Idle && mood != Mood.Sleep) || blinkStart >= 0 || now < waveUntil || now < danceUntil || now < bowUntil || now < bubblesUntil || hopsLeft > 0 || pendingSleep > 0 ||
+                return LivelyParts || (mood != Mood.Idle && mood != Mood.Sleep) || (blinkStart >= 0 && mood != Mood.Sleep) || now < waveUntil || now < danceUntil || now < bowUntil || now < bubblesUntil || hopsLeft > 0 || pendingSleep > 0 ||
                        Math.Abs(jumpV) > 0.15 || Math.Abs(squashXV) > 0.15 || Math.Abs(squashYV) > 0.15 || Math.Abs(antennaV) > 60 ||
                        act != MascotProps.None || Math.Abs(earLV) > 40 || appear < 0.99 || (BubbleAlpha > 0.02 && BubbleAlpha < 0.98) || Dangling;
+            }
+        }
+
+        bool LivelyParts
+        {
+            get
+            {
+                foreach (Particle p in parts) if (p.Kind != 'z') return true;
+                return false;
             }
         }
 
@@ -100,6 +110,7 @@ namespace Stackshot
         // Pops in with a bounce.
         public void PopIn()
         {
+            last = 0;   // shown again after a pause: the pop-in plays from its first frame
             appear = 0.01;
             squashX = 0.6; squashY = 1.35;
             jumpV = -2.2;
@@ -239,6 +250,7 @@ namespace Stackshot
             p.Y = y;
             p.Vx = Math.Cos(a) * v;
             p.Vy = Math.Sin(a) * v;
+            p.Born = now;
             p.Life = kind == 'z' ? 2200 : kind == 'p' ? 700 : kind == 'b' ? 1600 : kind == 'o' ? 2800 : kind == 'c' ? 1900 : 1300;
             p.Tint = rnd.Next(4);
             p.Rot = rnd.NextDouble() * 360;
@@ -440,18 +452,22 @@ namespace Stackshot
         public void Step(double t, PointF mouse, bool moved)
         {
             now = t;
-            double dt = Math.Min(0.05, Math.Max(0.001, (t - last) / 1000.0));
-            if (last == 0) dt = 0.016;
+            // Real elapsed time, so a slow frame rate never means slow motion (springs sub-step, so they stay stable).
+            // A long gap is a resume after a pause, not motion to catch up on.
+            double gap = (t - last) / 1000.0;
+            double dt = last == 0 || gap > MaxStep ? 0.016 : Math.Max(0.001, gap);
             last = t;
             if (lastSeen == 0) lastSeen = t;
             if (moved) lastSeen = t;
             if (moved && mood == Mood.Sleep && !forcedSleep) { Wake(); Hop(0.6); }   // dozed off from being ignored: wakes when someone is back
+            // Never dozes off while walking, falling or with its menu open, nor right after.
+            if (Busy) lastSeen = Math.Max(lastSeen, now - SleepAfter + 5000);
 
             if (pendingSleep > 0 && now >= pendingSleep) { pendingSleep = 0; forcedSleep = true; }
             if (mood != Mood.Idle && mood != Mood.Sleep && now > moodUntil) mood = Mood.Idle;
             if (pendingHappy && mood == Mood.Idle) { pendingHappy = false; SetMood(Mood.Happy, 1500); }
-            if (mood == Mood.Idle && !forcedSleep && now - lastSeen > SleepAfter - 2200 && now - lastSeen < SleepAfter) SetMood(Mood.Yawn, 1900);
-            if ((mood == Mood.Idle || mood == Mood.Yawn) && (forcedSleep || (act == MascotProps.None && now - lastSeen > SleepAfter))) { mood = Mood.Sleep; Bubble = null; }
+            if (mood == Mood.Idle && !forcedSleep && !Busy && now - lastSeen > SleepAfter - 2200 && now - lastSeen < SleepAfter) SetMood(Mood.Yawn, 1900);
+            if ((mood == Mood.Idle || mood == Mood.Yawn) && (forcedSleep || (!Busy && act == MascotProps.None && now - lastSeen > SleepAfter))) { mood = Mood.Sleep; Bubble = null; }
             if (mood == Mood.Idle && now > nextFidget)
             {
                 // Yields to anything in progress or to someone moving around it; asks again soon instead of waiting a full interval.
@@ -535,23 +551,62 @@ namespace Stackshot
             if (mood == Mood.Love && now - lastSpark > 380) { lastSpark = now; Spawn('h', 0, -0.25, 0.45); }
             if (mood == Mood.Dizzy && now - lastSpark > 500) { lastSpark = now; Spawn('s', 0, -0.36, 0.3); }
 
+            // Particles move on their own age (real time since they appeared), integrated exactly, so a frame rate of 16 or
+            // 2 fps gives the same path and lifetime. Drag and drift were tuned per 60 fps frame.
             pMinX = pMinY = 0; pMaxX = pMaxY = 0;
             for (int i = parts.Count - 1; i >= 0; i--)
             {
                 Particle p = parts[i];
                 pMinX = Math.Min(pMinX, p.X - p.Size); pMaxX = Math.Max(pMaxX, p.X + p.Size);
                 pMinY = Math.Min(pMinY, p.Y - p.Size); pMaxY = Math.Max(pMaxY, p.Y + p.Size);
-                p.Age += dt * 1000;
+                double a0 = p.Age;
+                p.Age = Math.Max(0, now - p.Born);
                 if (p.Age > p.Life) { parts.RemoveAt(i); continue; }
-                p.X += p.Vx * dt;
-                p.Y += p.Vy * dt;
-                if (p.Kind == 'p') { p.Vx *= 0.92; p.Vy *= 0.92; }
-                else if (p.Kind == 'z' || p.Kind == 'n') p.X += Math.Sin(p.Age / 300.0) * 0.002;
-                else if (p.Kind == 'o') { p.X += Math.Sin(p.Age / 260.0) * 0.003; p.Vx *= 0.98; p.Vy *= 0.985; }
-                else if (p.Kind == 'b') { p.Vy -= 0.05 * dt; p.X += Math.Sin(p.Age / 120.0) * 0.003; }
-                else p.Vy += 0.12 * dt;
-                p.Rot += p.Vr * dt;
+                double s = (p.Age - a0) / 1000.0;
+                if (s <= 0) continue;
+                switch (p.Kind)
+                {
+                    case 'p':
+                        Decay(ref p.X, ref p.Vx, 0.92, s);
+                        Decay(ref p.Y, ref p.Vy, 0.92, s);
+                        break;
+                    case 'o':
+                        Decay(ref p.X, ref p.Vx, 0.98, s);
+                        Decay(ref p.Y, ref p.Vy, 0.985, s);
+                        p.X += Drift(0.003, 260, a0, p.Age);
+                        break;
+                    case 'z':
+                    case 'n':
+                        p.X += p.Vx * s + Drift(0.002, 300, a0, p.Age);
+                        p.Y += p.Vy * s;
+                        break;
+                    case 'b':
+                        p.X += p.Vx * s + Drift(0.003, 120, a0, p.Age);
+                        p.Y += p.Vy * s - 0.025 * s * s;
+                        p.Vy -= 0.05 * s;
+                        break;
+                    default:
+                        p.X += p.Vx * s;
+                        p.Y += p.Vy * s + 0.06 * s * s;
+                        p.Vy += 0.12 * s;
+                        break;
+                }
+                p.Rot += p.Vr * s;
             }
+        }
+
+        // Speed multiplied by perFrame every 1/60 s, over s seconds: exact distance and speed.
+        static void Decay(ref double x, ref double v, double perFrame, double s)
+        {
+            double rate = -60 * Math.Log(perFrame), k = Math.Exp(-rate * s);
+            x += v * (1 - k) / rate;
+            v *= k;
+        }
+
+        // Sideways sway of perFrame * sin(age / period) every 1/60 s, integrated from age a0 to a1 (ms).
+        static double Drift(double perFrame, double period, double a0, double a1)
+        {
+            return perFrame * 60 / 1000.0 * period * (Math.Cos(a0 / period) - Math.Cos(a1 / period));
         }
 
         Color C1 { get { return MascotParts.Colors[Look.Color, 0]; } }
@@ -622,7 +677,7 @@ namespace Stackshot
             MascotParts.PaintAccessory(g, Look, D, now, false);
             MascotParts.PaintHat(g, Look, Look.EffectiveHat(DateTime.Now), D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
-            if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2);
+            if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY);
             else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2);
             g.Restore(st);
             PaintParticles(g, box);
@@ -897,6 +952,34 @@ namespace Stackshot
             }
         }
         double pMinX, pMaxX, pMinY, pMaxY;
+
+        // Test hooks (tests/mascot): particle census, a particle with a known speed, and the hop spring.
+        internal int CountParticles(char kind)
+        {
+            int n = 0;
+            foreach (Particle p in parts) if (p.Kind == kind) n++;
+            return n;
+        }
+
+        internal int AddTestParticle(char kind, double vx, double vy)
+        {
+            now = Clock();
+            Particle p = new Particle();
+            p.Kind = kind; p.Vx = vx; p.Vy = vy; p.Born = now; p.Size = 0.05;
+            p.Life = kind == 'z' ? 2200 : kind == 'p' ? 700 : kind == 'b' ? 1600 : kind == 'o' ? 2800 : kind == 'c' ? 1900 : 1300;
+            parts.Add(p);
+            return parts.Count - 1;
+        }
+
+        internal bool TestParticle(int i, out double x, out double y, out double age)
+        {
+            x = y = age = 0;
+            if (i < 0 || i >= parts.Count) return false;
+            x = parts[i].X; y = parts[i].Y; age = parts[i].Age;
+            return true;
+        }
+
+        internal double TestJump { get { return jump; } }
 
         // A still, front-facing render for pickers and previews.
         public static void RenderStill(Graphics g, RectangleF box, MascotLook look)

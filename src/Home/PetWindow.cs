@@ -13,8 +13,9 @@ namespace Stackshot
     // A per-pixel-alpha layered window (UpdateLayeredWindow): only the mascot is visible and clickable, the rest lets
     // clicks through. It wanders along the bottom of the screen, looks at the mouse, naps when nobody is around, can
     // be dragged and dropped (it falls back down) and hides during full-screen apps. A click opens a comic-style
-    // speech bubble with things it can do. Excluded from captures and screen sharing. Frame rate adapts: vsync-paced (60 fps or the
-    // display rate) only while it walks, falls or is dragged, ~30 with the bubble open, ~16 idle, ~4 asleep.
+    // speech bubble with things it can do. Excluded from captures and screen sharing. Frame rate adapts (MascotRate): vsync-paced
+    // (60 fps or the display rate) only while it walks, falls or is dragged, 32 with the bubble open or the mouse moving near
+    // it, 16 idle or asleep, 2 with the screen off or locked. The animation runs on real time at any rate.
     public class PetWindow : Form
     {
         enum State { Idle, Walk, Drag, Fall }
@@ -25,17 +26,13 @@ namespace Stackshot
             public Action Do;
             public bool Sep;
             public RectangleF R;
+            public float TextW, DetailW;   // measured once, at the first paint
         }
 
         [StructLayout(LayoutKind.Sequential)] struct LASTINPUTINFO { public int cbSize; public uint dwTime; }
-        [StructLayout(LayoutKind.Sequential)] struct PowerThrottling { public uint Version, ControlMask, StateMask; }
         [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
         [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
         [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
-        [DllImport("kernel32.dll")] static extern bool SetProcessInformation(IntPtr process, int cls, ref PowerThrottling info, int size);
-        [DllImport("kernel32.dll")] static extern bool SetThreadInformation(IntPtr thread, int cls, ref PowerThrottling info, int size);
-        [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
-        [DllImport("kernel32.dll")] static extern IntPtr GetCurrentThread();
         [DllImport("dwmapi.dll")] static extern int DwmFlush();
         [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint ms);
         [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint ms);
@@ -43,29 +40,6 @@ namespace Stackshot
         // Keeps the mascot above windows that appear later (other always-on-top windows, the taskbar). Checked every
         // second and a half with one cheap call, and only touches the z-order when something really is above it.
         public static bool KeepOnTop = true;
-
-        // Windows 11 "efficiency mode" (EcoQoS) and timer throttling make a background process tick slowly: the mascot
-        // would stutter while another app has focus. Opts this process and the UI thread out of both.
-        static bool unthrottled;
-        public static void OptOutOfThrottling()
-        {
-            if (unthrottled) return;
-            unthrottled = true;
-            try
-            {
-                PowerThrottling st = new PowerThrottling();
-                st.Version = 1;
-                st.ControlMask = 1 | 4;   // PROCESS_POWER_THROTTLING_EXECUTION_SPEED | IGNORE_TIMER_RESOLUTION
-                st.StateMask = 0;         // bit cleared: throttling off
-                SetProcessInformation(GetCurrentProcess(), 4, ref st, Marshal.SizeOf(typeof(PowerThrottling)));
-                // Threads only accept the execution-speed bit; ThreadPowerThrottling is class 3.
-                PowerThrottling th = new PowerThrottling();
-                th.Version = 1;
-                th.ControlMask = 1;
-                SetThreadInformation(GetCurrentThread(), 3, ref th, Marshal.SizeOf(typeof(PowerThrottling)));
-            }
-            catch { }
-        }
 
         readonly ShotStack owner;
         readonly Settings settings;
@@ -110,7 +84,9 @@ namespace Stackshot
         {
             this.owner = owner;
             this.settings = settings;
-            OptOutOfThrottling();
+            // Efficiency mode would make it tick slowly while another app has focus (Power logs a refusal).
+            Power.OptOutOfThrottling();
+            Power.OptOutThisThread();
             Text = "Stackshot";
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
@@ -120,7 +96,7 @@ namespace Stackshot
             Screen scr = Screen.FromPoint(Control.MousePosition);
             Place(scr, scr.WorkingArea.Left + scr.WorkingArea.Width * settings.MascotSpot / 1000.0); // where it was last time
             by = Ground;
-            timer.Interval = 33;
+            timer.Interval = MascotRate.Look;
             timer.Tick += delegate { SafeTick(false); };
         }
 
@@ -141,6 +117,9 @@ namespace Stackshot
         {
             if (on == fast) return;
             fast = on;
+            // The process never has focus, so it gets no foreground boost: under load (builds) frames would slip while it
+            // moves. Both frame threads run above normal only then.
+            System.Threading.Thread ui = System.Threading.Thread.CurrentThread;
             if (on)
             {
                 timeBeginPeriod(1);
@@ -149,21 +128,36 @@ namespace Stackshot
                     pacer = new System.Threading.Thread(Pace);
                     pacer.IsBackground = true;
                     pacer.Name = "Stackshot pet frames";
+                    pacer.Priority = System.Threading.ThreadPriority.AboveNormal;   // it only waits and posts
                     pacer.Start();
                 }
                 fastGo.Set();
+                try { uiPriority = ui.Priority; if (uiPriority < System.Threading.ThreadPriority.AboveNormal) ui.Priority = System.Threading.ThreadPriority.AboveNormal; }
+                catch { }
             }
-            else { fastGo.Reset(); timeEndPeriod(1); }
+            else
+            {
+                fastGo.Reset();
+                timeEndPeriod(1);
+                try { ui.Priority = uiPriority; } catch { }
+            }
         }
+        System.Threading.ThreadPriority uiPriority = System.Threading.ThreadPriority.Normal;
 
         void Pace()
         {
-            double last = 0;
+            Power.OptOutThisThread();
+            double last = 0, clockUntil = 0;
             while (!closing)
             {
                 fastGo.WaitOne();
                 if (closing) break;
-                if (DwmFlush() != 0) System.Threading.Thread.Sleep(8);
+                double t0 = Anim.Now;
+                if (t0 < clockUntil) System.Threading.Thread.Sleep(Math.Max(1, 16 - (int)(t0 - last)));
+                else if (DwmFlush() != 0) System.Threading.Thread.Sleep(8);
+                // DwmFlush waits for the next composition, which may not come while nothing on screen changes (a slow
+                // walk moves the window every other frame): pace by the clock for a moment instead.
+                else if (Anim.Now - t0 > 25) clockUntil = Anim.Now + 500;
                 else if (Anim.Now - last < 3) System.Threading.Thread.Sleep(3);
                 last = Anim.Now;
                 if (!fast) continue;
@@ -195,6 +189,7 @@ namespace Stackshot
         {
             base.OnHandleCreated(e);
             if (!ShotStack.Test) Native.SetWindowDisplayAffinity(Handle, 0x11); // WDA_EXCLUDEFROMCAPTURE
+            MascotScreen.Ensure();
         }
 
         // Sizes follow the DPI of the monitor it is on. The window leaves room above the mascot for the menu.
@@ -410,15 +405,24 @@ namespace Stackshot
         }
 
         // Remembers where it stands (per monitor width), so it comes back there after a restart or a new session. Walks
-        // only save once a minute; drops save right away.
-        double lastSpotSave;
+        // only save once a minute; drops save two seconds after the last one. The file is written off the UI thread, so
+        // a slow disk or an antivirus scan never makes it hitch as it lands.
+        double lastSpotSave, spotDue;
         void RememberSpot(bool now)
         {
             if (perch != IntPtr.Zero || wa.Width <= 0) return;
             settings.MascotSpot = Math.Max(0, Math.Min(1000, (int)Math.Round((bx + D / 2.0 - wa.Left) * 1000.0 / wa.Width)));
-            if (!now && Anim.Now - lastSpotSave < 60000) return;
+            if (now) { spotDue = Anim.Now + 2000; return; }
+            if (Anim.Now - lastSpotSave < 60000) return;
+            SaveSpot();
+        }
+
+        void SaveSpot()
+        {
             lastSpotSave = Anim.Now;
-            settings.Save();
+            spotDue = 0;
+            Settings st = settings;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate { st.Save(); });
         }
 
         // Let go: settle on the monitor under the mouse, on a window if dropped over one, and remember the spot.
@@ -575,6 +579,7 @@ namespace Stackshot
             if (!fromPacer && fast && lastFrame != 0 && now - lastFrame < 10) return;
             double dt = lastFrame == 0 ? 0.033 : Math.Min(0.1, (now - lastFrame) / 1000.0);
             lastFrame = now;
+            if (spotDue > 0 && now >= spotDue) SaveSpot();
 
             if (now - lastCheck > 1500)
             {
@@ -589,17 +594,20 @@ namespace Stackshot
                     if (KeepOnTop && ForeignAbove())
                         Native.SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // TOPMOST, NOSIZE | NOMOVE | NOACTIVATE
                 }
-                // Asleep while the user is away; awake again on return.
-                int idle = IdleMs();
-                if (idle > 60000 && !asleepForAway && state != State.Drag) { asleepForAway = true; CloseMenu(); m.SleepNow(); state = State.Idle; }
-                else if (idle < 1500 && asleepForAway) { asleepForAway = false; m.WakeUp(); m.Hop(1.2); }
+                // Naps while the user is away (if it may doze off at all), only once it stands still.
+                bool atRest = state == State.Idle && menu == null && !leaving && slide == 0 && clicks == 0 && !down;
+                if (MascotRate.AwayNap(IdleMs(), settings.MascotSleepIdle, atRest, asleepForAway)) { asleepForAway = true; m.SleepNow(); }
             }
-            if (!Visible) { SetFast(false); timer.Interval = 500; return; }
+            if (MascotRate.ScreenOff) MascotScreen.Check();
+            if (!Visible || MascotRate.ScreenOff) { SetFast(false); SetInterval(MascotRate.Hidden); return; }
 
             Point mouse = Control.MousePosition;
             bool near = Math.Abs(mouse.X - (bx + D / 2.0)) < 360 * s && Math.Abs(mouse.Y - (by + D / 2.0)) < 300 * s;
             bool moved = near && mouse != lastMouse;
             lastMouse = mouse;
+            if (moved) lastNear = now;
+            // Back from being away: wakes on the first input, not at the next check.
+            if (asleepForAway && MascotRate.AwayWake(true, IdleMs(), moved)) { asleepForAway = false; m.WakeUp(); m.Hop(1.2); }
 
             if (menu != null)
             {
@@ -730,12 +738,16 @@ namespace Stackshot
             bool still = state == State.Walk && fast && menu == null && bubble == null && m.Bubble == null && !lastFull && (++walkFrame & 1) == 1;
             if (still) MoveOnly(); else Render(now);
 
-            // The system timer ticks every 15.6 ms: 16 = ~64 fps, 31 = ~32 fps, 63 = ~16 fps (a gentle float), 250 asleep.
             bool wantFast = state == State.Drag || state == State.Fall || state == State.Walk || slide != 0;
             SetFast(wantFast);
-            int interval = wantFast ? 33 : menu != null || m.Lively ? 31 : m.Sleeping ? 250 : 63;
-            if (asleepForAway && state == State.Idle) interval = 500; // nobody is looking (away or locked)
-            if (timer.Interval != interval) timer.Interval = interval;
+            SetInterval(MascotRate.Pet(false, wantFast, menu != null, m.Lively, now - lastNear < MascotRate.NearMs));
+        }
+
+        double lastNear = -1e9;
+
+        void SetInterval(int ms)
+        {
+            if (timer.Interval != ms) timer.Interval = ms;
         }
 
         // What to do next while idle: wander somewhere, wave, or just float.
@@ -913,8 +925,9 @@ namespace Stackshot
             bubble = null;
             m.Hop(0.9);
             menu = new List<Choice>();
-            Add("area", "Capturar un \u00E1rea", Hotkeys.Display(settings.HotRegion), delegate { owner.Run("region"); });
+            Add("area", "Capturar un \u00E1rea", Keys(settings.HotRegion), delegate { owner.Run("region"); });
             Add("video", Recorder.Recording ? "Parar la grabaci\u00F3n" : "Grabar un v\u00EDdeo", null, delegate { owner.Run("video"); });
+            Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
             Add("folder", "Abrir mis capturas", null, delegate { owner.OpenFolder(); });
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
@@ -932,6 +945,9 @@ namespace Stackshot
             menuAt = menuSeen = Anim.Now;
             menuHot = -1;
         }
+
+        // The first shortcut of an action, or nothing when it has none.
+        static string Keys(string combos) { return Hotkeys.Split(combos).Count > 0 ? Hotkeys.Display(combos) : null; }
 
         void Add(string icon, string text, string detail, Action act)
         {
@@ -962,7 +978,16 @@ namespace Stackshot
             Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
             float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, w = 238 * s, arrow = 7 * s;
             float h = pad * 2;
-            foreach (Choice ch in menu) h += ch.Sep ? sepH : rowH;
+            foreach (Choice ch in menu)
+            {
+                h += ch.Sep ? sepH : rowH;
+                if (ch.Sep) continue;
+                // Wide enough for every label and its shortcut side by side, within the window.
+                if (ch.TextW == 0) ch.TextW = g.MeasureString(ch.Text, item).Width;
+                if (ch.Detail != null && ch.DetailW == 0) ch.DetailW = g.MeasureString(ch.Detail, small).Width;
+                w = Math.Max(w, (float)Math.Ceiling(33 * s + ch.TextW + (ch.Detail != null ? 16 * s + ch.DetailW : 0) + 12 * s + pad * 2));
+            }
+            w = Math.Min(w, W - 36 * s);   // its margins and the arrow's room stay inside the window
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
             menuRect = new RectangleF(x, y, w, h);
 
@@ -976,10 +1001,10 @@ namespace Stackshot
             g.ScaleTransform(sc, sc);
             g.TranslateTransform(-tailX, -oy);
 
-            Color bg = dark ? Color.FromArgb(44, 44, 47) : Color.FromArgb(250, 250, 251);
-            Color border = dark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
+            Color bg = pal.High ? Ds.Gdi(pal.Window) : dark ? Color.FromArgb(44, 44, 47) : Color.FromArgb(250, 250, 251);
+            Color border = pal.High ? Ds.Gdi(pal.Hairline) : dark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
             // Soft shadow: stacked rounded rectangles that fade out.
-            for (int i = 8; i >= 1; i--)
+            for (int i = pal.High ? 0 : 8; i >= 1; i--)
             {
                 RectangleF sr = menuRect;
                 sr.Inflate(i * 1.5f * s, i * 1.5f * s);
@@ -1020,18 +1045,22 @@ namespace Stackshot
                 bool hot = i == menuHot;
                 if (hot)
                     using (GraphicsPath hp = Theme.Round(c.R, 6 * s)) MascotParts.FillSolid(g, hp, Fade(Ds.Gdi(pal.Accent), a));
-                Color fg = hot ? Color.White : label;
-                Icons.Draw(g, c.Icon, new RectangleF(c.R.X + 8 * s, c.R.Y + (rowH - 17 * s) / 2, 17 * s, 17 * s), Fade(hot ? Color.White : label2, a));
+                Color fg = hot ? Ds.Gdi(pal.OnAccent) : label;
+                Icons.Draw(g, c.Icon, new RectangleF(c.R.X + 8 * s, c.R.Y + (rowH - 17 * s) / 2, 17 * s, 17 * s), Fade(hot ? fg : label2, a));
                 using (SolidBrush ink = new SolidBrush(Fade(fg, a)))
                 using (StringFormat sf = new StringFormat())
                 {
                     sf.LineAlignment = StringAlignment.Center;
                     sf.FormatFlags = StringFormatFlags.NoWrap;
-                    g.DrawString(c.Text, item, ink, new RectangleF(c.R.X + 33 * s, c.R.Y, c.R.Width - 36 * s, c.R.Height), sf);
+                    sf.Trimming = StringTrimming.EllipsisCharacter;
+                    // The label never runs under the shortcut: a very long one ends in "…".
+                    float labelW = c.R.Width - 36 * s - (c.Detail != null ? c.DetailW + 16 * s : 0);
+                    g.DrawString(c.Text, item, ink, new RectangleF(c.R.X + 33 * s, c.R.Y, Math.Max(10 * s, labelW), c.R.Height), sf);
+                    sf.Trimming = StringTrimming.None;
                     if (c.Detail != null)
                     {
                         sf.Alignment = StringAlignment.Far;
-                        using (SolidBrush dk = new SolidBrush(Fade(hot ? Color.FromArgb(200, 255, 255, 255) : label2, a)))
+                        using (SolidBrush dk = new SolidBrush(Fade(hot ? fg : label2, a)))
                             g.DrawString(c.Detail, small, dk, new RectangleF(c.R.X, c.R.Y, c.R.Width - 10 * s, c.R.Height), sf);
                     }
                 }
@@ -1068,6 +1097,7 @@ namespace Stackshot
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            MascotRate.ScreenSeen();   // the mouse is over it: the screen is on, whatever was missed
             int hot = ChoiceAt(e.Location);
             if (hot != menuHot) menuHot = hot;
             Cursor = hot >= 0 ? Cursors.Hand : Cursors.Default;
@@ -1137,6 +1167,7 @@ namespace Stackshot
             SetFast(false);
             fastGo.Set();
             timer.Dispose();
+            if (spotDue > 0) { spotDue = 0; settings.Save(); }
             if (dib != null) dib.Dispose();
         }
     }

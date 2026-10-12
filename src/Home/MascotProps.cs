@@ -71,6 +71,12 @@ namespace Stackshot
         // t: ms since the activity began; k: 0..1 fade in and out.
         public static void Paint(Graphics g, int act, float D, double t, double k, Color c1, Color c2)
         {
+            Paint(g, act, D, t, k, c1, c2, -0.05f);
+        }
+
+        // faceY: the height of the eyes (Geo.FaceY), so what goes to the mouth finds it on every species.
+        public static void Paint(Graphics g, int act, float D, double t, double k, Color c1, Color c2, float faceY)
+        {
             if (act == None || k <= 0.01) return;
             GraphicsState st = g.Save();
             g.ScaleTransform(D, D);
@@ -80,7 +86,7 @@ namespace Stackshot
             g.TranslateTransform(0, -0.2f);
             switch (act)
             {
-                case Coffee: PaintCoffee(g, t, k, c1, c2); break;
+                case Coffee: PaintCoffee(g, t, k, c1, c2, faceY); break;
                 case Juggle: PaintJuggle(g, t, c1, c2); break;
                 case Console: PaintConsole(g, t, c1, c2); break;
                 case Stretch: PaintStretch(g, t, c1, c2); break;
@@ -90,11 +96,14 @@ namespace Stackshot
             g.Restore(st);
         }
 
-        static void PaintCoffee(Graphics g, double t, double k, Color c1, Color c2)
+        static void PaintCoffee(Graphics g, double t, double k, Color c1, Color c2, float faceY)
         {
             double cyc = (t % 4200) / 4200.0;
             float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
-            float cx = 0.27f - 0.12f * lift, cy = 0.19f - 0.2f * lift;
+            // Raised, the tilted cup's near rim meets the mouth (just right of its middle, as the face draws it), never
+            // the eyes: its top-left corner sits 0.098 left of and 0.049 above the cup's centre at full tilt.
+            float mouthY = faceY + 0.085f, toX = 0.128f, toY = mouthY + 0.049f;
+            float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
             Hand(g, c1, c2, -0.3f, 0.22f);
             GraphicsState st = g.Save();
             g.TranslateTransform(cx, cy);
@@ -111,7 +120,8 @@ namespace Stackshot
             {
                 double u = ((t / 1900.0) + i / 3.0) % 1;
                 float x = cx + (i - 1) * 0.035f + (float)Math.Sin(u * 7 + i) * 0.018f, y = cy - 0.08f - (float)u * 0.2f;
-                Seg(g, A(Color.White, 0.55 * (1 - u) * k), 0.014f, x, y, x + (float)Math.Sin(u * 7 + i + 1) * 0.02f, y - 0.045f);
+                // The steam fades while it drinks, so it never drifts across the eyes.
+                Seg(g, A(Color.White, 0.55 * (1 - u) * k * (1 - lift)), 0.014f, x, y, x + (float)Math.Sin(u * 7 + i + 1) * 0.02f, y - 0.045f);
             }
         }
 

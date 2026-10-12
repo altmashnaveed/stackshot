@@ -124,7 +124,7 @@ namespace Stackshot
             });
             if (settings.MascotOn)
             {
-                RadialGradientBrush fb = new RadialGradientBrush(Ds.Argb(pal.Dark ? 0.42 : 0.15, 0, 0, 0), Ds.Argb(0, 0, 0, 0));
+                RadialGradientBrush fb = new RadialGradientBrush(Ds.Argb(pal.High ? 0 : pal.Dark ? 0.42 : 0.15, 0, 0, 0), Ds.Argb(0, 0, 0, 0));
                 fb.Freeze();
                 stageFloorScale = new ScaleTransform(1, 1);
                 st.Children.Add(new Sh.Ellipse
@@ -204,7 +204,7 @@ namespace Stackshot
         {
             const double K = 5;
             double t = GlowAt[i], f = (Math.Exp(-K * t * t) - Math.Exp(-K)) / (1 - Math.Exp(-K));
-            return Ds.WithAlpha(c, (Ds.Brushes.Dark ? 0.38 : 0.30) * f);
+            return Ds.WithAlpha(c, (Ds.Brushes.High ? 0 : Ds.Brushes.Dark ? 0.38 : 0.30) * f);
         }
 
         static Color WashColor(Color c, int i)
@@ -215,6 +215,7 @@ namespace Stackshot
 
         static Color StageTop(Color c)
         {
+            if (Ds.Brushes.High) return Ds.Brushes.Window;
             return Ds.Brushes.Dark ? MixColor(Ds.Rgb(40, 38, 46), c, 0.10) : MixColor(Ds.Rgb(255, 250, 245), c, 0.07);
         }
 
@@ -225,6 +226,7 @@ namespace Stackshot
 
         Brush StageGrain()
         {
+            if (Ds.Brushes.High) return Brushes.Transparent;   // a flat system colour in a contrast theme
             bool dark = Ds.Brushes.Dark;
             double k = DeviceScale();
             string key = dark + "@" + k.ToString("0.###", CultureInfo.InvariantCulture);
@@ -288,13 +290,14 @@ namespace Stackshot
             TextBlock t = Label("Escondido", Ds.Title, 22, pal.Label, new Thickness(0, 10, 0, 0));
             t.HorizontalAlignment = HorizontalAlignment.Center;
             off.Children.Add(t);
-            TextBlock s = Label("Descansa hasta que lo llames.", Ds.Regular, 12.5, pal.Label2, new Thickness(0, 3, 0, 0));
+            TextBlock s = Label(Policy.MascotForced ? Policy.Managed + "." : "Descansa hasta que lo llames.", Ds.Regular, 12.5, pal.Label2, new Thickness(0, 3, 0, 0));
             s.HorizontalAlignment = HorizontalAlignment.Center;
             off.Children.Add(s);
             MacButton show = new MacButton("Mostrar la mascota", ButtonKind.Primary, null, null, 30);
             show.HorizontalAlignment = HorizontalAlignment.Center;
             show.Margin = new Thickness(0, 16, 0, 0);
             show.Click += ShowMascotAgain;
+            LockedByPolicy(show, Policy.MascotForced);
             off.Children.Add(show);
             return off;
         }
@@ -348,13 +351,13 @@ namespace Stackshot
         static Border StagePill(FrameworkElement content, string tip)
         {
             Palette pal = Ds.Brushes;
-            Color rest = pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.62, 255, 255, 255), over = pal.Dark ? Ds.Argb(0.15, 255, 255, 255) : Ds.Argb(0.98, 255, 255, 255);
+            Color rest = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.62, 255, 255, 255), over = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.15, 255, 255, 255) : Ds.Argb(0.98, 255, 255, 255);
             SolidColorBrush bg = new SolidColorBrush(rest);
             content.VerticalAlignment = VerticalAlignment.Center;
-            Border b = new Border
+            Border b = new TapBorder
             {
                 Height = 28, CornerRadius = new CornerRadius(14), Padding = new Thickness(11, 0, 12, 0), Background = bg, Child = content,
-                BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.08, 0, 0, 0)), BorderThickness = new Thickness(1),
+                BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.08, 0, 0, 0)), BorderThickness = new Thickness(1),
                 Cursor = Cursors.Hand, ToolTip = tip
             };
             b.MouseEnter += delegate { bg.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(over, TimeSpan.FromMilliseconds(120))); };
@@ -488,6 +491,8 @@ namespace Stackshot
             Border pill = StagePill(row, "Pasea junto a la barra de tareas mientras trabajas");
             pill.Padding = new Thickness(11, 0, 5, 0);
             Press(pill, delegate { sw.IsOn = !sw.IsOn; SetDesktop(sw.IsOn); });
+            AccessSwitchPill(pill, sw, "En el escritorio");
+            LockedByPolicy(pill, Policy.MascotForced);
             return pill;
         }
 
@@ -496,7 +501,7 @@ namespace Stackshot
         {
             Palette pal = Ds.Brushes;
             Grid slot = new Grid { Height = 42, HorizontalAlignment = HorizontalAlignment.Left };
-            Border view = new Border
+            Border view = new TapBorder
             {
                 CornerRadius = new CornerRadius(9), Padding = new Thickness(6, 0, 6, 0), HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center, Background = Brushes.Transparent, Cursor = Cursors.IBeam, ToolTip = "Cambiar el nombre"
@@ -520,7 +525,7 @@ namespace Stackshot
                 FontFamily = Ds.Display, FontWeight = FontWeights.SemiBold, FontSize = 22, TextAlignment = TextAlignment.Left,
                 VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(4, 0, 8, 0),
                 Foreground = Ds.Brush(pal.Label), CaretBrush = Ds.Brush(pal.Accent), SelectionBrush = Ds.Brush(pal.Accent),
-                Background = Ds.Brush(pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.8, 255, 255, 255)),
+                Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.8, 255, 255, 255)),
                 BorderBrush = Ds.Brush(pal.Accent), BorderThickness = new Thickness(1.5), Template = HeroFieldTemplate()
             };
             slot.Children.Add(box);
@@ -540,17 +545,25 @@ namespace Stackshot
                 if (now != settings.MascotName) { settings.MascotName = now; settings.Save(); BuildWidget(); }
                 name.Text = settings.MascotName;
                 if (stageName != null) stageName.Text = settings.MascotName;   // the page may have been rebuilt meanwhile
+                bool typing = box.IsKeyboardFocusWithin;
                 box.Visibility = Visibility.Collapsed;
                 view.Visibility = Visibility.Visible;
+                if (typing && Access.KeyboardCue) view.Focus();   // the keyboard stays on the name, not lost with the field
             };
             view.MouseEnter += delegate { view.Background = Ds.Brush(pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.05, 0, 0, 0)); pen.Opacity = 1; };
             view.MouseLeave += delegate { view.Background = Brushes.Transparent; pen.Opacity = 0; pressed = false; };
             view.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { e.Handled = true; pressed = true; };
+            Action begin = null;
             view.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs e)
             {
                 e.Handled = true;
                 if (!pressed || editing) return;
                 pressed = false;
+                begin();
+            };
+            AccessNameEdit(view, box, delegate { if (!editing) begin(); });
+            begin = delegate
+            {
                 box.Text = settings.MascotName;
                 editing = true;
                 view.Visibility = Visibility.Hidden;
@@ -622,7 +635,7 @@ namespace Stackshot
 
         void ShowMascotAgain()
         {
-            if (settings.MascotOn) return;
+            if (settings.MascotOn || Policy.MascotForced) return;
             settings.MascotOn = true;
             mascot.PopIn();
             mascot.Greet(settings.MascotTalks ? "\u00A1He vuelto!" : null);
@@ -725,7 +738,7 @@ namespace Stackshot
             double w = stageRoot.ActualWidth > 10 ? stageRoot.ActualWidth : LW - Side, cx = w / 2, cy = StageBoxTop + StageBox * 0.46;
             Color light = MixColor(c, Colors.White, 0.4);
             // Clicking away fast: the light and the bounce still follow, without piling up more sparkles.
-            if (stageFx > 36) { StageBounce(); return; }
+            if (stageFx > 36 || pal.High) { StageBounce(); return; }   // no flashes of light in a contrast theme
 
             RadialGradientBrush fb = new RadialGradientBrush();
             fb.GradientStops.Add(new GradientStop(Ds.WithAlpha(light, pal.Dark ? 0.62 : 0.7), 0));
@@ -841,7 +854,7 @@ namespace Stackshot
 
         // ---- Dock
 
-        static Color DockColor() { return Ds.Brushes.Dark ? Ds.Rgb(44, 44, 48) : Colors.White; }
+        static Color DockColor() { return Ds.Brushes.High ? Ds.Brushes.Window : Ds.Brushes.Dark ? Ds.Rgb(44, 44, 48) : Colors.White; }
 
         FrameworkElement DockArea()
         {
@@ -870,7 +883,7 @@ namespace Stackshot
             // Headroom for the magnified tiles and their star; the label over a tile may reach the bar above, which then
             // steps back while it is there.
             Grid dock = new Grid { Margin = new Thickness(0, DockBand, 0, 0) };
-            dock.Children.Add(new SoftShadow(18, 22, 12, pal.Dark ? 0.55 : 0.13));
+            if (!pal.High) dock.Children.Add(new SoftShadow(18, 22, 12, pal.Dark ? 0.55 : 0.13));
             dock.Children.Add(new Border { CornerRadius = new CornerRadius(18), Background = Ds.Brush(dc), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1) });
             Shelf shelf = new Shelf();
             dockShelf = shelf;
@@ -903,7 +916,7 @@ namespace Stackshot
             dockEmptyText = Label("", Ds.Medium, 12.5, pal.Label2, new Thickness(0, 6, 0, 0));
             dockEmptyText.HorizontalAlignment = HorizontalAlignment.Center;
             empty.Children.Add(dockEmptyText);
-            dockEmptyLink = Label("", Ds.Regular, 12, pal.Accent, new Thickness(0, 3, 0, 0));
+            dockEmptyLink = LinkLabel("", Ds.Regular, 12, pal.Link, new Thickness(0, 3, 0, 0), delegate { if (dockEmptyTarget >= 0) { dockTab = dockEmptyTarget; FillDock(true); } });
             dockEmptyLink.HorizontalAlignment = HorizontalAlignment.Center;
             dockEmptyLink.Cursor = Cursors.Hand;
             dockEmptyLink.MouseEnter += delegate { dockEmptyLink.TextDecorations = TextDecorations.Underline; };
@@ -969,7 +982,7 @@ namespace Stackshot
         {
             Palette pal = Ds.Brushes;
             Grid g = new Grid { Width = 172, Height = 28 };
-            Color rest = pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.62, 255, 255, 255), line = pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.08, 0, 0, 0);
+            Color rest = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.62, 255, 255, 255), line = pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.08, 0, 0, 0);
             Border frame = new Border { CornerRadius = new CornerRadius(8), Background = Ds.Brush(rest), BorderBrush = Ds.Brush(line), BorderThickness = new Thickness(1) };
             g.Children.Add(frame);
             GlyphView icon = new GlyphView("search", 13, pal.Label2, 1.7) { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
@@ -985,15 +998,17 @@ namespace Stackshot
                 MaxLength = 30, VerticalContentAlignment = VerticalAlignment.Center, Template = DockFieldTemplate(), Text = dockQuery
             };
             g.Children.Add(box);
+            System.Windows.Automation.AutomationProperties.SetName(box, "Buscar");
             g.Cursor = Cursors.IBeam;
             g.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (!box.IsKeyboardFocusWithin) { box.Focus(); e.Handled = true; } };
-            Border clear = new Border
+            Border clear = new TapBorder
             {
+                Do = delegate { box.Text = ""; box.Focus(); },
                 Width = 16, Height = 16, CornerRadius = new CornerRadius(8), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 7, 0), Cursor = Cursors.Arrow, Background = Ds.Brush(pal.Dark ? Ds.Argb(0.32, 255, 255, 255) : Ds.Argb(0.28, 0, 0, 0)),
+                Margin = new Thickness(0, 0, 7, 0), Cursor = Cursors.Arrow, Background = Ds.Brush(pal.High ? pal.Label : pal.Dark ? Ds.Argb(0.32, 255, 255, 255) : Ds.Argb(0.28, 0, 0, 0)),
                 ToolTip = "Borrar la b\u00FAsqueda"
             };
-            clear.Child = new GlyphView("close", 10, pal.Dark ? Ds.Rgb(44, 44, 48) : Colors.White, 2.2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            clear.Child = new GlyphView("close", 10, pal.High ? pal.Window : pal.Dark ? Ds.Rgb(44, 44, 48) : Colors.White, 2.2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             clear.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { e.Handled = true; };
             clear.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs e) { e.Handled = true; box.Text = ""; box.Focus(); };
             g.Children.Add(clear);
@@ -1010,8 +1025,8 @@ namespace Stackshot
                 DimBar(dockSearchView, ref dockSearchDim, false);
                 frame.BorderBrush = Ds.Brush(Ds.WithAlpha(pal.Accent, 0.85));
                 frame.BorderThickness = new Thickness(1.5);
-                frame.Background = Ds.Brush(pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Colors.White);
-                icon.Color = pal.Accent;
+                frame.Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Colors.White);
+                icon.Color = pal.Link;
             };
             box.LostKeyboardFocus += delegate
             {
@@ -1245,6 +1260,7 @@ namespace Stackshot
                 if (it.Slot == SavedSlot) RemoveLook(it.Saved);
                 else SetFavorite(it.Slot, it.Index, !IsFavorite(it.Slot, it.Index));
             };
+            AccessDockTile(c, it, g);
             dockShelf.Add(c, c, it, DockSlot, true);
         }
 
@@ -1413,12 +1429,13 @@ namespace Stackshot
                 for (int t = 0; t < counts.Length; t++) if (t != dockTab && counts[t] > 0 && (best < 0 || counts[t] > counts[best])) best = t;
                 dockEmptyTarget = best;
                 dockEmptyLink.Text = best >= 0 ? "Ver " + counts[best] + " en " + DockTabNames[best] : "Prueba con otra palabra";
-                dockEmptyLink.Foreground = Ds.Brush(best >= 0 ? Ds.Brushes.Accent : Ds.Brushes.Label3);
+                dockEmptyLink.Foreground = Ds.Brush(best >= 0 ? Ds.Brushes.Link : Ds.Brushes.Label3);
                 dockEmptyLink.Cursor = best >= 0 ? Cursors.Hand : Cursors.Arrow;
             }
             if (dockEmpty != null)
             {
                 dockEmpty.IsHitTestVisible = none;
+                AccessShown(dockEmptyLink, none && dockEmptyTarget >= 0);
                 if (animate) Glide(dockEmpty, UIElement.OpacityProperty, none ? 1 : 0, none ? 240 : 120);
                 else { dockEmpty.BeginAnimation(UIElement.OpacityProperty, null); dockEmpty.Opacity = none ? 1 : 0; }
             }
@@ -1833,7 +1850,7 @@ namespace Stackshot
 
         // Tiles that magnify near the mouse (neighbours spread apart, as in the macOS Dock), scroll with the wheel and
         // shrink away when filtered out. A frame callback runs only while something still moves; at rest, nothing.
-        class Shelf : Panel
+        partial class Shelf : Panel
         {
             public const double Pad = 12, Top = 12, Bottom = 8, Reach = 176;
 
@@ -1868,9 +1885,9 @@ namespace Stackshot
                 Border face = new Border
                 {
                     CornerRadius = new CornerRadius(7), Padding = new Thickness(9, 3, 9, 4), Child = hudText,
-                    Background = Ds.Brush(pal.Dark ? Ds.Rgb(58, 58, 62) : Colors.White), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1)
+                    Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(58, 58, 62) : Colors.White), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1)
                 };
-                hud.Children.Add(new SoftShadow(7, 8, 2, pal.Dark ? 0.45 : 0.14));
+                if (!pal.High) hud.Children.Add(new SoftShadow(7, 8, 2, pal.Dark ? 0.45 : 0.14));
                 hud.Children.Add(face);
                 hud.IsHitTestVisible = false;
                 hud.Opacity = 0;
@@ -1962,6 +1979,7 @@ namespace Stackshot
                 {
                     e.VisTo = keep(e.Tag) ? 1 : 0;
                     e.El.IsHitTestVisible = e.VisTo > 0;
+                    if (e.Tile != null) e.Tile.Focusable = e.VisTo > 0;   // the keyboard skips what the search hides
                     if (!animate) { e.Vis = e.VisTo; Show(e); }
                 }
                 if (home) offsetTo = 0;
@@ -2202,7 +2220,7 @@ namespace Stackshot
 
         // One tile: a rounded face with the preview, its name below, the worn ring, a padlock veil, a loading shimmer and a
         // corner badge (the favorite star, or the button that removes a saved look).
-        class ShelfTile : Grid
+        partial class ShelfTile : TapGrid
         {
             public enum Badge { None, Star, Remove }
             public readonly Grid Lift = new Grid(), Inner = new Grid();
@@ -2244,7 +2262,7 @@ namespace Stackshot
                 Lift.RenderTransform = LiftScale;
                 face = new Border { CornerRadius = new CornerRadius(14) };
                 Lift.Children.Add(face);
-                Img = new Image { Width = DockTile, Height = DockTile, Stretch = Stretch.Fill, IsHitTestVisible = false };
+                Img = new DecorImage { Width = DockTile, Height = DockTile, Stretch = Stretch.Fill, IsHitTestVisible = false };
                 RenderOptions.SetBitmapScalingMode(Img, BitmapScalingMode.HighQuality);
                 Lift.Children.Add(Img);
                 ring = new Border { CornerRadius = new CornerRadius(16.5), Margin = new Thickness(-2.5), BorderThickness = new Thickness(2), IsHitTestVisible = false };
@@ -2384,8 +2402,9 @@ namespace Stackshot
                 locked = true;
                 // Dimmed as macOS does: a dark veil in dark mode, a frosted one in light mode.
                 bool dark = Ds.Brushes.Dark;
-                Color ink = dark ? Colors.White : Ds.Rgb(110, 110, 118);
-                veil = new Border { CornerRadius = new CornerRadius(14), Background = Ds.Brush(dark ? Ds.Argb(0.56, 18, 18, 20) : Ds.Argb(0.66, 248, 248, 250)), IsHitTestVisible = false };
+                bool high = Ds.Brushes.High;
+                Color ink = high ? Ds.Brushes.Label3 : dark ? Colors.White : Ds.Rgb(96, 96, 104);
+                veil = new Border { CornerRadius = new CornerRadius(14), Background = Ds.Brush(high ? Ds.Brushes.Window : dark ? Ds.Argb(0.56, 18, 18, 20) : Ds.Argb(0.66, 248, 248, 250)), IsHitTestVisible = false };
                 StackPanel p = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 p.Children.Add(new PadlockGlyph(ink) { Width = 14, Height = 16, HorizontalAlignment = HorizontalAlignment.Center });
                 TextBlock t = Label("Nv. " + (level + 1), Ds.Semibold, 10, ink, new Thickness(0, 3, 0, 0));
@@ -2476,22 +2495,22 @@ namespace Stackshot
             void Paint()
             {
                 Palette pal = Ds.Brushes;
-                Color rest = pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Rgb(242, 242, 245), over = pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Rgb(233, 233, 238);
+                Color rest = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Rgb(242, 242, 245), over = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Rgb(233, 233, 238);
                 if (adding)
                 {
-                    face.Background = hot ? Ds.Brush(Ds.WithAlpha(pal.Accent, pal.Dark ? 0.18 : 0.08)) : Brushes.Transparent;
-                    if (addIcon != null) addIcon.Color = hot ? pal.Accent : pal.Label2;
+                    face.Background = hot && !pal.High ? Ds.Brush(Ds.WithAlpha(pal.Accent, pal.Dark ? 0.18 : 0.08)) : Brushes.Transparent;
+                    if (addIcon != null) addIcon.Color = hot ? pal.Link : pal.Label2;
                 }
-                else face.Background = Ds.Brush(worn ? Ds.WithAlpha(pal.Accent, pal.Dark ? 0.26 : 0.13) : hot ? over : rest);
+                else face.Background = Ds.Brush(worn && !pal.High ? Ds.WithAlpha(pal.Accent, pal.Dark ? 0.26 : 0.13) : hot ? over : rest);
                 ring.BorderBrush = worn ? Ds.Brush(pal.Accent) : Brushes.Transparent;
                 caption.Set(worn || hot ? pal.Label : pal.Label2, worn);
-                if (actionIcon != null) actionIcon.Color = hot ? pal.Accent : pal.Label;
+                if (actionIcon != null) actionIcon.Color = hot ? pal.Link : pal.Label;
                 if (badge == null) return;
                 bool show = kind == Badge.Remove ? hot : fav || (hot && !locked);
                 badge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                 if (!show) return;
-                badgeFace.Background = Ds.Brush(pal.Dark ? (badgeHot ? Ds.Rgb(80, 80, 85) : Ds.Rgb(62, 62, 66)) : (badgeHot ? Ds.Rgb(250, 250, 252) : Colors.White));
-                badgeFace.BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0));
+                badgeFace.Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? (badgeHot ? Ds.Rgb(80, 80, 85) : Ds.Rgb(62, 62, 66)) : (badgeHot ? Ds.Rgb(250, 250, 252) : Colors.White));
+                badgeFace.BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0));
                 if (star != null)
                 {
                     star.Set(fav, fav ? StarYellow : badgeHot ? pal.Label : pal.Label2);
@@ -2725,7 +2744,7 @@ namespace Stackshot
 
         // Category tabs with a selection that slides (and stretches) from one to the next. While searching, tabs with
         // results get a dot and the others dim.
-        class DockTabsBar : Drawn
+        partial class DockTabsBar : Drawn
         {
             public static readonly DependencyProperty SlideProperty = DependencyProperty.Register("TabSlide", typeof(double), typeof(DockTabsBar),
                 new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -2807,6 +2826,7 @@ namespace Stackshot
                 int i0 = Math.Max(0, Math.Min(n - 2, (int)Math.Floor(s)));
                 double f = s - i0, px = xs[i0] + (xs[i0 + 1] - xs[i0]) * f, pw = ws[i0] + (ws[i0 + 1] - ws[i0]) * f;
                 Rect pill = new Rect(px, Inset, Math.Max(10, pw), h - Inset * 2);
+                if (pal.High) { HcPaint.Tabs(dc, new Size(w, h), labels, xs, ws, pill, selected, hov, matches, IsEnabled, Ink.Hair(this)); return; }
                 if (!pal.Dark)
                 {
                     Rect sh = pill;
@@ -2826,6 +2846,7 @@ namespace Stackshot
                         dc.DrawEllipse(Ds.Brush(pal.Accent), null, new Point(dx, h / 2 - 5), 2.5, 2.5);
                     }
                 }
+                base.OnRender(dc);   // the focus ring, when the keyboard is on it
             }
         }
 

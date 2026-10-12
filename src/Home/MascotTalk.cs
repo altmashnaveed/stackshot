@@ -76,7 +76,13 @@ namespace Stackshot
                 "Con la rueda del rat\u00F3n sobre la pila ves las capturas anteriores.",
                 "Al capturar, un clic en una ventana la saca enterita.",
                 "En el editor, Enter copia y cierra.",
-                Hotkeys.Display(s.HotScroll) + " captura una p\u00E1gina entera desplaz\u00E1ndola.",
+                // A cleared combination would read "Sin atajo captura...": then the tip names the action instead.
+                Hotkeys.Split(s.HotScroll).Count > 0 ? Hotkeys.Display(s.HotScroll) + " captura una p\u00E1gina entera desplaz\u00E1ndola."
+                                                     : "La captura con desplazamiento saca una p\u00E1gina entera; en Atajos puedes darle una combinaci\u00F3n.",
+                Hotkeys.Split(s.HotText).Count > 0 ? Hotkeys.Display(s.HotText) + " copia el texto de cualquier parte de la pantalla, sin guardar captura."
+                                                   : "Copiar texto de la pantalla saca el texto de cualquier sitio; en Atajos puedes darle una combinaci\u00F3n.",
+                Hotkeys.Split(s.HotRepeat).Count > 0 ? Hotkeys.Display(s.HotRepeat) + " vuelve a capturar la \u00FAltima \u00E1rea, sin elegirla otra vez."
+                                                     : "\u00ABRepetir \u00E1rea\u00BB, en la bandeja, vuelve a capturar la \u00FAltima \u00E1rea; en Atajos puedes darle una combinaci\u00F3n.",
                 "El bot\u00F3n Fondo del editor deja tus capturas listas para presentar.",
                 "Para tapar datos, usa Tapar en el editor: un bloque s\u00F3lido no se puede deshacer.",
                 "En la secci\u00F3n Mascota puedes cambiarme el gorro, la ropa y hasta la especie.",
