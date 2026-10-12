@@ -2,7 +2,7 @@
 
 A screenshot tool for Windows in the spirit of CleanShot X: its own capture (scrolling capture too), a stack of floating
 thumbnails, a quick editor with a presentation backdrop, video and GIF through FFmpeg, a main window with a customizable
-mascot, and a per-user installation. A single `.exe` (about 0.7 MB) written in C# 5 + WinForms on .NET Framework 4.8.
+mascot, and a per-user installation. A single `.exe` (about 2.2 MB) written in C# 5 + WinForms and WPF on .NET Framework 4.8.
 Windows 10 and 11 only. The user interface is in Spanish; code comments are in English.
 
 ## Build and test
@@ -28,15 +28,44 @@ Windows 10 and 11 only. The user interface is in Spanish; code comments are in E
   - `tools\make-reel.ps1` renders `docs\promo.gif`, `docs\demo.gif` (a tour of the real main window, photographed
     offscreen with `PrintWindow`), `docs\mascot.gif` and `docs\characters.png` with `tools\Reel.cs`, `tools\Promo.cs`
     and the GIF encoder in `tools\GifWriter.cs`. Everything runs offscreen with read-only settings.
+  - `tools\make-film.ps1 [-Lang en,es] [-Fps 60] [-Scale 2] [-Stills]` renders the film at 4K and from it
+    `docs\video\stackshot-<lang>.mp4` (1080p), its cover `docs\video\poster-<lang>.png` and one looping clip per README
+    section, `docs\clips\<lang>\*.webp`. The 4K masters, and every part as a 4K MP4 and as a GIF, go to a media kit
+    next to the repository (`..\stackshot-media`, never committed). `tools\Plates.cs` first photographs real windows
+    offscreen at 2x over synthetic captures and documents (the three home views, light and dark, the Markdown and XML
+    viewers, the welcome window, the tray panel, the update notice and the region picker); `tools\FilmScenes.cs` and
+    `tools\FilmParts.cs` then draw every frame with WPF as a function of time and pipe it to the FFmpeg that Stackshot
+    downloads for recording. `-Stills` writes a few frames per scene instead, to review a layout in seconds. It uses
+    `docs\editor.png` and `docs\backdrop.png`, so run `make-screenshots.ps1` first when the editor changes.
 - Executable options: `--install [--startup] [--folder <path>] [--no-start]`, `--uninstall [--quiet]`, `--restart`,
   `--portable`, `--background` (doesn't open the window; used by the Startup shortcut), `--test` (not hidden from captures,
   leaves the clipboard, hotkeys and temporary files alone), `--home` (with `--test`, opens the window),
-  `--edit <image|video>`.
+  `--edit <image|video>`, `--open <file.md|.xml>`, `--cleanup-shell` (removes file associations and gives Print Screen
+  back; the uninstaller runs it).
 - Data: `%LOCALAPPDATA%\Stackshot` (`settings.ini`, `temp\`, `ffmpeg\`, `Fondos\` for custom backgrounds,
-  `stackshot.log`). Installation: `%LOCALAPPDATA%\Programs\Stackshot`. Mutex `Local\Stackshot`; events
+  `stackshot.log`, `cine\` Cine reports, `posters\` thumbnails of Cine masters, `recuperado\` recordings rescued after a
+  failure or a crash — never swept, never deleted by the uninstaller). Work files (`~grabando …`, `~cine …`) are never
+  swept: whatever a crash leaves is moved to `recuperado\` at the next start. Installation: `%LOCALAPPDATA%\Programs\Stackshot`. Mutex `Local\Stackshot`; events
   `Local\Stackshot.Quit` (close) and `Local\Stackshot.Show` (running the .exe again shows the existing window).
 - To test windows without touching the working screen, compile `src\` with a separate `Main` in `--test` mode, set
   `Settings.ReadOnly`, and render offscreen (`Mascot.RenderStill`, `PrintWindow` on a window placed off the desktop).
+- Recording tests live in `tests\cine` (see `docs\cine-lossless-audit.md`). `tests\cine\run-tests.ps1 [suites]`
+  compiles `src\` with `CineTests` as `Main` and runs: `regression` (the FFmpeg arguments of Estándar, Alta, Máxima and
+  GIF against `baseline-profiles.txt`, generated from v2.0.0 by `LegacyBaseline.cs` — never regenerate it to make a test
+  pass), `hash`, `args`, `pool`, `roundtrip` (lossless proof), `negative`, `audio`, `failures`, and on request `stress`,
+  `bench` and `realcapture` (opens a 640×360 window at the bottom right for a few seconds). `tests\cine\e2e\run-e2e.ps1`
+  records with the real `ShotStack`/`Recorder` over a known pattern and checks every frame of the result. The default
+  suites also include `reliability` (a fake FFmpeg that fails at each step: work files rescued, watchdog, disk budget).
+- Other headless suites, same pattern (`run-tests.ps1`, exit code = failures, results in `tests\<area>\results`, which git
+  ignores): `tests\mascot` (animation runs in real time at every timer interval, nap/rate rules), `tests\editor`
+  (export arguments, BT.709 export of an RGB master, frame strip of long videos, atomic save, tools), `tests\docs`
+  (byte-exact load/save in every encoding and line ending, Markdown tools, XML formatting, performance budgets, offscreen
+  renders of the editor window in light and dark) and `tests\app` (quit/shutdown order, background saving, orphan
+  rescue, uninstall cleanup, clipboard tracking, pin sizes). None of them opens a window on the visible desktop.
+- Cine (`src\Capture\Cine.cs`) is a separate path: its arguments, verifier and report live there, and nothing in it may
+  fall back to a lossy codec, NV12, scaling or a frame rate the user didn't accept. Any change to `ScreenSource` must keep
+  every Direct3D/DXGI call under its `gpu` lock without waiting inside it (`realcapture/order` catches motion going
+  backwards).
 
 ## Code rules
 
@@ -58,9 +87,17 @@ Windows 10 and 11 only. The user interface is in Spanish; code comments are in E
   premultiplied DIB shown with `UpdateLayeredWindow`, which is faster for small surfaces than starting a GPU device and
   gives real soft shadows. Hand-drawn GDI+ art (the mascot, the intro) goes into a `GdiLayer`, redrawn only when it moves.
 - The main window (`HomeWindow`) is prepared off-screen a few seconds after startup (`Prewarm`) so it opens at once; while
-  shown, its clock only runs for the mascot (15 fps idle, 30 following the mouse, 60 animating) and stops when hidden.
+  shown, its clock only runs for the mascot (60 fps animating, 32 following the mouse or for 15 s after activity, then 16,
+  8 in the background once nothing happened for 15 s, a 2 Hz check while hidden, locked or with the screen off) and only
+  hooks the render loop below 20 ms per frame.
 - The desktop mascot (`PetWindow`) is a per-pixel-alpha layered window; without a bubble or the menu only the mascot's own
-  box is sent to `UpdateLayeredWindow`, and its frame rate drops when idle, asleep or when the user is away.
+  box is sent to `UpdateLayeredWindow`. Both mascots take their frame rates from one table (`MascotRate`): WinForms/WPF
+  timers fire on whole 15.625 ms ticks, so intervals are 16, 31, 62, 125 or 500 ms; `Mascot.Step` uses real elapsed time,
+  so animation speed never depends on the frame rate. It naps only after 5 minutes without input, at rest, when "Se
+  duerme sola" is on.
+- Recording keeps the process out of Windows' efficiency mode (`Power.OptOutOfThrottling`), holds `Power.KeepAwake` while
+  recording and saving, and adds every helper FFmpeg to `ChildJob` (killed with Stackshot). Live encoders are left out on
+  purpose: when Stackshot dies they see the end of their input and finish the file.
 - Nothing heavy on the UI thread: each capture's PNG is written on another thread (`BeginWrite`; anyone who needs the
   file calls `ShotStack.WaitWritten`), so is the clipboard copy (`TrackedData`), and the wallpaper used by `Backdrop` is
   preloaded at startup. Mascot previews in the main window render on the thread pool.
