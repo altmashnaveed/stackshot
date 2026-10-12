@@ -7,11 +7,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Text;
 using System.Windows.Media;
 
 namespace Stackshot
 {
-    public sealed class MarkdownFlow
+    public sealed partial class MarkdownFlow
     {
         static readonly FontFamily Mono = new FontFamily("Cascadia Mono, Consolas, Courier New");
 
@@ -30,8 +31,8 @@ namespace Stackshot
             this.side = side;
             ink = Ds.Brush(pal.Label);
             faint = Ds.Brush(pal.Label2);
-            accent = Ds.Brush(pal.Accent);
-            done = Ds.Brush(Ds.WithAlpha(pal.Label, 0.55));
+            accent = Ds.Brush(pal.Link);   // links and ticked boxes are text on the page
+            done = Ds.Brush(pal.High ? pal.Label3 : Ds.WithAlpha(pal.Label, pal.Dark ? 0.55 : 0.70));
             codeBack = Ds.Brush(pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Argb(0.06, 0, 0, 0));
             line = Ds.Brush(pal.Hairline);
             Box = new RichTextBox
@@ -86,14 +87,155 @@ namespace Stackshot
             if (Box.Document != null && Box.Document.PagePadding != t) Box.Document.PagePadding = t;
         }
 
+        // What is on screen: one element (or none) per top-level block, and each block's signature.
+        readonly List<Block> shown = new List<Block>();
+        readonly List<string> keys = new List<string>();
+        FlowDocument doc;
+
+        // While editing only the blocks that changed are rebuilt: the document keeps the rest, so WPF lays out only them
+        // (a full rebuild of 5,000 lines took over a second on every pause in typing).
         public void Set(List<MdBlock> blocks)
         {
+            flat = null;
+            List<string> next = new List<string>(blocks.Count);
+            foreach (MdBlock b in blocks) next.Add(Key(b));
+            if (doc == null || Box.Document != doc)
+            {
+                anchors.Clear();
+                slugs.Clear();
+                shown.Clear();
+                keys.Clear();
+                doc = new FlowDocument { FontFamily = Ds.Text, FontSize = 14.5, Foreground = ink, TextAlignment = TextAlignment.Left, ColumnWidth = 100000, PagePadding = new Thickness(side, 18, side, 44) };
+                for (int i = 0; i < blocks.Count; i++) { Block e = Make(blocks[i], 0); shown.Add(e); if (e != null) doc.Blocks.Add(e); }
+                keys.AddRange(next);
+                Space(blocks);
+                Box.Document = doc;
+                Pad();
+                return;
+            }
+            int max = Math.Min(keys.Count, next.Count), p = 0;
+            while (p < max && keys[p] == next[p]) p++;
+            int s = 0;
+            while (s < max - p && keys[keys.Count - 1 - s] == next[next.Count - 1 - s]) s++;
+            if (p == keys.Count && p == next.Count) return;
+            // The first element kept after the change, to insert before.
+            Block after = null;
+            for (int i = keys.Count - s; i < keys.Count && after == null; i++) after = shown[i];
+            for (int i = p; i < keys.Count - s; i++) if (shown[i] != null) doc.Blocks.Remove(shown[i]);
+            List<Block> made = new List<Block>();
+            for (int i = p; i < next.Count - s; i++)
+            {
+                Block e = Make(blocks[i], 0);
+                made.Add(e);
+                if (e == null) continue;
+                if (after != null) doc.Blocks.InsertBefore(after, e); else doc.Blocks.Add(e);
+            }
+            shown.RemoveRange(p, keys.Count - s - p);
+            shown.InsertRange(p, made);
+            keys.Clear();
+            keys.AddRange(next);
+            Space(blocks);
+        }
+
+        // Spacing between top-level blocks, and the heading anchors in order (setting an unchanged margin costs nothing).
+        void Space(List<MdBlock> blocks)
+        {
+            const double gap = 14;
             anchors.Clear();
             slugs.Clear();
-            FlowDocument d = new FlowDocument { FontFamily = Ds.Text, FontSize = 14.5, Foreground = ink, TextAlignment = TextAlignment.Left, ColumnWidth = 100000, PagePadding = new Thickness(side, 18, side, 44) };
-            Fill(d.Blocks, blocks, 0, 14);
-            Box.Document = d;
-            Pad();
+            bool first = true;
+            for (int i = 0; i < blocks.Count && i < shown.Count; i++)
+            {
+                Block e = shown[i];
+                if (e == null) continue;
+                bool heading = blocks[i].Kind == MdKind.Heading;
+                Thickness m = new Thickness(0, first ? 0 : heading ? gap + 8 : 0, 0, heading ? gap * 0.55 : gap);
+                if (e.Margin != m) e.Margin = m;
+                first = false;
+                if (heading)
+                {
+                    string slug = MarkdownTools.Slug(blocks[i].Text);
+                    int n;
+                    if (slugs.TryGetValue(slug, out n)) { slugs[slug] = n + 1; slug += "-" + n; } else slugs[slug] = 1;
+                    anchors[slug] = e;
+                }
+            }
+        }
+
+        static string Key(MdBlock b)
+        {
+            StringBuilder sb = new StringBuilder();
+            Key(b, sb);
+            return sb.ToString();
+        }
+
+        static void Key(MdBlock b, StringBuilder sb)
+        {
+            sb.Append((int)b.Kind).Append('\u0001').Append(b.Level).Append('\u0001').Append(b.Lang).Append('\u0001').Append(b.Ordered ? '1' : '0').Append('\u0001').Append(b.Text).Append('\u0002');
+            if (b.Children != null) foreach (MdBlock c in b.Children) { sb.Append('\u0003'); Key(c, sb); }
+            if (b.Items != null)
+                foreach (MdItem it in b.Items)
+                {
+                    sb.Append('\u0004').Append(it.Checked.HasValue ? (it.Checked.Value ? 'x' : 'o') : '-');
+                    foreach (MdBlock c in it.Blocks) { sb.Append('\u0003'); Key(c, sb); }
+                }
+            if (b.Head != null)
+            {
+                sb.Append('\u0005').Append(string.Join("\u0001", b.Head.ToArray()));
+                foreach (List<string> r in b.Rows) sb.Append('\u0006').Append(string.Join("\u0001", r.ToArray()));
+                foreach (int a in b.Align) sb.Append(a);
+            }
+        }
+
+        // ---- Find: the document as plain text, with where each piece of text starts, so a match can be selected.
+
+        string flat;
+        readonly List<int> runAt = new List<int>();
+        readonly List<TextPointer> runPtr = new List<TextPointer>();
+
+        public string FlatText()
+        {
+            if (flat != null) return flat;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            runAt.Clear(); runPtr.Clear();
+            TextPointer p = Box.Document.ContentStart;
+            while (p != null)
+            {
+                TextPointerContext c = p.GetPointerContext(LogicalDirection.Forward);
+                if (c == TextPointerContext.Text)
+                {
+                    string s = p.GetTextInRun(LogicalDirection.Forward);
+                    runAt.Add(sb.Length);
+                    runPtr.Add(p);
+                    sb.Append(s);
+                }
+                else if (c == TextPointerContext.ElementEnd && p.Parent is Paragraph) sb.Append('\n');
+                else if (c == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is LineBreak) sb.Append('\n');
+                p = p.GetNextContextPosition(LogicalDirection.Forward);
+            }
+            flat = sb.ToString();
+            return flat;
+        }
+
+        TextPointer At(int offset)
+        {
+            int lo = 0, hi = runAt.Count - 1, k = -1;
+            while (lo <= hi) { int mid = (lo + hi) / 2; if (runAt[mid] <= offset) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+            if (k < 0) return null;
+            return runPtr[k].GetPositionAtOffset(offset - runAt[k], LogicalDirection.Forward);
+        }
+
+        // Selects a stretch of FlatText and scrolls it into view.
+        public void Select(int start, int length)
+        {
+            FlatText();
+            TextPointer a = At(start), b = At(start + length);
+            if (a == null || b == null) return;
+            Box.Selection.Select(a, b);
+            Rect r = a.GetCharacterRect(LogicalDirection.Forward);
+            ScrollViewer sv = Scroller;
+            if (sv == null || r.IsEmpty) return;
+            if (r.Top < 0 || r.Bottom > sv.ViewportHeight) sv.ScrollToVerticalOffset(Math.Max(0, sv.VerticalOffset + r.Top - sv.ViewportHeight / 3));
         }
 
         public bool Scroll(string slug)
@@ -107,16 +249,19 @@ namespace Stackshot
 
         // ---- Blocks
 
+        // BlockCollection.Count walks the whole collection, so emptiness is tracked here (a big document was quadratic).
         void Fill(BlockCollection into, List<MdBlock> blocks, int depth, double gap)
         {
+            bool empty = into.FirstBlock == null;
             for (int i = 0; i < blocks.Count; i++)
             {
                 Block e = Make(blocks[i], depth);
                 if (e == null) continue;
                 bool heading = blocks[i].Kind == MdKind.Heading;
-                double top = into.Count == 0 ? 0 : heading ? gap + 8 : 0;
+                double top = empty ? 0 : heading ? gap + 8 : 0;
                 e.Margin = new Thickness(0, top, 0, i == blocks.Count - 1 && depth > 0 ? 0 : heading ? gap * 0.55 : gap);
                 into.Add(e);
+                empty = false;
             }
         }
 
@@ -243,6 +388,7 @@ namespace Stackshot
             foreach (MdSpan s in MarkdownDoc.Inline(src))
             {
                 if (s.Break) { p.Inlines.Add(new LineBreak()); continue; }
+                if (s.Image && Picture(p, s)) continue;
                 Run r = new Run(s.Text);
                 if (s.Bold) r.FontWeight = FontWeights.Bold;
                 if (s.Italic) r.FontStyle = FontStyles.Italic;

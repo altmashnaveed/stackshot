@@ -21,7 +21,7 @@ namespace Stackshot
         public readonly StackPanel Root = new StackPanel();
         readonly Dictionary<string, FrameworkElement> anchors = new Dictionary<string, FrameworkElement>();
         readonly Dictionary<string, int> slugs = new Dictionary<string, int>();
-        readonly Palette pal = Ds.Brushes;
+        readonly Palette pal = Palette.Export();   // it draws pictures of the document: the look exports always had
         readonly Brush ink, dim, faint, accent, codeBack, line;
         readonly Action<string> navigate;
 
@@ -273,7 +273,7 @@ namespace Stackshot
         public static BitmapSource Render(string text, out string error)
         {
             error = null;
-            Palette pal = Ds.Brushes;
+            Palette pal = Palette.Export();
             MarkdownView v = new MarkdownView(MarkdownDoc.Parse(text), null);
             Border page = new Border { Background = Ds.Brush(pal.Dark ? Ds.Rgb(30, 30, 32) : Colors.White), Padding = new Thickness(40, 36, 40, 40), Width = PageWidth + 80, UseLayoutRounding = true };
             page.Child = v.Root;

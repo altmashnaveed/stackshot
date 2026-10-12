@@ -13,6 +13,7 @@ namespace Stackshot
     {
         public string Text, Href;
         public bool Bold, Italic, Code, Strike, Break;
+        public bool Image;   // an image: Href is its source, Text a square mark and the alt text
     }
 
     public sealed class MdItem
@@ -33,6 +34,7 @@ namespace Stackshot
         public List<string> Head;         // tables
         public List<List<string>> Rows;
         public List<int> Align;           // 0 left, 1 center, 2 right
+        public int Line;                  // top-level headings: the line they start on (0-based); -1 inside other blocks
     }
 
     public static class MarkdownDoc
@@ -44,10 +46,18 @@ namespace Stackshot
         static readonly Regex MarkerEmpty = new Regex(@"^(\s*)([-*+]|\d{1,9}[.)])[ \t]*$", RegexOptions.Compiled);
         static readonly Regex Delim = new Regex(@"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$", RegexOptions.Compiled);
         static readonly Regex Task = new Regex(@"^\[([ xX])\][ \t]+(.*)$", RegexOptions.Compiled);
+        static readonly Regex BrRx = new Regex(@"^<br\s*/?>$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public static List<MdBlock> Parse(string text)
         {
-            string[] lines = (text ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Replace("\t", "    ").Split('\n');
+            string[] lines = (text ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            // Tabs count as indentation only at the start of a line: a trailing tab is not a hard break.
+            for (int i = 0; i < lines.Length; i++)
+            {
+                int n = 0;
+                while (n < lines[i].Length && (lines[i][n] == ' ' || lines[i][n] == '\t')) n++;
+                if (lines[i].IndexOf('\t', 0, n) >= 0) lines[i] = lines[i].Substring(0, n).Replace("\t", "    ") + lines[i].Substring(n);
+            }
             return Blocks(lines, 0, lines.Length, 0);
         }
 
@@ -74,18 +84,19 @@ namespace Stackshot
                 {
                     string f = m.Groups[1].Value;
                     int ind = Indent(l);
-                    StringBuilder sb = new StringBuilder();
+                    List<string> code = new List<string>();
                     int j = i + 1;
                     for (; j < to; j++)
                     {
                         string t = ln[j].TrimStart();
-                        if (t.StartsWith(f, StringComparison.Ordinal) && t.Trim('`', '~').Length == 0) break;
+                        // A closing fence may have spaces after it.
+                        if (t.StartsWith(f, StringComparison.Ordinal) && t.TrimEnd().Trim('`', '~').Length == 0) break;
                         string c = ln[j];
-                        int cut = Math.Min(ind, Indent(c));
-                        if (sb.Length > 0) sb.Append('\n');
-                        sb.Append(c.Substring(cut));
+                        code.Add(c.Substring(Math.Min(ind, Indent(c))));
                     }
-                    MdBlock b = new MdBlock { Kind = MdKind.Code, Text = sb.ToString(), Lang = m.Groups[2].Value };
+                    // Never closed: the empty line after the file's last newline is not part of the code.
+                    if (j >= to && code.Count > 0 && code[code.Count - 1].Length == 0) code.RemoveAt(code.Count - 1);
+                    MdBlock b = new MdBlock { Kind = MdKind.Code, Text = string.Join("\n", code.ToArray()), Lang = m.Groups[2].Value };
                     list.Add(b);
                     i = j + 1;
                     continue;
@@ -93,7 +104,7 @@ namespace Stackshot
                 m = Atx.Match(l);
                 if (m.Success)
                 {
-                    list.Add(new MdBlock { Kind = MdKind.Heading, Level = m.Groups[1].Length, Text = m.Groups[2].Value.Trim() });
+                    list.Add(new MdBlock { Kind = MdKind.Heading, Level = m.Groups[1].Length, Text = m.Groups[2].Value.Trim(), Line = depth == 0 ? i : -1 });
                     i++;
                     continue;
                 }
@@ -115,13 +126,14 @@ namespace Stackshot
                     i = j;
                     continue;
                 }
-                if (i + 1 < to && l.IndexOf('|') >= 0 && Delim.IsMatch(ln[i + 1]) && ln[i + 1].IndexOf('-') >= 0 && Cells(l).Count == Cells(ln[i + 1]).Count)
+                if (TableStarts(ln, i, to))
                 {
                     MdBlock t = new MdBlock { Kind = MdKind.Table, Head = Cells(l), Rows = new List<List<string>>(), Align = new List<int>() };
                     foreach (string d in Cells(ln[i + 1]))
                         t.Align.Add(d.StartsWith(":", StringComparison.Ordinal) && d.EndsWith(":", StringComparison.Ordinal) ? 1 : d.EndsWith(":", StringComparison.Ordinal) ? 2 : 0);
                     int j = i + 2;
-                    for (; j < to && !Blank(ln[j]) && ln[j].IndexOf('|') >= 0; j++)
+                    // A list item starts another block: it ends the table even with pipes in its text.
+                    for (; j < to && !Blank(ln[j]) && ln[j].IndexOf('|') >= 0 && !Marker.IsMatch(ln[j]); j++)
                     {
                         List<string> row = Cells(ln[j]);
                         while (row.Count < t.Head.Count) row.Add("");
@@ -145,14 +157,17 @@ namespace Stackshot
                 {
                     string t = ln[k];
                     if (Blank(t)) break;
-                    if (k > i && StartsBlock(t)) break;
+                    // Before the block check: right under a paragraph "---" underlines a heading, it is not a rule.
                     if (k > i && Regex.IsMatch(t, @"^ {0,3}(=+|-+)\s*$"))
                     {
-                        list.Add(new MdBlock { Kind = MdKind.Heading, Level = t.TrimStart()[0] == '=' ? 1 : 2, Text = p.ToString().Trim() });
+                        list.Add(new MdBlock { Kind = MdKind.Heading, Level = t.TrimStart()[0] == '=' ? 1 : 2, Text = p.ToString().Trim(), Line = depth == 0 ? i : -1 });
                         p.Length = 0;
                         k++;
                         break;
                     }
+                    if (k > i && StartsBlock(t)) break;
+                    // A line with pipes right above a line of dashes is a table's header, even with no blank line before.
+                    if (k > i && TableStarts(ln, k, to)) break;
                     if (p.Length > 0) p.Append(p[p.Length - 1] == '\n' ? "" : " ");
                     string s = t.Trim();
                     bool hard = t.EndsWith("  ", StringComparison.Ordinal) || t.EndsWith("\\", StringComparison.Ordinal);
@@ -163,6 +178,14 @@ namespace Stackshot
                 i = Math.Max(k, i + 1);
             }
             return list;
+        }
+
+        // Line i with pipes over a line of dashes with as many cells: a table's header and its delimiter row.
+        static bool TableStarts(string[] ln, int i, int to)
+        {
+            // A list item line is an item even with pipes in its text ("1. | a |"), as Tidy and the table commands read it.
+            return i + 1 < to && ln[i].IndexOf('|') >= 0 && Delim.IsMatch(ln[i + 1]) && ln[i + 1].IndexOf('-') >= 0 && ln[i + 1].IndexOf('|') >= 0 &&
+                   Cells(ln[i]).Count == Cells(ln[i + 1]).Count && !Marker.IsMatch(ln[i]);
         }
 
         static void Plain(List<MdBlock> list, string[] ln, int from, int to)
@@ -181,6 +204,13 @@ namespace Stackshot
             return m.Success && (m.Groups[2].Value.Length == 1 || m.Groups[2].Value.StartsWith("1", StringComparison.Ordinal));
         }
 
+        // Whether a marker at this indentation is the next item of the list (CommonMark): left of the text of the item
+        // before it, and at most three columns in (or exactly where the list started).
+        static bool Sibling(int indent, int baseIndent, int prevContent, bool first)
+        {
+            return first || (indent < prevContent && (indent <= 3 || indent == baseIndent));
+        }
+
         static int ReadList(List<MdBlock> into, string[] ln, int i, int to, int depth)
         {
             Match first = Marker.Match(ln[i]);
@@ -189,13 +219,14 @@ namespace Stackshot
             bool ordered = char.IsDigit(first.Groups[2].Value[0]);
             MdBlock b = new MdBlock { Kind = MdKind.List, Ordered = ordered, Items = new List<MdItem>() };
             if (ordered) int.TryParse(first.Groups[2].Value.Substring(0, first.Groups[2].Value.Length - 1), out b.Level);
-            int j = i;
+            int j = i, prevContent = baseIndent + 1;
             while (j < to)
             {
                 Match m = Marker.Match(ln[j]);
                 if (!m.Success) m = MarkerEmpty.Match(ln[j]);
-                if (!m.Success || m.Groups[1].Length != baseIndent || char.IsDigit(m.Groups[2].Value[0]) != ordered) break;
-                int content = baseIndent + m.Groups[2].Length + 1;
+                if (!m.Success || !Sibling(m.Groups[1].Length, baseIndent, prevContent, j == i) || char.IsDigit(m.Groups[2].Value[0]) != ordered) break;
+                int content = m.Groups[1].Length + m.Groups[2].Length + 1;
+                prevContent = content;
                 List<string> body = new List<string>();
                 string head = m.Groups.Count > 3 ? m.Groups[3].Value : "";
                 body.Add(head);
@@ -226,31 +257,56 @@ namespace Stackshot
                 if (peek < to && peek > j)
                 {
                     Match nx = Marker.Match(ln[peek]);
-                    if (nx.Success && nx.Groups[1].Length == baseIndent && char.IsDigit(nx.Groups[2].Value[0]) == ordered) j = peek;
+                    if (!nx.Success) nx = MarkerEmpty.Match(ln[peek]);
+                    if (nx.Success && Sibling(nx.Groups[1].Length, baseIndent, prevContent, false) && char.IsDigit(nx.Groups[2].Value[0]) == ordered) j = peek;
                 }
             }
             into.Add(b);
             return Math.Max(j, i + 1);
         }
 
-        public static List<string> Cells(string row)
+        public static List<string> Cells(string row) { return Cells(row, false); }
+
+        // raw: escaped pipes stay escaped (for rewriting a table without changing its cells).
+        public static List<string> Cells(string row, bool raw)
         {
             string r = row.Trim();
             if (r.StartsWith("|", StringComparison.Ordinal)) r = r.Substring(1);
             if (r.EndsWith("|", StringComparison.Ordinal) && !r.EndsWith("\\|", StringComparison.Ordinal)) r = r.Substring(0, r.Length - 1);
             List<string> cells = new List<string>();
             StringBuilder sb = new StringBuilder();
-            bool code = false;
             for (int i = 0; i < r.Length; i++)
             {
                 char c = r[i];
-                if (c == '\\' && i + 1 < r.Length && r[i + 1] == '|') { sb.Append('|'); i++; continue; }
-                if (c == '`') code = !code;
-                if (c == '|' && !code) { cells.Add(sb.ToString().Trim()); sb.Length = 0; continue; }
+                if (c == '\\' && i + 1 < r.Length && r[i + 1] == '|') { sb.Append(raw ? "\\|" : "|"); i++; continue; }
+                // A code span keeps its pipes, but only one that closes: a stray backtick ("it`s") is just a character.
+                if (c == '`')
+                {
+                    int end = CodeSpanEnd(r, i);
+                    if (end > 0) { sb.Append(r, i, end - i); i = end - 1; continue; }
+                }
+                if (c == '|') { cells.Add(sb.ToString().Trim()); sb.Length = 0; continue; }
                 sb.Append(c);
             }
             cells.Add(sb.ToString().Trim());
             return cells;
+        }
+
+        // A code span opened by the run of backticks at i: the index just past the run of as many backticks that closes
+        // it, or -1 when none does (then they are plain characters). "``a|b``" is one span with a pipe inside.
+        public static int CodeSpanEnd(string r, int i)
+        {
+            int n = 0;
+            while (i + n < r.Length && r[i + n] == '`') n++;
+            for (int j = i + n; j < r.Length; j++)
+            {
+                if (r[j] != '`') continue;
+                int m = 0;
+                while (j + m < r.Length && r[j + m] == '`') m++;
+                if (m == n) return j + m;
+                j += m - 1;
+            }
+            return -1;
         }
 
         // ---- Inline
@@ -266,13 +322,14 @@ namespace Stackshot
         {
             if (t.Length == 0) return;
             MdSpan last = o.Count > 0 ? o[o.Count - 1] : null;
-            if (last != null && !last.Code && !last.Break && last.Bold == b && last.Italic == i && last.Strike == st && last.Href == href) { last.Text += t; return; }
+            if (last != null && !last.Code && !last.Break && !last.Image && last.Bold == b && last.Italic == i && last.Strike == st && last.Href == href) { last.Text += t; return; }
             o.Add(new MdSpan { Text = t, Bold = b, Italic = i, Strike = st, Href = href });
         }
 
         static void Run(string s, List<MdSpan> o, bool b, bool it, bool st, string href, int depth)
         {
             StringBuilder buf = new StringBuilder();
+            Dictionary<string, int> noCloser = null;
             int i = 0;
             while (i < s.Length)
             {
@@ -306,12 +363,21 @@ namespace Stackshot
                     if (open)
                     {
                         string d = new string(c, n);
-                        int e = i + n;
-                        while ((e = s.IndexOf(d, e, StringComparison.Ordinal)) >= 0)
+                        int e = i + n, none;
+                        // A search that found no closer from some point finds none from any later point either, so a
+                        // paragraph of unclosed '*' costs one scan instead of one per opener.
+                        if (noCloser == null) noCloser = new Dictionary<string, int>();
+                        if (noCloser.TryGetValue(d, out none) && e >= none) e = -1;
+                        else
                         {
-                            bool closes = !char.IsWhiteSpace(s[e - 1]) && (c != '_' || e + n >= s.Length || !char.IsLetterOrDigit(s[e + n]));
-                            if (closes && e > i + n) break;
-                            e += n;
+                            int from = e;
+                            while ((e = s.IndexOf(d, e, StringComparison.Ordinal)) >= 0)
+                            {
+                                bool closes = !char.IsWhiteSpace(s[e - 1]) && (c != '_' || e + n >= s.Length || !char.IsLetterOrDigit(s[e + n]));
+                                if (closes && e > i + n) break;
+                                e += n;
+                            }
+                            if (e < 0) noCloser[d] = from;
                         }
                         if (e > 0)
                         {
@@ -340,7 +406,7 @@ namespace Stackshot
                             url = url.Trim('<', '>');
                             Add(o, buf.ToString(), b, it, st, href); buf.Length = 0;
                             string label = s.Substring(start + 1, close - start - 1);
-                            if (img) { Add(o, "\u25A3 " + (label.Length > 0 ? label : "imagen"), b, true, st, url); }
+                            if (img) o.Add(new MdSpan { Text = "\u25A3 " + (label.Length > 0 ? label : "imagen"), Bold = b, Italic = true, Strike = st, Href = url, Image = true });
                             else Run(label.Length > 0 ? label : url, o, b, it, st, url, depth + 1);
                             i = pe + 1;
                             continue;
@@ -350,6 +416,14 @@ namespace Stackshot
                 if (c == '<')
                 {
                     int e = s.IndexOf('>', i);
+                    // An HTML line break, as tables use for a new line inside a cell.
+                    if (e > i && e - i <= 6 && BrRx.IsMatch(s.Substring(i, e - i + 1)))
+                    {
+                        Add(o, buf.ToString(), b, it, st, href); buf.Length = 0;
+                        o.Add(new MdSpan { Break = true, Text = "" });
+                        i = e + 1;
+                        continue;
+                    }
                     if (e > i && Regex.IsMatch(s.Substring(i + 1, e - i - 1), @"^https?://\S+$"))
                     {
                         Add(o, buf.ToString(), b, it, st, href); buf.Length = 0;
