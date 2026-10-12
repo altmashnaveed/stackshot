@@ -153,10 +153,21 @@ namespace Stackshot
         protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
         {
             base.OnGotKeyboardFocus(e);
-            InputDevice d = InputManager.Current.MostRecentInputDevice;
-            ring = !(d is MouseDevice) && !(d is StylusDevice);
+            ring = Access.KeyboardCue;
             InvalidateVisual();
         }
+
+        // A mouse press means a mouse user: no ring until the keyboard is used again.
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+        {
+            base.OnPreviewMouseDown(e);
+            Access.PointerUsed();
+            if (!ring) return;
+            ring = false;
+            InvalidateVisual();
+        }
+
+        public bool RingShown { get { return ring; } }
 
         protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
         {
@@ -180,20 +191,11 @@ namespace Stackshot
 
         protected override void OnRender(DrawingContext dc)
         {
-            bool dim = Dim;
+            bool dim = Dim && !Ds.Brushes.High;   // a contrast theme draws disabled controls in GrayText instead
             if (dim) dc.PushOpacity(0.4);
             Paint(dc);
             if (dim) dc.Pop();
-            if (ring && IsKeyboardFocused)
-            {
-                // macOS focus ring: translucent accent hugging the control's outline.
-                Rect r = RingBounds;
-                r.Inflate(1.5, 1.5);
-                double rad = RingRadius + 1.5;
-                Pen p = new Pen(Ds.Brush(Ds.WithAlpha(Ds.Brushes.Accent, Ds.Dark ? 0.6 : 0.5)), 3);
-                p.Freeze();
-                dc.DrawRoundedRectangle(null, p, r, rad, rad);
-            }
+            if (ring) Access.Ring(dc, RingBounds, RingRadius);   // the same focus ring everywhere
         }
 
         // Shadows and the focus ring are drawn just outside the bounds. At 125% layout rounding can make the arranged size a
@@ -207,22 +209,29 @@ namespace Stackshot
         protected virtual Rect RingBounds { get { return new Rect(RenderSize); } }
         protected virtual double RingRadius { get { return Ds.RControl; } }
 
-        // Accessibility: a name and a role for screen readers.
+        // Accessibility: a name, a role and its patterns (Access.cs) for screen readers.
         internal virtual string AccessName { get { return null; } }
         internal virtual AutomationControlType AccessType { get { return AutomationControlType.Custom; } }
+        internal virtual bool? AccessChecked { get { return null; } }
+        internal virtual object AccessPattern(PatternInterface p) { return Access.DrawnPattern(this, p); }
+        internal virtual List<AutomationPeer> AccessChildren() { return null; }
+        internal void AccessActivate() { if (IsEnabled && Interactive) Activate(); }
 
-        protected override AutomationPeer OnCreateAutomationPeer() { return new DrawnPeer(this); }
+        // Hidden: a part of a larger control that already speaks for it (a switch drawn inside a pill that is the switch).
+        internal bool AccessHidden;
+
+        protected override AutomationPeer OnCreateAutomationPeer() { return AccessHidden ? null : new DrawnPeer(this); }
 
         sealed class DrawnPeer : FrameworkElementAutomationPeer
         {
             public DrawnPeer(Drawn d) : base(d) { }
             protected override AutomationControlType GetAutomationControlTypeCore() { return ((Drawn)Owner).AccessType; }
             protected override string GetClassNameCore() { return Owner.GetType().Name; }
-            protected override string GetNameCore()
-            {
-                string n = base.GetNameCore();
-                return string.IsNullOrEmpty(n) ? ((Drawn)Owner).AccessName ?? "" : n;
-            }
+            protected override string GetNameCore() { return Access.DrawnName((Drawn)Owner, base.GetNameCore()); }
+            protected override string GetHelpTextCore() { return Access.DrawnHelp((Drawn)Owner, base.GetHelpTextCore(), GetNameCore()); }
+            protected override string GetAcceleratorKeyCore() { return Access.DrawnKeys((Drawn)Owner, base.GetAcceleratorKeyCore()); }
+            public override object GetPattern(PatternInterface p) { return ((Drawn)Owner).AccessPattern(p) ?? base.GetPattern(p); }
+            protected override List<AutomationPeer> GetChildrenCore() { return ((Drawn)Owner).AccessChildren() ?? base.GetChildrenCore(); }
         }
 
         protected static FormattedText Text(string s, Typeface face, double size, Color c)
@@ -400,6 +409,7 @@ namespace Stackshot
         protected override void OnRender(DrawingContext dc)
         {
             double s = ActualWidth, r = s * 0.25;
+            if (Ds.Brushes.High) { HcPaint.IconTile(dc, icon, s, IsEnabled); return; }
             LinearGradientBrush b = new LinearGradientBrush(Mix(c1, Colors.White, 0.12), c2, 90);
             dc.DrawRoundedRectangle(b, null, new Rect(0, 0, s, s), r, r);
             Pen hl = new Pen(new SolidColorBrush(Color.FromArgb(46, 255, 255, 255)), 1);
@@ -434,7 +444,7 @@ namespace Stackshot
         public bool IsOn
         {
             get { return on; }
-            set { if (on == value) return; on = value; Spring(this, OnProperty, on ? 1 : 0, 260); }
+            set { if (on == value) return; on = value; Spring(this, OnProperty, on ? 1 : 0, 260); Access.Toggled(this, on); }
         }
 
         protected override void Clicked(Point p)
@@ -446,11 +456,13 @@ namespace Stackshot
 
         protected override double RingRadius { get { return ActualHeight / 2; } }
         internal override AutomationControlType AccessType { get { return AutomationControlType.CheckBox; } }
+        internal override bool? AccessChecked { get { return on; } }
 
         protected override void Paint(DrawingContext dc)
         {
             Palette pal = Ds.Brushes;
             double t = (double)GetValue(OnProperty), w = ActualWidth, h = ActualHeight;
+            if (pal.High) { HcPaint.Switch(dc, RenderSize, t, IsEnabled, Hot, Ink.Hair(this)); return; }
             Color off = pal.Dark ? Ds.Rgb(57, 57, 61) : Ds.Rgb(226, 226, 230);
             Color track = Mix(off, pal.Accent, t);
             if (Hot > 0) track = Mix(track, pal.Dark ? Colors.White : Colors.Black, 0.06 * Hot);
@@ -466,7 +478,7 @@ namespace Stackshot
     }
 
     // Segmented control with a sliding selection. Arrow keys move it when focused.
-    public class MacSegmented : Drawn
+    public class MacSegmented : Drawn, IStrip
     {
         public static readonly DependencyProperty SlideProperty = DependencyProperty.Register("Slide", typeof(double), typeof(MacSegmented),
             new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -489,7 +501,7 @@ namespace Stackshot
         public int Selected
         {
             get { return selected; }
-            set { value = Math.Max(0, Math.Min(options.Length - 1, value)); if (value == selected) return; selected = value; Spring(this, SlideProperty, value, 300); }
+            set { value = Math.Max(0, Math.Min(options.Length - 1, value)); if (value == selected) return; selected = value; Spring(this, SlideProperty, value, 300); Access.StripChanged(this, value); }
         }
 
         double Seg { get { return Math.Max(1, (ActualWidth - 4) / options.Length); } }
@@ -538,12 +550,20 @@ namespace Stackshot
 
         protected override double RingRadius { get { return 7; } }
         internal override string AccessName { get { return options[selected]; } }
-        internal override AutomationControlType AccessType { get { return AutomationControlType.Tab; } }
+        internal override AutomationControlType AccessType { get { return AutomationControlType.List; } }
+        internal override object AccessPattern(PatternInterface p) { return Access.StripPattern(this, p); }
+        internal override List<AutomationPeer> AccessChildren() { return Access.StripItems(this); }
+        string[] IStrip.StripOptions { get { return options; } }
+        int IStrip.StripSelected { get { return selected; } }
+        AutomationControlType IStrip.StripItemType { get { return AutomationControlType.ListItem; } }
+        Rect IStrip.StripSegment(int i) { return new Rect(2 + Seg * i, 2, Seg, Math.Max(0, ActualHeight - 4)); }
+        void IStrip.StripPick(int i) { if (IsEnabled && i >= 0 && i < options.Length) Pick(i); }
 
         protected override void Paint(DrawingContext dc)
         {
             Palette pal = Ds.Brushes;
             double w = ActualWidth, h = ActualHeight, x = (double)GetValue(SlideProperty), seg = Seg;
+            if (pal.High) { HcPaint.Segmented(dc, RenderSize, options, x, hover >= 0 && Hot > 0 ? hover : -1, selected, IsEnabled, Ink.Hair(this)); return; }
             dc.DrawRoundedRectangle(Ds.Brush(pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Argb(0.06, 0, 0, 0)), null, new Rect(0, 0, w, h), 7, 7);
             int hov = hover >= 0 && Hot > 0 ? hover : -1;
             for (int i = 0; i < options.Length; i++)
@@ -627,11 +647,13 @@ namespace Stackshot
             double w = ActualWidth, h = ActualHeight, hot = Hot, down = Down, px = Ink.Hair(this);
             Rect r = new Rect(0, 0, w, h);
             Color fg;
+            if (pal.High) fg = HcPaint.Button(dc, r, radius, kind, IsEnabled, hot, down, px); else
             switch (kind)
             {
                 case ButtonKind.Primary:
                 {
-                    Color top = Mix(Ds.Rgb(64, 150, 255), Ds.Rgb(92, 170, 255), hot), bottom = Mix(pal.Accent, Ds.Rgb(28, 120, 245), hot);
+                    // Never lighter than the accent, so the white label keeps 4.5:1; hovering flattens the gradient.
+                    Color top = pal.Accent, bottom = Mix(pal.Accent, Colors.Black, 0.16 - 0.10 * hot);
                     if (down > 0) { top = Mix(top, Colors.Black, 0.12 * down); bottom = Mix(bottom, Colors.Black, 0.12 * down); }
                     Rect sh = r;
                     sh.Offset(0, Ink.Snap(this, 1.5));
@@ -648,12 +670,13 @@ namespace Stackshot
                     Color bg = Mix(Ds.WithAlpha(pal.Red, 0.14), Ds.WithAlpha(pal.Red, 0.22), hot);
                     if (down > 0) bg = Mix(bg, Ds.WithAlpha(pal.Red, 0.30), down);
                     dc.DrawRoundedRectangle(Ds.Brush(bg), null, r, radius, radius);
-                    fg = pal.Red;
+                    fg = pal.Error;
                     break;
                 }
                 case ButtonKind.Plain:
-                    if (hot > 0 || down > 0) dc.DrawRoundedRectangle(Ds.Brush(Ds.WithAlpha(pal.ControlHover, Math.Min(1, hot + down * 0.6))), null, r, radius, radius);
-                    fg = pal.Accent;
+                    // The pointer's fill stays light enough for the link colour (4.5:1); pressing deepens it.
+                    if (hot > 0 || down > 0) dc.DrawRoundedRectangle(Ds.Brush(Ds.WithAlpha(down > 0 ? pal.ControlHover : pal.Control, Math.Min(1, hot + down * 0.6))), null, r, radius, radius);
+                    fg = pal.Link;
                     break;
                 case ButtonKind.Glass:
                 {
@@ -695,7 +718,7 @@ namespace Stackshot
             dc.DrawText(t, new Point(Math.Round(x), Math.Round(r.Y + (r.Height - t.Height) / 2)));
             if (trailing != null)
             {
-                FormattedText k = Text(trailing, Ds.Regular, fontSize - 1, Ds.WithAlpha(fg, 0.78));
+                FormattedText k = Text(trailing, Ds.Regular, fontSize - 1, pal.High || kind == ButtonKind.Primary ? fg : Ds.WithAlpha(fg, 0.78));
                 dc.DrawText(k, new Point(Math.Round(r.Right - pad - k.WidthIncludingTrailingWhitespace), Math.Round(r.Y + (r.Height - k.Height) / 2)));
             }
         }
@@ -737,7 +760,8 @@ namespace Stackshot
                 Rect r = new Rect(x, 0, w, h);
                 Rect sh = r;
                 sh.Offset(0, Ink.Snap(this, 1.5));
-                dc.DrawRoundedRectangle(Ds.Brush(pal.Dark ? Ds.Argb(0.5, 0, 0, 0) : Ds.Argb(0.16, 0, 0, 0)), null, sh, 5, 5);
+                if (!pal.High) dc.DrawRoundedRectangle(Ds.Brush(pal.Dark ? Ds.Argb(0.5, 0, 0, 0) : Ds.Argb(0.16, 0, 0, 0)), null, sh, 5, 5);
+                if (pal.High) HcPaint.Keycap(dc, r, 5, px); else
                 dc.DrawRoundedRectangle(Ds.Brush(pal.Dark ? Ds.Rgb(72, 72, 77) : Colors.White), edge, Ink.Inset(r, px / 2), 5 - px / 2, 5 - px / 2);
                 Ink.Center(dc, Ink.Text(k, Ds.Medium, size * 0.52, pal.Label), r);
                 x += w + 5;

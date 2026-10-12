@@ -104,7 +104,8 @@ namespace Stackshot
                     list.Children.Add(grid);
                 }
                 MenuEntry en = e;
-                Border b = new Border { CornerRadius = new CornerRadius(8), Height = 58, Width = 84, Margin = new Thickness(1), Background = Brushes.Transparent, Cursor = Cursors.Hand };
+                Border b = new TapBorder { CornerRadius = new CornerRadius(8), Height = 58, Width = 84, Margin = new Thickness(1), Background = Brushes.Transparent, Cursor = Cursors.Hand,
+                                           Label = en.Label, Help = en.Detail, Do = delegate { pop.IsOpen = false; if (en.Do != null) pop.Dispatcher.BeginInvoke(en.Do); } };
                 StackPanel s = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
                 GlyphView ic = new GlyphView(en.Icon ?? "sparkle", 20, pal.Label2, 1.6);
                 ic.HorizontalAlignment = HorizontalAlignment.Center;
@@ -116,8 +117,9 @@ namespace Stackshot
                 s.Children.Add(tx);
                 b.Child = s;
                 if (en.Detail != null) b.ToolTip = en.Detail;
-                b.MouseEnter += delegate { b.Background = Ds.Brush(pal.Accent); ic.Color = Colors.White; tx.Foreground = Brushes.White; };
-                b.MouseLeave += delegate { b.Background = Brushes.Transparent; ic.Color = pal.Label2; tx.Foreground = Ds.Brush(pal.Label); };
+                b.MouseEnter += delegate { b.Background = Ds.Brush(pal.Accent); ic.Color = pal.OnAccent; tx.Foreground = Ds.Brush(pal.OnAccent); };
+                b.MouseLeave += delegate { if (b.IsKeyboardFocused) return; b.Background = Brushes.Transparent; ic.Color = pal.Label2; tx.Foreground = Ds.Brush(pal.Label); };
+                MacMenuAccess.Highlight(b, delegate(bool on) { b.Background = on ? Ds.Brush(pal.Accent) : Brushes.Transparent; ic.Color = on ? pal.OnAccent : pal.Label2; tx.Foreground = on ? Ds.Brush(pal.OnAccent) : Ds.Brush(pal.Label); });
                 b.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs a)
                 {
                     a.Handled = true;
@@ -130,13 +132,13 @@ namespace Stackshot
             Border card = new Border
             {
                 CornerRadius = new CornerRadius(12),
-                Background = Ds.Brush(pal.Dark ? Ds.Rgb(44, 44, 47) : Ds.Rgb(250, 250, 251)),
-                BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)),
+                Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(44, 44, 47) : Ds.Rgb(250, 250, 251)),
+                BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)),
                 BorderThickness = new Thickness(1),
                 Child = sv
             };
-            Grid root = new Grid { Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
-            root.Children.Add(new SoftShadow(12, 14, 6, pal.Dark ? 0.5 : 0.18));
+            Grid root = new RoleGrid { Role = Access.Menu, Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
+            if (!pal.High) root.Children.Add(new SoftShadow(12, 14, 6, pal.Dark ? 0.5 : 0.18));
             root.Children.Add(card);
             TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
             root.PreviewKeyDown += delegate(object o, KeyEventArgs k) { if (k.Key == Key.Escape) { pop.IsOpen = false; k.Handled = true; } };
@@ -163,14 +165,14 @@ namespace Stackshot
             Border card = new Border
             {
                 CornerRadius = new CornerRadius(10),
-                Background = Ds.Brush(pal.Dark ? Ds.Rgb(44, 44, 47) : Ds.Rgb(250, 250, 251)),
-                BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)),
+                Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(44, 44, 47) : Ds.Rgb(250, 250, 251)),
+                BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)),
                 BorderThickness = new Thickness(1),
                 Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = list, MaxHeight = Math.Max(200, WorkHeight(anchor) - 80) },
                 MinWidth = Math.Max(minWidth, 200)
             };
-            Grid root = new Grid { Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
-            root.Children.Add(new SoftShadow(10, 14, 6, pal.Dark ? 0.5 : 0.18));
+            Grid root = new RoleGrid { Role = Access.Menu, Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
+            if (!pal.High) root.Children.Add(new SoftShadow(10, 14, 6, pal.Dark ? 0.5 : 0.18));
             root.Children.Add(card);
             TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
 
@@ -244,13 +246,14 @@ namespace Stackshot
             public FrameworkElement Add(MenuEntry e)
             {
                 Palette pal = Ds.Brushes;
-                Border b = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(8, e.Detail != null ? 5 : 6, 12, 6), Background = Brushes.Transparent };
+                Border b = new TapBorder { CornerRadius = new CornerRadius(6), Padding = new Thickness(8, e.Detail != null ? 5 : 6, 12, 6), Background = Brushes.Transparent,
+                                           Role = Access.MenuItem, Label = e.Label, Help = e.Detail, IsEnabled = e.Enabled };
                 Grid g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
                 g.ColumnDefinitions.Add(new ColumnDefinition());
                 Color ink = e.Enabled ? pal.Label : pal.Label3;
                 GlyphView check = null, icon = null;
-                if (e.Checked) { check = new GlyphView("check", 14, pal.Accent, 2); g.Children.Add(check); }
+                if (e.Checked) { check = new GlyphView("check", 14, pal.Link, 2); g.Children.Add(check); }
                 else if (e.Icon != null) { icon = new GlyphView(e.Icon, 15, e.Enabled ? pal.Label2 : pal.Label3, 1.6); g.Children.Add(icon); }
                 StackPanel t = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
                 Grid.SetColumn(t, 1);
@@ -271,13 +274,15 @@ namespace Stackshot
                 if (!e.Enabled) return b;
                 int index = entries.Count;
                 entries.Add(e);
+                rows.Add(b);
+                MacMenuAccess.Row(b, e, delegate { Run(index); });
                 paint.Add(delegate(bool on)
                 {
                     b.Background = on ? Ds.Brush(pal.Accent) : Brushes.Transparent;
-                    main.Foreground = on ? Brushes.White : Ds.Brush(ink);
-                    if (detail != null) detail.Foreground = Ds.Brush(on ? Ds.Argb(0.8, 255, 255, 255) : pal.Label2);
-                    if (check != null) check.Color = on ? Colors.White : pal.Accent;
-                    if (icon != null) icon.Color = on ? Colors.White : pal.Label2;
+                    main.Foreground = on ? Ds.Brush(pal.OnAccent) : Ds.Brush(ink);
+                    if (detail != null) detail.Foreground = Ds.Brush(on ? pal.OnAccent : pal.Label2);
+                    if (check != null) check.Color = on ? pal.OnAccent : pal.Link;
+                    if (icon != null) icon.Color = on ? pal.OnAccent : pal.Label2;
                 });
                 b.Cursor = Cursors.Hand;
                 b.MouseEnter += delegate { Set(index); };
@@ -298,13 +303,22 @@ namespace Stackshot
                 if (hot >= 0) paint[hot](true);
             }
 
+            readonly List<FrameworkElement> rows = new List<FrameworkElement>();
+
+            // From the keyboard the highlighted row also takes the focus, so screen readers say which one it is.
+            void Key(int i)
+            {
+                Set(i);
+                if (i >= 0 && i < rows.Count) rows[i].Focus();
+            }
+
             public void Move(int step)
             {
                 if (entries.Count == 0) return;
-                Set(hot < 0 ? (step > 0 ? 0 : entries.Count - 1) : (hot + step + entries.Count) % entries.Count);
+                Key(hot < 0 ? (step > 0 ? 0 : entries.Count - 1) : (hot + step + entries.Count) % entries.Count);
             }
 
-            public void Jump(bool first) { if (entries.Count > 0) Set(first ? 0 : entries.Count - 1); }
+            public void Jump(bool first) { if (entries.Count > 0) Key(first ? 0 : entries.Count - 1); }
 
             public void Choose() { if (hot >= 0) Run(hot); }
 

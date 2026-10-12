@@ -57,6 +57,7 @@ namespace Stackshot
             DpiChanged += delegate { Ink.PerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip; };
             Deactivated += delegate { DimCaptions(true); };
             try { System.Windows.Forms.Integration.ElementHost.EnableModelessKeyboardInterop(this); } catch { }
+            Access.Track(this);
         }
 
         public IntPtr Handle { get { return hwnd; } }
@@ -131,9 +132,12 @@ namespace Stackshot
 
             public bool Inactive { set { if (inactive == value) return; inactive = value; Paint(); } }
 
+            protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new ActionPeer(this, act); }
+
             void Paint()
             {
                 Palette pal = Ds.Brushes;
+                if (pal.High) { Background = hot ? Ds.Brush(pal.Accent) : Brushes.Transparent; glyph.Color = hot ? pal.OnAccent : inactive ? pal.Label3 : pal.Label; return; }
                 if (close && hot)
                 {
                     Background = Ds.Brush(down && hot ? Ds.Rgb(150, 34, 22) : Ds.Rgb(196, 43, 28));
@@ -199,8 +203,8 @@ namespace Stackshot
             root.AppendChild(shadow);
             FrameworkElementFactory card = new FrameworkElementFactory(typeof(Border));
             card.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
-            card.SetValue(Border.BackgroundProperty, Ds.Brush(pal.Dark ? Ds.Rgb(50, 50, 53) : Ds.Rgb(250, 250, 251)));
-            card.SetValue(Border.BorderBrushProperty, Ds.Brush(pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)));
+            card.SetValue(Border.BackgroundProperty, Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(50, 50, 53) : Ds.Rgb(250, 250, 251)));
+            card.SetValue(Border.BorderBrushProperty, Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0)));
             card.SetValue(Border.BorderThicknessProperty, new Thickness(1));
             card.SetValue(Border.PaddingProperty, new Thickness(9, 4, 9, 5));
             FrameworkElementFactory content = new FrameworkElementFactory(typeof(ContentPresenter));
@@ -235,7 +239,7 @@ namespace Stackshot
 
         sealed class TipShadow : SoftShadow
         {
-            public TipShadow() : base(7, 8, 2, Ds.Dark ? 0.45 : 0.16) { }
+            public TipShadow() : base(7, 8, 2, Ds.Brushes.High ? 0 : Ds.Dark ? 0.45 : 0.16) { }
         }
 
         void OnDs()
@@ -265,7 +269,7 @@ namespace Stackshot
             Ink.PerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             hwnd = new WindowInteropHelper(this).Handle;
             HwndSource src = HwndSource.FromHwnd(hwnd);
-            if (HasMica) src.CompositionTarget.BackgroundColor = Colors.Transparent;
+            if (HighContrast.OsMica) src.CompositionTarget.BackgroundColor = Colors.Transparent;   // Mica may come back with the theme
             ApplyDwm();
             HideNativeCaption();
             src.AddHook(MaxHook);
