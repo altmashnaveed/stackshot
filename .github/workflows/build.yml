@@ -23,6 +23,14 @@ jobs:
         shell: powershell
         run: .\build.ps1
 
+      # Deterministic suites that need neither FFmpeg nor the screen: the FFmpeg arguments of every quality against
+      # the v2.0.0 reference, the Cine hash, arguments and memory budgets, and the exact sound timeline.
+      - name: Pruebas
+        shell: powershell
+        run: |
+          .\tests\cine\run-tests.ps1 regression hash args pool audio
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Paquete MSI
         shell: powershell
         run: .\tools\build-msi.ps1
