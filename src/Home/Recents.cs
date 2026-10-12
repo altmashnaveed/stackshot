@@ -14,7 +14,7 @@ namespace Stackshot
     // on the disk. Listing may be called from any thread; the rest from the UI thread.
     public static class Recents
     {
-        static readonly string[] Kinds = { ".png", ".jpg", ".jpeg", ".gif", ".mp4" };
+        static readonly string[] Kinds = { ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mkv" };
         static readonly Dictionary<string, BitmapSource> thumbs = new Dictionary<string, BitmapSource>();
         static readonly Dictionary<string, List<Action<BitmapSource>>> waiting = new Dictionary<string, List<Action<BitmapSource>>>();
         static readonly HashSet<string> unreadable = new HashSet<string>();   // files that gave no thumbnail (until they change)
@@ -69,7 +69,9 @@ namespace Stackshot
             }
             List<FileInfo> r = new List<FileInfo>();
             HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string dir in new string[] { s.SaveFolder, TempFolder })
+            List<string> dirs = SaveFolders.All(s); // the save folder and its dated subfolders
+            dirs.Add(TempFolder);
+            foreach (string dir in dirs)
             {
                 try
                 {
@@ -163,17 +165,28 @@ namespace Stackshot
         {
             if (bytes < 0) return "\u2026";
             if (bytes == 0) return "Vac\u00EDa";
-            if (bytes < 1048576) return Math.Max(1, (int)Math.Round(bytes / 1024.0)) + " KB";
-            double mb = bytes / 1048576.0;
+            // The unit is chosen from the rounded value, so nothing is ever shown as "1024 KB" or "1024 MB".
+            int kb = Math.Max(1, (int)Math.Round(bytes / 1024.0));
+            if (kb < 1024) return kb + " KB";
+            double mb = Math.Max(1, bytes / 1048576.0);
+            if (mb < 1024 && Math.Round(mb) >= 1024) mb = 1024;
             return mb >= 1024 ? (mb / 1024).ToString("0.0") + " GB" : mb.ToString(mb < 10 ? "0.0" : "0") + " MB";
         }
 
         // Thumbnail of a capture at px (device pixels) on its long side; ready is called on the UI thread.
         public static void Thumb(string path, int px, Action<BitmapSource> ready)
         {
-            string key;
-            try { key = path + "|" + File.GetLastWriteTimeUtc(path).Ticks + "|" + px; }
+            long ticks;
+            try { ticks = File.GetLastWriteTimeUtc(path).Ticks; }
             catch { return; }
+            Thumb(path, ticks, px, ready);
+        }
+
+        // The same when the caller already knows the file's last write (UTC ticks, from a listing): nothing touches the
+        // disk on the UI thread, which matters for the Historial's many tiles on a network save folder.
+        public static void Thumb(string path, long ticks, int px, Action<BitmapSource> ready)
+        {
+            string key = path + "|" + ticks + "|" + px;
             BitmapSource b;
             if (thumbs.TryGetValue(key, out b)) { ready(b); return; }
             if (unreadable.Contains(key)) return;
@@ -184,10 +197,16 @@ namespace Stackshot
             ThreadPool.QueueUserWorkItem(delegate
             {
                 D.Bitmap bmp = null;
+                bool busy = false;
                 try
                 {
-                    if (ShotStack.IsMediaFile(path)) bmp = ShotStack.ShellThumb(path, px);
-                    else { D.Size orig; bmp = ShotStack.LoadPreview(path, px, out orig); }
+                    // A file another program holds (antivirus right after a capture, a copy in progress) is not a broken
+                    // one: it gets another try the next time it is asked for.
+                    try { using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) { } }
+                    catch (IOException) { busy = true; }
+                    catch (UnauthorizedAccessException) { busy = true; }
+                    if (!busy && ShotStack.IsMediaFile(path)) bmp = ShotStack.Poster(path) ?? ShotStack.ShellThumb(path, px);
+                    else if (!busy) { D.Size orig; bmp = ShotStack.LoadPreview(path, px, out orig); }
                 }
                 catch (Exception ex) { ShotStack.Log("Miniatura: " + ex.Message); }
                 ui.BeginInvoke((Action)delegate
@@ -196,7 +215,7 @@ namespace Stackshot
                     if (bmp != null) { try { src = Ink.FromGdi(bmp); } catch { } bmp.Dispose(); }
                     if (thumbs.Count > 200) thumbs.Clear();
                     if (src != null) thumbs[key] = src;
-                    else
+                    else if (!busy)
                     {
                         // Don't decode a broken file on every rebuild; a new version of it gets a new key.
                         if (unreadable.Count > 500) unreadable.Clear();
