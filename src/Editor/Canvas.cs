@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace Stackshot
 {
-    public class Canvas : Control
+    public partial class Canvas : Control
     {
         class Snapshot { public List<Shape> Shapes; public RectangleF Crop; }
         enum Drag { None, Draw, Move, Resize }
@@ -23,6 +23,7 @@ namespace Stackshot
         public int Weight = 1;
         public RectangleF Crop;
         public event EventHandler Changed, StateChanged;
+        public event Action DrawStart;     // a mark (or text) is about to be made: the editor stops the playback
         List<Shape> shapes = new List<Shape>();
         readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
         readonly float baseStroke, baseFont;
@@ -47,6 +48,13 @@ namespace Stackshot
         float radiusScreen;
         Bitmap bgView, roundView;
         string bgKey, roundKey;
+
+        // Playback: the newest decoded frame is drawn instead of Img (at the size it was decoded at) until the exact frame
+        // replaces Img. Written from the player's thread, drawn from the UI thread.
+        readonly object liveLock = new object();
+        Bitmap live;
+        bool liveOn;
+        int livePending;
 
         public Canvas(Bitmap img)
         {
@@ -344,20 +352,29 @@ namespace Stackshot
             bool bg = BgOn && Bg != null;
             int vw = Math.Max(1, (int)Math.Round(Crop.Width * k)), vh = Math.Max(1, (int)Math.Round(Crop.Height * k));
             bool direct = !bg && (double)vw * vh > DirectPixels;
-            Bitmap v = direct ? null : View();
+            bool playing = LiveOn;
+            Bitmap v = direct || playing ? null : View();
             Rectangle ir = new Rectangle((int)off.X, (int)off.Y, vw, vh);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             if (bg)
             {
                 FloatShadow(g, frameScreen);
                 g.DrawImageUnscaled(BgView(ir), frameScreen.X, frameScreen.Y);
-                g.DrawImageUnscaled(radiusScreen >= 0.5f ? RoundView(v) : v, ir.X, ir.Y);
+                if (!(playing && DrawLive(g, ir, true)))
+                {
+                    if (v == null) v = View();
+                    g.DrawImageUnscaled(radiusScreen >= 0.5f ? RoundView(v) : v, ir.X, ir.Y);
+                }
             }
             else
             {
                 FloatShadow(g, ir);
-                if (v != null) g.DrawImageUnscaled(v, ir.X, ir.Y);
-                else DrawVisible(g, ir);
+                if (!(playing && DrawLive(g, ir, false)))
+                {
+                    if (v == null && !direct) v = View();
+                    if (v != null) g.DrawImageUnscaled(v, ir.X, ir.Y);
+                    else DrawVisible(g, ir);
+                }
                 using (Pen p = new Pen(EdLook.C(Ds.Brushes.Hairline))) g.DrawRectangle(p, ir.X - 1, ir.Y - 1, ir.Width + 1, ir.Height + 1);
             }
 
@@ -369,11 +386,7 @@ namespace Stackshot
             else g.SetClip(ir);
             g.TranslateTransform(off.X - Crop.X * k, off.Y - Crop.Y * k);
             g.ScaleTransform(k, k);
-            foreach (Shape s in shapes)
-            {
-                if (s != editing) Painter.Draw(g, s, Img);
-            }
-            if (cur != null && cur.Kind != Tool.Crop) Painter.Draw(g, cur, Img);
+            Painter.DrawMarks(g, shapes, cur != null && cur.Kind != Tool.Crop ? cur : null, editing, Img, Crop);
             g.Restore(st);
             if (box != null)
             {
@@ -389,6 +402,73 @@ namespace Stackshot
             if (ShowPill && Enabled && e.ClipRectangle.IntersectsWith(PillArea)) DrawPill(g);
         }
 
+        bool LiveOn { get { lock (liveLock) return liveOn && live != null; } }
+
+        // The playback frame over the image rectangle: the cropped part, scaled to the screen (rounded when the backdrop is on).
+        bool DrawLive(Graphics g, Rectangle ir, bool rounded)
+        {
+            lock (liveLock)
+            {
+                if (!liveOn || live == null) return false;
+                float sx = live.Width / (float)Img.Width, sy = live.Height / (float)Img.Height;
+                GraphicsState st = g.Save();
+                if (rounded && radiusScreen >= 0.5f)
+                    using (GraphicsPath clip = Theme.Round(ir, radiusScreen)) g.SetClip(clip, CombineMode.Intersect);
+                g.InterpolationMode = k == 1f ? InterpolationMode.NearestNeighbor : InterpolationMode.Bilinear;
+                g.PixelOffsetMode = PixelOffsetMode.Half;
+                using (ImageAttributes ia = new ImageAttributes())
+                {
+                    ia.SetWrapMode(WrapMode.TileFlipXY);
+                    g.DrawImage(live, ir, Crop.X * sx, Crop.Y * sy, Crop.Width * sx, Crop.Height * sy, GraphicsUnit.Pixel, ia);
+                }
+                g.Restore(st);
+                return true;
+            }
+        }
+
+        // Any thread: copies a BGRA frame of the video (decoded at any size) and repaints the image area.
+        public void ShowPlayFrame(byte[] bgra, int w, int h)
+        {
+            lock (liveLock)
+            {
+                if (live == null || live.Width != w || live.Height != h)
+                {
+                    if (live != null) live.Dispose();
+                    live = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+                }
+                BitmapData d = live.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+                try
+                {
+                    if (d.Stride == w * 4) System.Runtime.InteropServices.Marshal.Copy(bgra, 0, d.Scan0, w * h * 4);
+                    else
+                        for (int y = 0; y < h; y++)
+                            System.Runtime.InteropServices.Marshal.Copy(bgra, y * w * 4, new IntPtr(d.Scan0.ToInt64() + (long)y * d.Stride), w * 4);
+                }
+                finally { live.UnlockBits(d); }
+                liveOn = true;
+            }
+            if (System.Threading.Interlocked.Exchange(ref livePending, 1) != 0 || !IsHandleCreated) return;
+            try { BeginInvoke((Action)LiveRepaint); }
+            catch (InvalidOperationException) { livePending = 0; }
+        }
+
+        void LiveRepaint()
+        {
+            livePending = 0;
+            if (IsDisposed) return;
+            Fit();
+            Rectangle ir = new Rectangle((int)off.X, (int)off.Y, Math.Max(1, (int)Math.Round(Crop.Width * k)), Math.Max(1, (int)Math.Round(Crop.Height * k)));
+            ir.Inflate(2, 2);
+            Invalidate(ir);
+        }
+
+        // Back to the exact image (the frame the editor asked for has arrived, or playback is over).
+        public void EndPlayFrame()
+        {
+            lock (liveLock) liveOn = false;
+            Invalidate();
+        }
+
         protected override void OnEnabledChanged(EventArgs e)
         {
             base.OnEnabledChanged(e);
@@ -399,6 +479,7 @@ namespace Stackshot
         // Soft shadow so the capture (or the backdrop frame) floats on the surround; only the part outside r is seen.
         void FloatShadow(Graphics g, Rectangle r)
         {
+            if (Ds.Brushes.High) return;   // no shadows in a contrast theme
             int sa = Ds.Dark ? 22 : 9;
             // Only the ring around r is filled: blending seven full-size layers under the capture was most of the paint time.
             Region old = g.Clip;
@@ -470,7 +551,7 @@ namespace Stackshot
             Rectangle all = r[4];
             float rad = all.Height / 2f;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            for (int i = 1; i <= 3; i++)
+            for (int i = Ds.Brushes.High ? 4 : 1; i <= 3; i++)
             {
                 RectangleF sr = all;
                 sr.Inflate(i * 1.5f * Ui, i * 1.5f * Ui);
@@ -518,6 +599,7 @@ namespace Stackshot
             switch (s.Kind)
             {
                 case Tool.Arrow:
+                case Tool.Line:
                     return new PointF[] { s.A, s.B, s.Mid }; // the third handle (middle) bends the arrow
                 case Tool.Text:
                 case Tool.Counter:
@@ -541,7 +623,7 @@ namespace Stackshot
         {
             PointF[] hs = Handles(s);
             Point[] r = new Point[hs.Length];
-            if (s.Kind == Tool.Arrow || hs.Length != 4)
+            if (Shape.IsLinear(s.Kind) || hs.Length != 4)
             {
                 for (int i = 0; i < hs.Length; i++) r[i] = ToScreen(hs[i]);
                 return r;
@@ -563,7 +645,7 @@ namespace Stackshot
             using (Pen pen = new Pen(c, Math.Max(1f, 1.25f * Ui)))
             {
                 pen.DashStyle = DashStyle.Dash;
-                if (s.Kind == Tool.Arrow)
+                if (Shape.IsLinear(s.Kind))
                 {
                     if (!strong)
                     {
@@ -588,7 +670,7 @@ namespace Stackshot
                 Point p = handles[i];
                 RectangleF hr = new RectangleF(p.X - hs, p.Y - hs, hs * 2, hs * 2);
                 // The bend handle is filled blue to tell it apart from the endpoints.
-                bool bend = s.Kind == Tool.Arrow && i == 2;
+                bool bend = Shape.IsLinear(s.Kind) && i == 2;
                 using (SolidBrush sh = new SolidBrush(Color.FromArgb(Ds.Dark ? 70 : 45, 0, 0, 0)))
                     g.FillEllipse(sh, RectangleF.Inflate(new RectangleF(hr.X, hr.Y + Math.Max(1f, Ui), hr.Width, hr.Height), 0.5f * Ui, 0.5f * Ui));
                 using (SolidBrush b = new SolidBrush(bend ? accent : Color.White)) g.FillEllipse(b, hr);
@@ -688,11 +770,20 @@ namespace Stackshot
                     return Math.Abs(d - 1) * Math.Min(rx, ry) <= s.Width / 2 + tol;
                 }
                 case Tool.Arrow:
+                case Tool.Line:
                 {
                     PointF[] pts = s.Curve(s.Curved ? 32 : 1);
                     float best = float.MaxValue;
                     for (int i = 1; i < pts.Length; i++) best = Math.Min(best, SegmentDistance(q, pts[i - 1], pts[i]));
                     return best <= s.Width * 1.3f + tol;
+                }
+                case Tool.Spotlight:
+                {
+                    // Only its edge: marks can be drawn inside the lit area without grabbing it.
+                    b = s.Box;
+                    float m = 2 * tol;
+                    RectangleF outer = RectangleF.Inflate(b, m, m), inner = RectangleF.Inflate(b, -m, -m);
+                    return outer.Contains(q) && !(inner.Width > 0 && inner.Height > 0 && inner.Contains(q));
                 }
                 case Tool.Counter:
                 {
@@ -733,7 +824,7 @@ namespace Stackshot
             Shape h = null;
             Cursor c;
             int hh = HandleAt(p);
-            if (hh >= 0) c = selected.Kind == Tool.Arrow ? Cursors.SizeAll : (hh == 0 || hh == 2 ? Cursors.SizeNWSE : Cursors.SizeNESW);
+            if (hh >= 0) c = Shape.IsLinear(selected.Kind) ? Cursors.SizeAll : (hh == 0 || hh == 2 ? Cursors.SizeNWSE : Cursors.SizeNESW);
             else
             {
                 if (Tool != Tool.Crop) h = ShapeAt(p);
@@ -814,6 +905,8 @@ namespace Stackshot
 
         Shape NewShape(Tool t)
         {
+            Action started = DrawStart;
+            if (started != null) started();
             Shape s = new Shape();
             s.Kind = t;
             s.Color = Color;
@@ -899,7 +992,7 @@ namespace Stackshot
                     // The middle handle bends the arrow (snaps back to straight near the line).
                     PointF to = ToImg(e.Location, false);
                     to = new PointF(to.X + grab.X, to.Y + grab.Y);
-                    if (selected.Kind == Tool.Arrow && handle == 2) selected.SetMid(to, 8f * Ui / k);
+                    if (Shape.IsLinear(selected.Kind) && handle == 2) selected.SetMid(to, 8f * Ui / k);
                     else
                     {
                         to = new PointF(Math.Max(Crop.Left, Math.Min(Crop.Right, to.X)), Math.Max(Crop.Top, Math.Min(Crop.Bottom, to.Y)));
@@ -992,6 +1085,7 @@ namespace Stackshot
         void InvalidateMark(Shape s)
         {
             if (s == null) return;
+            if (s.Kind == Tool.Spotlight) { Invalidate(); return; } // the dimming around it covers the whole capture
             Rectangle r = OutlineRect(s);
             int m = Pu(10) + (int)Math.Ceiling(Math.Max(1f, s.Width * 0.45f) * k) + 2;
             r.Inflate(m, m);
@@ -1003,7 +1097,7 @@ namespace Stackshot
             Shape s = cur;
             cur = null;
             float min = 4f / k;
-            bool tiny = s.Kind == Tool.Arrow
+            bool tiny = Shape.IsLinear(s.Kind)
                 ? Math.Abs(s.B.X - s.A.X) < min && Math.Abs(s.B.Y - s.A.Y) < min
                 : s.Box.Width < min || s.Box.Height < min;
             if (tiny) { s.DropCache(); Invalidate(); return; }
@@ -1012,7 +1106,7 @@ namespace Stackshot
             shapes.Add(s);
             Fire(Changed);
             // New arrows stay selected so the bend handle is visible.
-            if (s.Kind == Tool.Arrow) SelectShape(s);
+            if (Shape.IsLinear(s.Kind)) SelectShape(s);
         }
 
         // Non-destructive crop: only the area is stored and Ctrl+Z restores it.
@@ -1045,7 +1139,7 @@ namespace Stackshot
         static PointF Constrain(PointF a, PointF b, Tool t)
         {
             float dx = b.X - a.X, dy = b.Y - a.Y;
-            if (t == Tool.Arrow)
+            if (Shape.IsLinear(t))
             {
                 double ang = Math.Round(Math.Atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
                 double len = Math.Sqrt(dx * dx + dy * dy);
@@ -1057,7 +1151,7 @@ namespace Stackshot
 
         static void ResizeShape(Shape s, Shape o, int h, PointF p, bool square)
         {
-            if (s.Kind == Tool.Arrow)
+            if (Shape.IsLinear(s.Kind))
             {
                 if (h == 0) s.A = square ? Constrain(o.B, p, Tool.Arrow) : p;
                 else s.B = square ? Constrain(o.A, p, Tool.Arrow) : p;
@@ -1186,6 +1280,8 @@ namespace Stackshot
             Commit();
             shapes.Remove(selected);
             selected.DropCache();
+            // Steps stay 1, 2, 3 after one is removed; the same undo step brings back the old numbers.
+            if (selected.Kind == Tool.Counter) Renumber(shapes);
             selected = null;
             hover = null;
             Fire(Changed);
@@ -1222,6 +1318,20 @@ namespace Stackshot
             Invalidate();
         }
 
+        // Counters numbered 1..n in their current order (ties keep the order they were placed in).
+        internal static void Renumber(List<Shape> list)
+        {
+            List<Shape> counters = list.FindAll(delegate(Shape s) { return s.Kind == Tool.Counter; });
+            List<int> order = new List<int>();
+            for (int i = 0; i < counters.Count; i++) order.Add(i);
+            order.Sort(delegate(int a, int b)
+            {
+                int c = counters[a].Number.CompareTo(counters[b].Number);
+                return c != 0 ? c : a.CompareTo(b);
+            });
+            for (int i = 0; i < order.Count; i++) counters[order[i]].Number = i + 1;
+        }
+
         int NextNumber()
         {
             int n = 1;
@@ -1239,7 +1349,8 @@ namespace Stackshot
                 if (box != null) return "Escribe y pulsa Enter \u00B7 May\u00FAs+Enter a\u00F1ade una l\u00EDnea \u00B7 Esc cancela";
                 if (selected != null)
                 {
-                    string how = selected.Kind == Tool.Arrow ? "arr\u00E1strala; tira del punto azul del medio para curvarla"
+                    if (selected.Kind == Tool.Spotlight) return "Foco seleccionado: arr\u00E1stralo por el borde o tira de sus puntos \u00B7 Supr lo quita \u00B7 Ctrl+D a\u00F1ade otro";
+                    string how = Shape.IsLinear(selected.Kind) ? "arr\u00E1strala; tira del punto azul del medio para curvarla"
                                : selected.Kind == Tool.Text ? "arr\u00E1strala; doble clic cambia el texto"
                                : Handles(selected).Length > 0 ? "arr\u00E1strala o tira de sus puntos" : "arr\u00E1strala para moverla";
                     return "Marca seleccionada: " + how + " \u00B7 Supr la borra \u00B7 Ctrl+D la duplica \u00B7 el color y el grosor se le aplican";
@@ -1247,6 +1358,8 @@ namespace Stackshot
                 switch (Tool)
                 {
                     case Tool.Arrow: return "Arrastra para dibujar una flecha \u00B7 May\u00FAs la deja recta \u00B7 despu\u00E9s, tira del punto azul del medio para curvarla";
+                    case Tool.Line: return "Arrastra para dibujar una l\u00EDnea \u00B7 May\u00FAs la deja recta o a 45\u00B0 \u00B7 despu\u00E9s, tira del punto azul del medio para curvarla";
+                    case Tool.Spotlight: return "Arrastra sobre lo importante: el resto se oscurece \u00B7 puedes poner varios focos";
                     case Tool.Rect: return "Arrastra para enmarcar \u00B7 May\u00FAs hace un cuadrado \u00B7 pincha una marca para moverla";
                     case Tool.Ellipse: return "Arrastra para rodear \u00B7 May\u00FAs hace un c\u00EDrculo";
                     case Tool.Text: return "Haz clic donde quieras escribir";
@@ -1268,6 +1381,8 @@ namespace Stackshot
 
         void StartText(PointF at, Shape existing)
         {
+            Action started = DrawStart;
+            if (started != null) started();
             editing = existing;
             boxAt = existing != null ? existing.A : at;
             box = new TextBox();
@@ -1436,7 +1551,7 @@ namespace Stackshot
             {
                 if (!copy) g.DrawImage(Img, new Rectangle(0, 0, b.Width, b.Height), Crop.X, Crop.Y, Crop.Width, Crop.Height, GraphicsUnit.Pixel);
                 g.TranslateTransform(-Crop.X, -Crop.Y);
-                foreach (Shape s in shapes) Painter.Draw(g, s, Img);
+                Painter.DrawMarks(g, shapes, null, null, Img, Crop);
             }
             if (!BgOn || Bg == null) return b;
             using (b) return Backdrop.Compose(b, Bg);
@@ -1469,7 +1584,7 @@ namespace Stackshot
             using (Graphics g = Graphics.FromImage(b))
             {
                 g.TranslateTransform(-area.X, -area.Y);
-                foreach (Shape s in shapes) Painter.Draw(g, s, Img);
+                Painter.DrawMarks(g, shapes, null, null, Img, area);
             }
             return b;
         }
@@ -1485,6 +1600,12 @@ namespace Stackshot
             if (view != null) view.Dispose();
             if (bgView != null) bgView.Dispose();
             if (roundView != null) roundView.Dispose();
+            lock (liveLock)
+            {
+                liveOn = false;
+                if (live != null) live.Dispose();
+                live = null;
+            }
             Img.Dispose();
         }
 
@@ -1495,8 +1616,12 @@ namespace Stackshot
             Bitmap old = Img;
             Img = img;
             old.Dispose();
+            // A pixelated mark caches the mosaic of the picture it was drawn on.
+            foreach (Shape s in shapes) s.DropCache();
+            if (cur != null) cur.DropCache();
             if (view != null) { view.Dispose(); view = null; }
             if (roundView != null) { roundView.Dispose(); roundView = null; roundKey = null; }
+            lock (liveLock) liveOn = false;
             Invalidate();
         }
     }

@@ -21,7 +21,7 @@ namespace Stackshot
         {
             List<int> cuts = PageBreaks(img);
             List<long> offsets = new List<long>();
-            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+            AtomicFile.Write(path, delegate(Stream fs)
             {
                 Action<string> write = delegate(string s) { byte[] b = Encoding.ASCII.GetBytes(s); fs.Write(b, 0, b.Length); };
                 write("%PDF-1.4\n");
@@ -59,7 +59,7 @@ namespace Stackshot
                 foreach (long o in offsets) x.Append(o.ToString("D10")).Append(" 00000 n \n");
                 x.Append("trailer\n<< /Size ").Append(offsets.Count + 1).Append(" /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
                 write(x.ToString());
-            }
+            });
         }
 
         static string Num(float v) { return v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture); }

@@ -9,7 +9,7 @@ using System.Windows.Forms;
 namespace Stackshot
 {
     // Owner-drawn. Changed fires on every change (live preview); Committed fires on mouse release (persist settings).
-    public class BgPanel : Control
+    public partial class BgPanel : Control
     {
         enum Kind { Swatch, Slider, Shadow, Ratio }
 
@@ -156,6 +156,7 @@ namespace Stackshot
         // White round knob with a soft shadow, as on macOS sliders and switches.
         void Knob(Graphics g, RectangleF k)
         {
+            if (Ds.Brushes.High) { EdHc.Knob(g, k); return; }
             using (SolidBrush sh = new SolidBrush(Color.FromArgb(Ds.Dark ? 60 : 26, 0, 0, 0)))
             {
                 g.FillEllipse(sh, RectangleF.Inflate(new RectangleF(k.X, k.Y + 1.2f * S, k.Width, k.Height), 1.2f * S, 1.2f * S));
@@ -195,7 +196,7 @@ namespace Stackshot
                             old.Dispose();
                         }
                     }
-                    EdLook.Hairline(g, r, rad, EdLook.C(Ds.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.1, 0, 0, 0)));
+                    EdLook.Hairline(g, r, rad, EdLook.C(pal.High ? pal.Hairline : Ds.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.1, 0, 0, 0)));
                     if (sel || isHot)
                     {
                         float pw = Math.Max(1.5f, 2f * S), gap = 2f * S;
@@ -216,6 +217,7 @@ namespace Stackshot
                     Rectangle t = it.Track;
                     using (GraphicsPath p = Theme.Round(t, t.Height / 2f))
                     using (SolidBrush b = new SolidBrush(EdLook.C(Ds.Dark ? pal.ControlHover : pal.ControlHover))) g.FillPath(b, p);
+                    if (pal.High) EdHc.Track(g, t, t.Height / 2f);
                     float fx = t.X + t.Width * value / 100f;
                     if (fx > t.X + 1)
                     {
@@ -233,6 +235,7 @@ namespace Stackshot
                     bool v = Bg.BgShadow;
                     Color tc = v ? EdLook.C(On ? pal.Accent : pal.Label3) : EdLook.C(isHot ? pal.Hairline : pal.ControlHover);
                     EdLook.Fill(g, track, track.Height / 2f, tc);
+                    if (pal.High && !v) EdHc.Track(g, track, track.Height / 2f);
                     float d = track.Height - 2 * 2f * S, x = v ? track.Right - 2f * S - d : track.X + 2f * S;
                     Knob(g, new RectangleF(x, track.Y + 2f * S, d, d));
                     return;
@@ -244,17 +247,20 @@ namespace Stackshot
                         TextKit.Draw(g, "Proporci\u00F3n", Small(), new Point(it.R.X + P(4), it.R.Y - P(16)), label, TextFormatFlags.NoPadding);
                         Rectangle all = new Rectangle(it.R.X, it.R.Y, it.R.Width * Ratios.Length, it.R.Height);
                         EdLook.Fill(g, all, P(7), EdLook.C(pal.Control));
+                        if (pal.High) EdHc.Track(g, all, P(7));
                     }
                     bool sel = Bg.BgRatio == Ratios[it.Index];
                     RectangleF r = RectangleF.Inflate(it.R, -2f * S, -2f * S);
-                    if (sel)
+                    Color ink = EdLook.C(sel && On ? pal.Label : pal.Label2);
+                    if (pal.High) ink = EdHc.Segment(g, r, P(5), sel, isHot, On);
+                    else if (sel)
                     {
                         // Raised segment: white on light, lighter gray on dark.
                         if (!Ds.Dark) EdLook.Fill(g, new RectangleF(r.X, r.Y + 0.75f * S, r.Width, r.Height), P(5), Color.FromArgb(22, 0, 0, 0));
                         EdLook.Fill(g, r, P(5), Ds.Dark ? Color.FromArgb(On ? 92 : 64, 255, 255, 255) : Color.FromArgb(On ? 255 : 200, 255, 255, 255));
                     }
                     else if (isHot) EdLook.Fill(g, r, P(5), EdLook.C(pal.Control));
-                    TextKit.Draw(g, it.Label, sel ? Semibold() : Regular(), it.R, EdLook.C(sel && On ? pal.Label : pal.Label2),
+                    TextKit.Draw(g, it.Label, sel ? Semibold() : Regular(), it.R, ink,
                                  TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
                     return;
                 }

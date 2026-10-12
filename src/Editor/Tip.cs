@@ -153,8 +153,8 @@ namespace Stackshot
                 shadow = Ink.Shadow(w, h, sb, R, P(7), Ds.Argb(0.32, 0, 0, 0));
                 shadowFor = new Size(w, h);
             }
-            dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
-            Ink.Round(dc, Ds.Argb(0.94, 30, 30, 32), b, R);
+            if (!Ds.Brushes.High) dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
+            Ink.Round(dc, Palette.HudBack(Ds.Argb(0.94, 30, 30, 32)), b, R);
             Ink.Hairline(dc, Palette.HudLine, b, R);
             double x = b.X + P(9);
             dc.DrawText(nameText, new W.Point(Math.Round(x), Math.Round(b.Y + (b.Height - nameText.Height) / 2)));

@@ -17,7 +17,7 @@ namespace Stackshot
         public static Color C(M.Color c) { return Ds.Gdi(c); }
 
         // Area around the capture, so it floats on a calm, slightly darker surface.
-        public static Color Surround { get { return Ds.Dark ? Color.FromArgb(22, 22, 24) : Color.FromArgb(233, 233, 235); } }
+        public static Color Surround { get { return Ds.Brushes.High ? C(Ds.Brushes.Window) : Ds.Dark ? Color.FromArgb(22, 22, 24) : Color.FromArgb(233, 233, 235); } }
 
         public static string Text
         {
@@ -61,14 +61,46 @@ namespace Stackshot
         public static void Icon(Graphics g, string name, RectangleF r, int px, M.Color color, float stroke)
         {
             if (name == null || px <= 0) return;
+            if (!Glyph.Has(name)) { EditorGlyph(g, name, r, px, C(color), stroke); return; }
             Bitmap b = Ink.GlyphBitmap(name, px, color, stroke);
             g.DrawImage(b, new Rectangle((int)Math.Round(r.X + (r.Width - px) / 2f), (int)Math.Round(r.Y + (r.Height - px) / 2f), px, px));
+        }
+
+        // Icons only the editor uses, drawn on the same 24x24 grid as the shared line icons.
+        static void EditorGlyph(Graphics g, string name, RectangleF r, int px, Color color, float stroke)
+        {
+            float k = px / 24f, x0 = (float)Math.Round(r.X + (r.Width - px) / 2f), y0 = (float)Math.Round(r.Y + (r.Height - px) / 2f);
+            GraphicsState st = g.Save();
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TranslateTransform(x0, y0);
+            g.ScaleTransform(k, k);
+            using (Pen pen = new Pen(color, stroke / k))
+            {
+                pen.StartCap = pen.EndCap = LineCap.Round;
+                pen.LineJoin = LineJoin.Round;
+                if (name == "line") g.DrawLine(pen, 5.5f, 18.5f, 18.5f, 5.5f);
+                else if (name == "spotlight")
+                {
+                    // A frame dimmed around a lit circle.
+                    using (GraphicsPath p = Theme.Round(new RectangleF(3.5f, 5f, 17f, 14f), 2.5f)) g.DrawPath(pen, p);
+                    using (SolidBrush dim = new SolidBrush(Color.FromArgb(color.A * 2 / 5, color)))
+                    using (GraphicsPath outside = new GraphicsPath(FillMode.Alternate))
+                    {
+                        // A path, not a Region: GDI+ never antialiases FillRegion.
+                        outside.AddRectangle(new RectangleF(3.5f, 5f, 17f, 14f));
+                        outside.AddEllipse(8f, 7.5f, 8f, 9f);
+                        g.FillPath(dim, outside);
+                    }
+                    g.DrawEllipse(pen, 8f, 7.5f, 8f, 9f);
+                }
+            }
+            g.Restore(st);
         }
 
         public static M.Color White { get { return M.Color.FromRgb(255, 255, 255); } }
     }
 
-    public class Bar : Control
+    public partial class Bar : Control
     {
         public enum Kind { Tool, Swatch, Weight, Button, Gap, Caption }
 
@@ -337,11 +369,11 @@ namespace Stackshot
                     M.Color fg = pal.Label;
                     if (hotT > 0 && Enabled)
                     {
-                        if (close)
+                        if (close || pal.High)
                         {
-                            Color red = EdLook.Mix(Color.FromArgb(196, 43, 28), Color.FromArgb(200, 196, 43, 28), downT);
+                            Color red = pal.High ? EdLook.C(pal.Accent) : EdLook.Mix(Color.FromArgb(196, 43, 28), Color.FromArgb(200, 196, 43, 28), downT);
                             using (SolidBrush b = new SolidBrush(Alpha(red, hotT))) g.FillRectangle(b, r);
-                            if (hotT > 0.5f) fg = EdLook.White;
+                            if (hotT > 0.5f) fg = pal.OnAccent;
                         }
                         else using (SolidBrush b = new SolidBrush(Wash(pal, it))) g.FillRectangle(b, r);
                     }
@@ -351,6 +383,7 @@ namespace Stackshot
                 }
                 case Kind.Tool:
                 {
+                    if (pal.High) { EdLook.Icon(g, it.Glyph, r, P(18), EdHc.Item(g, r, P(7), it.On, hotT, true), stroke); return; }
                     if (it.On) EdLook.Fill(g, r, P(7), EdLook.Mix(EdLook.C(Ds.WithAlpha(pal.Accent, 0.16)), EdLook.C(Ds.WithAlpha(pal.Accent, 0.26)), downT));
                     else if (hotT > 0) EdLook.Fill(g, r, P(7), Wash(pal, it));
                     EdLook.Icon(g, it.Glyph, r, P(18), it.On ? pal.Accent : pal.Label, stroke);
@@ -374,9 +407,9 @@ namespace Stackshot
                 }
                 case Kind.Weight:
                 {
-                    if (it.On) EdLook.Fill(g, r, P(7), EdLook.C(Ds.WithAlpha(pal.Accent, 0.16)));
-                    else if (hotT > 0 || downT > 0) EdLook.Fill(g, r, P(7), Wash(pal, it));
-                    Color ink = EdLook.C(it.On ? pal.Accent : pal.Label);
+                    if (it.On && !pal.High) EdLook.Fill(g, r, P(7), EdLook.C(Ds.WithAlpha(pal.Accent, 0.16)));
+                    else if ((hotT > 0 || downT > 0) && !pal.High) EdLook.Fill(g, r, P(7), Wash(pal, it));
+                    Color ink = EdLook.C(pal.High ? EdHc.Item(g, r, P(7), it.On, hotT, true) : it.On ? pal.Accent : pal.Label);
                     if (it.Sized)
                     {
                         // Text and numbers: the weight sets the size, shown as a small, medium and large letter.
@@ -396,9 +429,10 @@ namespace Stackshot
                     if (IconOnly(it) && !it.Accent)
                     {
                         // Icon-only: a quiet button like the tools; the confirmation shows as a check.
-                        if (it.On && it.Enabled) { EdLook.Fill(g, r, P(7), EdLook.C(Ds.WithAlpha(pal.Accent, 0.16))); fg = pal.Accent; }
+                        if (pal.High) fg = EdHc.Item(g, r, P(7), it.On || it.ShowAlt, hotT, it.Enabled);
+                        else if (it.On && it.Enabled) { EdLook.Fill(g, r, P(7), EdLook.C(Ds.WithAlpha(pal.Accent, 0.16))); fg = pal.Accent; }
                         else if (it.Enabled && (hotT > 0 || downT > 0)) EdLook.Fill(g, r, P(7), Wash(pal, it));
-                        if (it.ShowAlt) { fg = pal.Accent; EdLook.Icon(g, "check", r, P(18), fg, 1.8f * S); }
+                        if (it.ShowAlt) { if (!pal.High) fg = pal.Accent; EdLook.Icon(g, "check", r, P(18), fg, 1.8f * S); }
                         else EdLook.Icon(g, it.Glyph, r, P(18), fg, stroke);
                         return;
                     }
@@ -408,16 +442,19 @@ namespace Stackshot
                         // The primary button on a very narrow screen: the accent fill with its icon only.
                         Color ac = EdLook.C(pal.Accent);
                         if (!it.Enabled) ac = Color.FromArgb(120, ac);
-                        else ac = EdLook.Mix(EdLook.Mix(ac, Color.White, 0.1f * hotT), Color.Black, 0.15f * downT);
-                        EdLook.Fill(g, RectangleF.Inflate(r, -P(1), -P(2)), rad, ac);
-                        EdLook.Icon(g, it.ShowAlt ? "check" : it.Glyph, r, P(17), EdLook.White, 1.6f * S);
+                        else ac = EdLook.Mix(ac, Color.Black, 0.08f * hotT + 0.15f * downT);   // never lighter: the white icon keeps its contrast
+                        M.Color ic = pal.OnAccent;
+                        if (pal.High) ic = EdHc.Item(g, RectangleF.Inflate(r, -P(1), -P(2)), rad, true, hotT, it.Enabled);
+                        else EdLook.Fill(g, RectangleF.Inflate(r, -P(1), -P(2)), rad, ac);
+                        EdLook.Icon(g, it.ShowAlt ? "check" : it.Glyph, r, P(17), ic, 1.6f * S);
                         return;
                     }
-                    if (it.Accent)
+                    if (pal.High) fg = (it.Accent || it.On) && it.Enabled ? EdHc.Item(g, r, rad, true, hotT, true) : EdHc.Button(g, r, rad, hotT, it.Enabled);
+                    else if (it.Accent)
                     {
                         Color a = EdLook.C(pal.Accent);
                         if (!it.Enabled) a = Color.FromArgb(120, a);
-                        else a = EdLook.Mix(EdLook.Mix(a, Color.White, 0.1f * hotT), Color.Black, 0.15f * downT);
+                        else a = EdLook.Mix(a, Color.Black, 0.08f * hotT + 0.15f * downT);   // never lighter: the white label keeps 4.5:1
                         EdLook.Fill(g, r, rad, a);
                         fg = EdLook.White;
                     }
@@ -425,7 +462,7 @@ namespace Stackshot
                     {
                         // Toggled on (backdrop).
                         EdLook.Fill(g, r, rad, EdLook.C(Ds.WithAlpha(pal.Accent, 0.16 + 0.06 * hotT + 0.06 * downT)));
-                        fg = pal.Accent;
+                        fg = pal.TintInk;
                     }
                     else
                     {

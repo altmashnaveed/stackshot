@@ -8,7 +8,7 @@ using System.Drawing.Text;
 
 namespace Stackshot
 {
-    public enum Tool { Arrow, Rect, Ellipse, Text, Counter, Highlight, Pixelate, Crop, Redact }
+    public enum Tool { Arrow, Rect, Ellipse, Text, Counter, Highlight, Pixelate, Crop, Redact, Line, Spotlight }
 
     // An annotation, in original image coordinates.
     public class Shape
@@ -31,7 +31,7 @@ namespace Stackshot
             get
             {
                 RectangleF b = RectangleF.FromLTRB(Math.Min(A.X, B.X), Math.Min(A.Y, B.Y), Math.Max(A.X, B.X), Math.Max(A.Y, B.Y));
-                if (Kind != Tool.Arrow || !Curved) return b;
+                if (!IsLinear(Kind) || !Curved) return b;
                 foreach (PointF p in Curve(24)) b = RectangleF.Union(b, new RectangleF(p.X, p.Y, 0.01f, 0.01f));
                 return b;
             }
@@ -77,6 +77,9 @@ namespace Stackshot
             }
             return pts;
         }
+
+        // Marks defined by two ends (and an optional bend) rather than a box.
+        public static bool IsLinear(Tool t) { return t == Tool.Arrow || t == Tool.Line; }
 
         public Shape Clone()
         {
@@ -133,6 +136,7 @@ namespace Stackshot
                     float r = CounterRadius(s);
                     return new RectangleF(s.A.X - r, s.A.Y - r, 2 * r, 2 * r);
                 case Tool.Arrow:
+                case Tool.Line:
                     b = s.Box;
                     b.Inflate(s.Width * 2.5f, s.Width * 2.5f);
                     return b;
@@ -260,6 +264,21 @@ namespace Stackshot
                         g.FillPath(b, p);
                     }
                     break;
+                case Tool.Line:
+                    using (Pen ps = new Pen(shadow, s.Width))
+                    using (Pen pen = new Pen(s.Color, s.Width))
+                    {
+                        ps.StartCap = ps.EndCap = pen.StartCap = pen.EndCap = LineCap.Round;
+                        ps.LineJoin = pen.LineJoin = LineJoin.Round;
+                        PointF[] pts = s.Curve(s.Curved ? 48 : 1);
+                        g.TranslateTransform(sh, sh);
+                        g.DrawLines(ps, pts);
+                        g.TranslateTransform(-sh, -sh);
+                        g.DrawLines(pen, pts);
+                    }
+                    break;
+                case Tool.Spotlight:
+                    break; // drawn for all spotlights at once by DrawSpotlights, under the other marks
                 case Tool.Highlight:
                     using (SolidBrush b = new SolidBrush(Color.FromArgb(95, s.Color))) g.FillRectangle(b, r);
                     break;
@@ -325,6 +344,92 @@ namespace Stackshot
                     break;
             }
             g.Restore(state);
+        }
+
+        // Every mark in order over the spotlight dimming ('extra' last, 'skip' left out). A pixelated area is copied from
+        // the undimmed capture, so the dimming goes over it again (drawing pixelated areas first instead would hide them
+        // under marks placed before them).
+        public static void DrawMarks(Graphics g, IList<Shape> shapes, Shape extra, Shape skip, Bitmap img, RectangleF area)
+        {
+            DrawSpotlights(g, shapes, extra, area);
+            for (int i = 0; i <= shapes.Count; i++)
+            {
+                Shape s = i < shapes.Count ? shapes[i] : extra;
+                if (s == null || s == skip) continue;
+                Draw(g, s, img);
+                if (s.Kind != Tool.Pixelate) continue;
+                GraphicsState state = g.Save();
+                g.SetClip(Rectangle.Round(s.Box), CombineMode.Intersect);
+                DrawSpotlights(g, shapes, extra, area);
+                g.Restore(state);
+            }
+        }
+
+        const int DimAlpha = 150;
+
+        // Dims everything in area except the spotlights. The lit holes are drawn antialiased into a mask at device
+        // resolution (FillRegion is never antialiased) and the mask, alpha inverted, is the dimming: several holes stay
+        // lit together and overlaps don't darken twice. 'extra' is one being drawn (not in the list yet), or null.
+        public static void DrawSpotlights(Graphics g, IList<Shape> shapes, Shape extra, RectangleF area)
+        {
+            List<GraphicsPath> holes = new List<GraphicsPath>();
+            try
+            {
+                for (int i = 0; i <= shapes.Count; i++)
+                {
+                    Shape s = i < shapes.Count ? shapes[i] : extra;
+                    if (s == null || s.Kind != Tool.Spotlight) continue;
+                    RectangleF r = s.Box;
+                    if (r.Width < 1 || r.Height < 1) continue;
+                    holes.Add(Theme.Round(r, Math.Min(Math.Min(r.Width, r.Height) / 2, 6 + s.Width * 2)));
+                }
+                if (holes.Count == 0) return;
+                RectangleF vis = RectangleF.Inflate(area, 2, 2);
+                vis.Intersect(g.VisibleClipBounds);
+                if (vis.Width <= 0 || vis.Height <= 0) return;
+                PointF[] pts = { vis.Location, new PointF(vis.Right, vis.Top), new PointF(vis.Left, vis.Bottom), new PointF(vis.Right, vis.Bottom) };
+                using (Matrix m = g.Transform) m.TransformPoints(pts);
+                float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+                foreach (PointF p in pts)
+                {
+                    x0 = Math.Min(x0, p.X); y0 = Math.Min(y0, p.Y);
+                    x1 = Math.Max(x1, p.X); y1 = Math.Max(y1, p.Y);
+                }
+                Rectangle dev = Rectangle.FromLTRB((int)Math.Floor(x0), (int)Math.Floor(y0), (int)Math.Ceiling(x1), (int)Math.Ceiling(y1));
+                if (dev.Width < 1 || dev.Height < 1) return;
+                using (Bitmap mask = new Bitmap(dev.Width, dev.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                {
+                    using (Graphics mg = Graphics.FromImage(mask))
+                    {
+                        using (Matrix m = g.Transform)
+                        {
+                            m.Translate(-dev.X, -dev.Y, MatrixOrder.Append);
+                            mg.Transform = m;
+                        }
+                        mg.SmoothingMode = SmoothingMode.AntiAlias;
+                        foreach (GraphicsPath p in holes) mg.FillPath(Brushes.White, p);
+                    }
+                    float a = DimAlpha / 255f;
+                    System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][] {
+                        new float[] { 0, 0, 0, 0, 0 },
+                        new float[] { 0, 0, 0, 0, 0 },
+                        new float[] { 0, 0, 0, 0, 0 },
+                        new float[] { 0, 0, 0, -a, 0 },
+                        new float[] { 0, 0, 0, a, 1 } });
+                    GraphicsState state = g.Save();
+                    using (System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes())
+                    {
+                        ia.SetColorMatrix(cm);
+                        g.ResetTransform();
+                        g.CompositingMode = CompositingMode.SourceOver;
+                        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
+                        g.DrawImage(mask, dev, 0, 0, dev.Width, dev.Height, GraphicsUnit.Pixel, ia);
+                    }
+                    g.Restore(state);
+                }
+            }
+            finally { foreach (GraphicsPath p in holes) p.Dispose(); }
         }
 
         public static Bitmap Pixelate(Bitmap src, Rectangle r)
