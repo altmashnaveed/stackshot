@@ -1,3 +1,4 @@
 bin/
 *.tmp.exe
 docs/studio-errores.txt
+tests/*/results/
