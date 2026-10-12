@@ -250,9 +250,9 @@ namespace Stackshot
                 shadow = Ink.Shadow(w, h, sb, R, F(18), Ds.Argb(pal.Dark ? 0.55 : 0.2, 0, 0, 0));
                 shadowFor = new Size(w, h);
             }
-            dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
-            Ink.Round(dc, pal.Dark ? Ds.Rgb(42, 42, 45) : Ds.Rgb(251, 251, 252), b, R);
-            Ink.Hairline(dc, pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.10, 0, 0, 0), b, R);
+            if (!pal.High) dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
+            Ink.Round(dc, pal.High ? pal.Window : pal.Dark ? Ds.Rgb(42, 42, 45) : Ds.Rgb(251, 251, 252), b, R);
+            Ink.Hairline(dc, pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.10, 0, 0, 0), b, R);
             dc.PushTransform(new M.TranslateTransform(Pad, Pad));
             MI.BitmapSource icon = Logo();
             if (icon != null) dc.DrawImage(icon, new W.Rect(F(Inset), F(Inset), F(IconSize), F(IconSize)));
@@ -282,9 +282,11 @@ namespace Stackshot
             W.Rect rr = new W.Rect(r.X, r.Y, r.Width, r.Height);
             double rad = F(7);
             M.Color fg;
-            if (main)
+            if (pal.High) fg = HcPaint.Button(dc, rr, rad, main ? ButtonKind.Primary : ButtonKind.Secondary, true, over ? 1 : 0, 0, 1);
+            else if (main)
             {
-                M.Color top = over ? Ds.Rgb(92, 170, 255) : Ds.Rgb(64, 150, 255), bottom = over ? Ds.Rgb(28, 120, 245) : pal.Accent;
+                // Never lighter than the accent, so the white label keeps 4.5:1.
+                M.Color top = pal.Accent, bottom = over ? pal.Accent : pal.AccentDeep;
                 W.Rect sh = rr;
                 sh.Offset(0, F(1.2));
                 dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(0.24, 4, 24, 85)), null, sh, rad, rad);

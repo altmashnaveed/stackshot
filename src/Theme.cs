@@ -12,12 +12,12 @@ namespace Stackshot
     {
         static Color Pick(int dr, int dg, int db, int lr, int lg, int lb) { return Ds.Dark ? Color.FromArgb(dr, dg, db) : Color.FromArgb(lr, lg, lb); }
 
-        public static Color Bg { get { return Pick(30, 30, 30, 246, 246, 246); } }
+        public static Color Bg { get { return Ds.Brushes.High ? Ds.Gdi(Ds.Brushes.Window) : Pick(30, 30, 30, 246, 246, 246); } }
         public static Color Bg2 { get { return Pick(22, 22, 24, 236, 236, 238); } }
         public static Color Dark { get { return Pick(37, 37, 39, 240, 240, 242); } }
         public static Color Button { get { return Pick(58, 58, 62, 228, 228, 232); } }
         public static Color ButtonHover { get { return Pick(72, 72, 77, 216, 216, 221); } }
-        public static Color Border { get { return Pick(58, 58, 62, 212, 212, 216); } }
+        public static Color Border { get { return Ds.Brushes.High ? Ds.Gdi(Ds.Brushes.Hairline) : Pick(58, 58, 62, 212, 212, 216); } }
         public static Color Fg { get { return Pick(245, 245, 247, 29, 29, 31); } }
         public static Color Fg2 { get { return Pick(210, 210, 215, 72, 72, 78); } }
         public static Color Muted { get { return Pick(152, 152, 159, 128, 128, 134); } }

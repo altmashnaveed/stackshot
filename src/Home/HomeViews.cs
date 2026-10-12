@@ -258,7 +258,7 @@ namespace Stackshot
             // The capture bar: a capsule with a blue pill that follows the mouse.
             Grid barHolder = new Grid { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 28, 0, 0) };
             HomeModeBar bar = new HomeModeBar(this);
-            barHolder.Children.Add(new SoftShadow(bar.Height / 2, 22, 8, pal.Dark ? 0.45 : 0.10));
+            if (!pal.High) barHolder.Children.Add(new SoftShadow(bar.Height / 2, 22, 8, pal.Dark ? 0.45 : 0.10));
             barHolder.Children.Add(bar);
             // Never clipped: when the window is narrower than the bar, it scales down to fit.
             Viewbox fit = new Viewbox { Child = barHolder, StretchDirection = StretchDirection.DownOnly, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 28, 0, 0) };
@@ -302,7 +302,7 @@ namespace Stackshot
             for (int i = 0; i < row.Children.Count; i++) HomeEnter(row.Children[i], 450 + i * 50, 0, 12, 0.97);
         }
 
-        static readonly string[] ActionShortest = { "\u00C1rea", "Pantalla", "Ventana", "Desplazar", "V\u00EDdeo", "GIF", "Markdown" };
+        static readonly string[] ActionShortest = { "\u00C1rea", "Repetir", "Pantalla", "Ventana", "Desplazar", "Texto", "V\u00EDdeo", "GIF", "Markdown" };
 
         // The capture modes in one capsule. A blue pill rests on the main mode and glides to the one under the mouse; the
         // labels turn white exactly where it passes. It only draws while the pill or its entrance moves.
@@ -332,7 +332,7 @@ namespace Stackshot
             public HomeModeBar(HomeWindow home)
             {
                 Palette pal = Ds.Brushes;
-                count = Settings.Actions.Length;
+                count = HomeModeIndex.Length;
                 icons = new string[count];
                 xs = new double[count];
                 ws = new double[count];
@@ -342,39 +342,44 @@ namespace Stackshot
                 double x = Pad;
                 for (int i = 0; i < count; i++)
                 {
-                    string action = Settings.Actions[i];
+                    int a = HomeModeIndex[i];
+                    string action = Settings.Actions[a];
                     bool stop = action == "video" && Recorder.Recording;
-                    string text = stop ? "Detener" : ActionShortest[i];
-                    icons[i] = stop ? "stop" : ActionIcons[i];
+                    string text = stop ? "Detener" : ActionShortest[a];
+                    icons[i] = stop ? "stop" : ActionIcons[a];
                     ink[i] = Ink.Text(text, Ds.Medium, 13, pal.Label);
-                    white[i] = Ink.Text(text, Ds.Medium, 13, Colors.White);
+                    white[i] = Ink.Text(text, Ds.Medium, 13, pal.OnAccent);
                     ws[i] = Math.Ceiling(Icon + Gap + ink[i].WidthIncludingTrailingWhitespace + 2 * Inset);
                     xs[i] = x;
                     x += ws[i];
                     string combo = home.settings.HotkeysFor(action);
-                    tips[i] = (stop ? "Detener la grabaci\u00F3n" : ActionNames[i]) + (Hotkeys.Split(combo).Count > 0 ? "  (" + Hotkeys.Display(combo) + ")" : "");
+                    tips[i] = (stop ? "Detener la grabaci\u00F3n" : ActionNames[a]) + (Hotkeys.Split(combo).Count > 0 ? "  (" + Hotkeys.Display(combo) + ")" : "");
                 }
                 Width = x + Pad;
                 Height = Tall;
-                int video = Array.IndexOf(Settings.Actions, "video");
+                int video = Array.IndexOf(HomeModeIndex, Array.IndexOf(Settings.Actions, "video"));
                 rest = Recorder.Recording && video >= 0 ? video : 0;
                 target = rest;
                 SetValue(PillXProperty, xs[rest]);
                 SetValue(PillWProperty, ws[rest]);
-                fill = new LinearGradientBrush(Ds.Rgb(64, 150, 255), pal.Accent, 90);
+                fill = new LinearGradientBrush(pal.Accent, pal.AccentDeep, 90);   // white labels keep 4.5:1 on all of it
                 fill.Freeze();
                 glow = new Pen(new LinearGradientBrush(Ds.Argb(0.42, 255, 255, 255), Ds.Argb(0, 255, 255, 255), 90), 1);
                 glow.Freeze();
 
                 // Transparent cells on top take the mouse; the drawing below follows them.
-                StackPanel cells = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(Pad, Pad, 0, Pad) };
+                StackPanel cells = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(Pad, Pad, 0, Pad), Interactive = false, Role = Access.List, Label = "Modos de captura" };
                 for (int i = 0; i < count; i++)
                 {
                     int k = i;
-                    string action = Settings.Actions[i];
-                    Border c = new Border { Width = ws[i], Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = tips[i] };
+                    string action = Settings.Actions[HomeModeIndex[i]];
+                    Border c = new TapBorder { Width = ws[i], Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = tips[i],
+                                               Role = Access.ListItem, Radius = (Tall - 2 * Pad) / 2, Do = delegate { home.RunAction(action); } };
                     ToolTipService.SetInitialShowDelay(c, 900);
                     c.MouseEnter += delegate { Go(k); };
+                    // From the keyboard the pill follows the focus, as it follows the mouse.
+                    c.GotKeyboardFocus += delegate { Go(k); };
+                    c.LostKeyboardFocus += delegate { if (!c.IsMouseOver) Go(rest); };
                     c.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e)
                     {
                         c.CaptureMouse();
@@ -455,7 +460,7 @@ namespace Stackshot
                 double w = ActualWidth, h = ActualHeight;
                 if (w < 1 || h < 1) return;
                 Rect all = new Rect(0, 0, w, h);
-                dc.DrawRoundedRectangle(Ds.Brush(pal.Dark ? Ds.Rgb(42, 42, 45) : Colors.White), null, all, h / 2, h / 2);
+                dc.DrawRoundedRectangle(Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(42, 42, 45) : Colors.White), null, all, h / 2, h / 2);
                 Ink.Hairline(dc, pal.Hairline, all, h / 2);
 
                 double t = (double)GetValue(IntroProperty) * IntroMs, push = (double)GetValue(PushProperty);
@@ -474,10 +479,10 @@ namespace Stackshot
                     dc.PushOpacity(show);
                     Rect sh = pill;
                     sh.Offset(0, 1.5);
-                    dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(pal.Dark ? 0.40 : 0.22, 4, 40, 110)), null, sh, r, r);
+                    if (!pal.High) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(pal.Dark ? 0.40 : 0.22, 4, 40, 110)), null, sh, r, r);
                     dc.DrawRoundedRectangle(fill, null, pill, r, r);
                     if (push > 0) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(0.12 * push, 0, 0, 0)), null, pill, r, r);
-                    dc.DrawRoundedRectangle(null, glow, Ink.Inset(pill, 0.5), r - 0.5, r - 0.5);
+                    if (!pal.High) dc.DrawRoundedRectangle(null, glow, Ink.Inset(pill, 0.5), r - 0.5, r - 0.5);
                     dc.Pop();
                 }
 
@@ -487,7 +492,7 @@ namespace Stackshot
                 dc.Pop();
                 dc.PushClip(inside);
                 if (show < 1) { dc.PushOpacity(1 - show); Items(dc, ink, pal.Label, t); dc.Pop(); }
-                if (show > 0) { dc.PushOpacity(show); Items(dc, white, Colors.White, t); dc.Pop(); }
+                if (show > 0) { dc.PushOpacity(show); Items(dc, white, pal.OnAccent, t); dc.Pop(); }
                 dc.Pop();
             }
 
@@ -513,6 +518,7 @@ namespace Stackshot
         // Click with a small press-in; act runs on release inside.
         static void Press(FrameworkElement e, Action act)
         {
+            Access.Clickable(e, act);
             ScaleTransform s = new ScaleTransform(1, 1);
             e.RenderTransformOrigin = new Point(0.5, 0.5);
             e.RenderTransform = s;
@@ -543,7 +549,7 @@ namespace Stackshot
 
         FrameworkElement Link(string text, Action act)
         {
-            TextBlock t = Label(text, Ds.Regular, 12.5, Ds.Brushes.Accent);
+            TextBlock t = LinkLabel(text, Ds.Regular, 12.5, Ds.Brushes.Link, act);
             t.HorizontalAlignment = HorizontalAlignment.Right;
             t.Cursor = Cursors.Hand;
             t.MouseEnter += delegate { t.TextDecorations = TextDecorations.Underline; };
@@ -580,7 +586,7 @@ namespace Stackshot
         {
             Palette pal = Ds.Brushes;
             Grid slot = new Grid();
-            Border chip = new Border
+            Border chip = new TapBorder
             {
                 CornerRadius = new CornerRadius(6), Padding = new Thickness(4, 0, 4, 1), Background = Brushes.Transparent, Cursor = Cursors.Hand,
                 ToolTip = "Cambiar el nombre", HorizontalAlignment = centred ? HorizontalAlignment.Center : HorizontalAlignment.Left
@@ -616,6 +622,7 @@ namespace Stackshot
                 Template = HomeFieldTemplate()
             };
             slot.Children.Add(box);
+            System.Windows.Automation.AutomationProperties.SetName(box, "Nombre de la mascota");
 
             bool editing = false, pressed = false;
             Action outside = null;
@@ -626,8 +633,10 @@ namespace Stackshot
                 editing = false;
                 if (homeNameOutside == outside) homeNameOutside = null;
                 string typed = box.Text;
+                bool typing = box.IsKeyboardFocusWithin;
                 box.Visibility = Visibility.Collapsed;
                 chip.Visibility = Visibility.Visible;
+                if (typing && Access.KeyboardCue) chip.Focus();   // the keyboard stays on the name, not lost with the field
                 if (keep) HomeRename(typed, name);
                 if (homeRefreshLater && homeNameOutside == null)
                     Dispatcher.BeginInvoke(DispatcherPriority.Background, (Action)delegate { if (homeRefreshLater && IsVisible && page == "home") HomeRefresh(); });
@@ -635,11 +644,17 @@ namespace Stackshot
             chip.MouseEnter += delegate { chip.Background = Ds.Brush(pal.Control); HomeGlide(pen, OpacityProperty, 1, 140, null); };
             chip.MouseLeave += delegate { chip.Background = Brushes.Transparent; HomeGlide(pen, OpacityProperty, 0, 220, null); pressed = false; };
             chip.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { e.Handled = true; pressed = true; };
+            Action begin = null;
             chip.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs e)
             {
                 e.Handled = true;
                 if (!pressed || editing) return;
                 pressed = false;
+                begin();
+            };
+            Access.Clickable(chip, delegate { if (!editing) begin(); });
+            begin = delegate
+            {
                 editing = true;
                 box.Text = settings.MascotName;
                 double most = room > 0 ? room : Math.Max(80, slot.ActualWidth);
@@ -729,7 +744,8 @@ namespace Stackshot
             Palette pal = Ds.Brushes;
             string path = f.FullName;
             bool media = ShotStack.IsMediaFile(path);
-            Grid g = new Grid { Height = h, Cursor = Cursors.Hand, ToolTip = f.Name + "\n" + f.LastWriteTime.ToString("g") };
+            Grid g = new TapGrid { Height = h, Cursor = Cursors.Hand, ToolTip = f.Name + "\n" + f.LastWriteTime.ToString("g"),
+                                   Label = f.Name, Help = f.LastWriteTime.ToString("g"), Radius = radius, Do = delegate { OpenCapture(path); } };
             Border img = new Border { CornerRadius = new CornerRadius(radius), Background = Ds.Brush(pal.Thumb), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1) };
             g.Children.Add(img);
             double k = 1.25;
@@ -742,9 +758,9 @@ namespace Stackshot
             });
             if (media)
             {
-                Border tag = new Border { CornerRadius = new CornerRadius(8), Background = Ds.Brush(Ds.Argb(0.55, 0, 0, 0)), Padding = new Thickness(6, 1, 6, 2),
+                Border tag = new Border { CornerRadius = new CornerRadius(8), Background = Ds.Brush(Palette.HudBack(Ds.Argb(0.55, 0, 0, 0))), Padding = new Thickness(6, 1, 6, 2),
                                           HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(6), IsHitTestVisible = false };
-                tag.Child = Label(f.Extension.TrimStart('.').ToUpperInvariant(), Ds.Semibold, 10, Colors.White);
+                tag.Child = Label(f.Extension.TrimStart('.').ToUpperInvariant(), Ds.Semibold, 10, Palette.HudLabel);
                 g.Children.Add(tag);
             }
             Border over = new Border { CornerRadius = new CornerRadius(radius), Background = Ds.Brush(Ds.Argb(0.42, 0, 0, 0)), Opacity = 0 };
@@ -755,6 +771,7 @@ namespace Stackshot
             g.Children.Add(over);
             g.MouseEnter += delegate { HomeGlide(over, OpacityProperty, 1, 140, null); };
             g.MouseLeave += delegate { HomeGlide(over, OpacityProperty, 0, 200, null); };
+            g.IsKeyboardFocusWithinChanged += delegate { HomeGlide(over, OpacityProperty, g.IsKeyboardFocusWithin || g.IsMouseOver ? 1 : 0, 160, null); };
             g.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs e) { if (!e.Handled) OpenCapture(path); };
             homeShownFiles.Add(path);
             if (homeShownBefore != null && !homeShownBefore.Contains(path)) homeFresh.Add(g);
@@ -763,14 +780,19 @@ namespace Stackshot
 
         FrameworkElement PillAction(string text, Action<TextBlock> act)
         {
-            Border b = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(10, 3, 10, 4), Margin = new Thickness(3, 0, 3, 0), Cursor = Cursors.Hand };
-            SolidColorBrush bg = new SolidColorBrush(Ds.Argb(0.22, 255, 255, 255));
+            Border b = new TapBorder { Label = text, CornerRadius = new CornerRadius(12), Padding = new Thickness(10, 3, 10, 4), Margin = new Thickness(3, 0, 3, 0), Cursor = Cursors.Hand };
+            // Over the capture: translucent white, or opaque window colours with a border in a contrast theme.
+            Color rest = Palette.HudBack(Ds.Argb(0.22, 255, 255, 255)), over = Ds.Brushes.High ? Palette.HudHover : Ds.Argb(0.36, 255, 255, 255);
+            SolidColorBrush bg = new SolidColorBrush(rest);
             b.Background = bg;
-            TextBlock label = Label(text, Ds.Semibold, 11.5, Colors.White);
+            b.BorderBrush = Ds.Brush(Palette.HudLine);
+            b.BorderThickness = HcPaint.Edge;
+            TextBlock label = Label(text, Ds.Semibold, 11.5, Palette.HudLabel);
             b.Child = label;
-            b.MouseEnter += delegate { bg.Color = Ds.Argb(0.36, 255, 255, 255); };
-            b.MouseLeave += delegate { bg.Color = Ds.Argb(0.22, 255, 255, 255); };
+            b.MouseEnter += delegate { bg.Color = over; };
+            b.MouseLeave += delegate { bg.Color = rest; };
             b.MouseLeftButtonUp += delegate(object o, MouseButtonEventArgs e) { e.Handled = true; act(label); };
+            Access.Clickable(b, delegate { act(label); });
             return b;
         }
 
@@ -799,10 +821,10 @@ namespace Stackshot
             HomeTween(s, ScaleTransform.ScaleYProperty, 0.88, 1, 40, 520, new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 });
         }
 
+        // Images open in the editor; videos in Stackshot's player (Cine masters always) or, when that is off, in Windows' player.
         void OpenCapture(string path)
         {
-            if (ShotStack.IsMediaFile(path)) { try { Process.Start(path); } catch (Exception ex) { ShotStack.Log("Abrir: " + ex.Message); } return; }
-            owner.OpenEditor(path);
+            owner.OpenMedia(path);
         }
 
         // Videos and GIFs go as files; an image is decoded on the thread pool (a big PNG would stall the window) and put
@@ -813,9 +835,7 @@ namespace Stackshot
             {
                 try
                 {
-                    StringCollection sc = new StringCollection();
-                    sc.Add(path);
-                    WF.Clipboard.SetFileDropList(sc);
+                    ShotStack.CopyFiles(path);
                     Copied(button);
                 }
                 catch (Exception ex) { ShotStack.Log("Copiar: " + ex.Message); }
@@ -890,11 +910,11 @@ namespace Stackshot
                 UniformGrid acts = new UniformGrid { Columns = 3 };
                 acts.Children.Add(WidgetButton("Copiar", true, delegate(TextBlock l) { CopyFile(f.FullName, l); }));
                 acts.Children.Add(WidgetButton(ShotStack.IsMediaFile(f.FullName) ? "Abrir" : "Editar", false, delegate(TextBlock l) { OpenCapture(f.FullName); }));
-                bool kept = SameFolder(f.DirectoryName, settings.SaveFolder);
+                bool kept = SaveFolders.Inside(settings, f.DirectoryName);
                 acts.Children.Add(WidgetButton(kept ? "Mostrar" : "Guardar", false, delegate(TextBlock l)
                 {
                     if (kept) { try { Process.Start(Native.Explorer, "/select,\"" + f.FullName + "\""); } catch { } }
-                    else HomeKeep(f.FullName);
+                    else HomeKeep(f.FullName, l);
                 }));
                 Grid.SetRow(acts, 2);
                 lg.Children.Add(acts);
@@ -912,13 +932,15 @@ namespace Stackshot
 
             // Captures today, with the last five days.
             int[] days = Recents.PerDay(settings, 5);
-            Grid today = HomeTile(grid, recent ? 2 : 0, 0, recent ? 1 : 2, recent ? 1 : 2, new LinearGradientBrush(Ds.Rgb(60, 139, 255), Ds.Rgb(94, 92, 230), 60), false);
+            // White text keeps 4.5:1 on the whole gradient; a contrast theme gets a plain tile.
+            Grid today = HomeTile(grid, recent ? 2 : 0, 0, recent ? 1 : 2, recent ? 1 : 2, pal.High ? null : new LinearGradientBrush(pal.Accent, Ds.Rgb(94, 92, 230), 60), false);
+            Color onTile = pal.High ? pal.Label : Colors.White;
             StackPanel tp = new StackPanel();
-            tp.Children.Add(Label("Capturas hoy", Ds.Semibold, 12, Ds.Argb(0.85, 255, 255, 255)));
+            tp.Children.Add(Label("Capturas hoy", Ds.Semibold, 12, onTile));
             StackPanel num = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
-            num.Children.Add(Label(days[4].ToString(), Ds.Title, 40, Colors.White));
+            num.Children.Add(Label(days[4].ToString(), Ds.Title, 40, onTile));
             int diff = days[4] - days[3];
-            if (diff != 0) num.Children.Add(Label((diff > 0 ? "+" : "") + diff + " vs ayer", Ds.Regular, 12, Ds.Argb(0.8, 255, 255, 255), new Thickness(8, 18, 0, 0)));
+            if (diff != 0) num.Children.Add(Label((diff > 0 ? "+" : "") + diff + " vs ayer", Ds.Regular, 12, onTile, new Thickness(8, 18, 0, 0)));
             tp.Children.Add(num);
             today.Children.Add(tp);
             int max = 1;
@@ -929,7 +951,7 @@ namespace Stackshot
                 if (i > 0) bars.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
                 bars.ColumnDefinitions.Add(new ColumnDefinition());
                 Border bb = new Border { CornerRadius = new CornerRadius(2), VerticalAlignment = VerticalAlignment.Bottom, Height = Math.Max(3, (recent ? 24.0 : 60.0) * days[i] / max),
-                                         Background = Ds.Brush(i == 4 ? Colors.White : Ds.Argb(0.4, 255, 255, 255)) };
+                                         Background = Ds.Brush(i == 4 ? onTile : pal.High ? pal.Label3 : Ds.Argb(0.4, 255, 255, 255)) };
                 Grid.SetColumn(bb, i * 2);
                 bars.Children.Add(bb);
                 // The bars grow from the floor as the widget comes in.
@@ -970,6 +992,7 @@ namespace Stackshot
                 mw.ToolTip = "P\u00EDdele algo a " + settings.MascotName;
                 // A click that only closes the name field (to confirm it) stays here.
                 mw.MouseLeftButtonUp += delegate { if (!host.IsMouseOver && !homeNameDismissed) CommandMenu(mw); };
+                Access.Clickable(mw, delegate { CommandMenu(mw); });
             }
             else
             {
@@ -981,17 +1004,19 @@ namespace Stackshot
                 TextBlock t = Label("Mascota escondida", Ds.Medium, 12.5, pal.Label, new Thickness(0, 8, 0, 0));
                 t.HorizontalAlignment = HorizontalAlignment.Center;
                 off.Children.Add(t);
-                TextBlock go = Label("Mostrar en Mascota", Ds.Regular, 11, pal.Accent, new Thickness(0, 2, 0, 0));
+                TextBlock go = Policy.MascotForced ? Label(Policy.Managed, Ds.Regular, 11, pal.Label2, new Thickness(0, 2, 0, 0))
+                                                   : Label("Mostrar en Mascota", Ds.Regular, 11, pal.Link, new Thickness(0, 2, 0, 0));
                 go.HorizontalAlignment = HorizontalAlignment.Center;
                 off.Children.Add(go);
                 mw.Children.Add(off);
                 mw.MouseLeftButtonUp += delegate { SetPage("mascot", true); };
+                Access.Clickable(mw, delegate { SetPage("mascot", true); });
             }
 
             // Every capture mode.
             Grid quick = HomeTile(grid, 2, 1, 2, 1, null, false);
             UniformGrid qg = new UniformGrid { Columns = 4, Rows = 2 };
-            for (int i = 0; i < Settings.Actions.Length; i++) qg.Children.Add(QuickMode(i));
+            foreach (int i in HomeModeIndex) qg.Children.Add(QuickMode(i));
             quick.Children.Add(qg);
 
             // Recording.
@@ -1004,7 +1029,7 @@ namespace Stackshot
             Grid dotBox = new Grid { Width = 30, Height = 30 };
             dotBox.Children.Add(new System.Windows.Shapes.Ellipse { Fill = Ds.Brush(pal.Red), Stroke = Ds.Brush(Ds.WithAlpha(pal.Red, 0.25)), StrokeThickness = 5 });
             // While it records, the button is the way to stop: a stop square sits in the dot.
-            if (recording) dotBox.Children.Add(new Border { Width = 9, Height = 9, CornerRadius = new CornerRadius(2), Background = Brushes.White });
+            if (recording) dotBox.Children.Add(new Border { Width = 9, Height = 9, CornerRadius = new CornerRadius(2), Background = Ds.Brush(pal.High ? pal.Window : Colors.White) });
             rr.Children.Add(dotBox);
             StackPanel rq = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             rq.Children.Add(Label(recording ? "Detener" : qn[Math.Max(0, Math.Min(3, settings.VideoQuality))], Ds.Semibold, 13, pal.Label));
@@ -1048,22 +1073,26 @@ namespace Stackshot
             Add(grid);
         }
 
-        // Keeps a temporary capture in the save folder; the listing is read again so the tile offers Mostrar at once.
-        void HomeKeep(string path)
+        // Keeps a temporary capture in the save folder in the background (the window stays responsive with a large
+        // video); once saved the listing is read again so the tile offers Mostrar.
+        void HomeKeep(string path, TextBlock button)
         {
-            try { owner.Keep(path); }
-            catch (Exception ex) { ShotStack.Log("Guardar: " + ex.Message); return; }
-            Recents.Forget();
-            Rebuild();
+            if (owner.IsSaving(path)) return;
+            if (button != null) button.Text = "Guardando\u2026";
+            owner.KeepAsync(path, delegate(string dest, string error)
+            {
+                if (error != null)
+                {
+                    if (button != null) button.Text = "Guardar";
+                    owner.Notify("No se pudo guardar", error);
+                    return;
+                }
+                Recents.Forget();
+                if (!IsDisposed) Rebuild();
+            });
         }
 
-        // The same folder however it is written (trailing slash, short 8.3 names, relative parts).
-        static bool SameFolder(string a, string b)
-        {
-            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
-            try { return string.Equals(Path.GetFullPath(a).TrimEnd('\\'), Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase); }
-            catch (Exception) { return string.Equals(a.TrimEnd('\\'), b.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase); }
-        }
+        static bool SameFolder(string a, string b) { return ShotStack.SameFolder(a, b); }
 
         // A rounded widget cell placed on the grid (columns and rows count the gap tracks).
         Grid Widget(Grid grid, int col, int row, int cols, int rows, Brush fill)
@@ -1080,16 +1109,16 @@ namespace Stackshot
             Grid.SetRow(holder, row * 2);
             Grid.SetColumnSpan(holder, cols * 2 - 1);
             Grid.SetRowSpan(holder, rows * 2 - 1);
-            if (!pal.Dark) holder.Children.Add(new SoftShadow(20, 10, 2, 0.06));
+            if (!pal.Dark && !pal.High) holder.Children.Add(new SoftShadow(20, 10, 2, 0.06));
             Border card = new Border
             {
                 CornerRadius = new CornerRadius(20),
-                Background = fill ?? Ds.Brush(pal.Dark ? Ds.Rgb(42, 42, 45) : Colors.White),
+                Background = fill ?? Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(42, 42, 45) : Colors.White),
                 BorderBrush = Ds.Brush(fill != null ? Colors.Transparent : pal.Hairline),
                 BorderThickness = new Thickness(1)
             };
             holder.Children.Add(card);
-            Grid inside = new Grid { Margin = new Thickness(14) };
+            Grid inside = new TapGrid { Margin = new Thickness(14), Interactive = false, Role = Access.Group, Radius = 20 };
             card.Child = inside;
             grid.Children.Add(holder);
             return inside;
@@ -1113,7 +1142,7 @@ namespace Stackshot
                 {
                     if (lift == null)
                     {
-                        lift = new SoftShadow(20, 18, 7, Ds.Brushes.Dark ? 0.55 : 0.11) { Opacity = 0 };
+                        lift = new SoftShadow(20, 18, 7, Ds.Brushes.High ? 0 : Ds.Brushes.Dark ? 0.55 : 0.11) { Opacity = 0 };
                         card.Children.Insert(0, lift);
                     }
                     HomeGlide(up, TranslateTransform.YProperty, -2, 220, null);
@@ -1132,11 +1161,11 @@ namespace Stackshot
         FrameworkElement WidgetButton(string text, bool primary, Action<TextBlock> act)
         {
             Palette pal = Ds.Brushes;
-            Border b = new Border { CornerRadius = new CornerRadius(8), Height = 30, Margin = new Thickness(3, 0, 3, 0), Cursor = Cursors.Hand };
-            Color rest = primary ? pal.Accent : pal.Control, over = primary ? Ds.Rgb(48, 150, 255) : pal.ControlHover;
+            Border b = new TapBorder { Label = text, CornerRadius = new CornerRadius(8), Height = 30, Margin = new Thickness(3, 0, 3, 0), Cursor = Cursors.Hand, BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = HcPaint.Edge };
+            Color rest = primary ? pal.Accent : pal.Control, over = primary ? pal.AccentDeep : pal.ControlHover;
             SolidColorBrush bg = new SolidColorBrush(rest);
             b.Background = bg;
-            TextBlock t = Label(text, Ds.Semibold, 12, primary ? Colors.White : pal.Label);
+            TextBlock t = Label(text, Ds.Semibold, 12, primary ? pal.OnAccent : pal.Label);
             t.HorizontalAlignment = HorizontalAlignment.Center;
             b.Child = t;
             b.MouseEnter += delegate { bg.Color = over; };
@@ -1151,7 +1180,7 @@ namespace Stackshot
             string action = Settings.Actions[i];
             // While a recording runs, the video mode stops it (as in the other views).
             bool stop = action == "video" && Recorder.Recording;
-            Border b = new Border { CornerRadius = new CornerRadius(12), Margin = new Thickness(3), Cursor = Cursors.Hand, ToolTip = stop ? "Detener la grabaci\u00F3n" : ActionNames[i] };
+            Border b = new TapBorder { CornerRadius = new CornerRadius(12), Margin = new Thickness(3), Cursor = Cursors.Hand, BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = HcPaint.Edge, ToolTip = stop ? "Detener la grabaci\u00F3n" : ActionNames[i] + (Hotkeys.Split(settings.HotkeysFor(action)).Count > 0 ? "  (" + Hotkeys.Display(settings.HotkeysFor(action)) + ")" : "") };
             SolidColorBrush bg = new SolidColorBrush(pal.Control);
             b.Background = bg;
             StackPanel p = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
@@ -1184,7 +1213,7 @@ namespace Stackshot
             // The stage light and the mascot's glow live on a layer behind everything, taller than the stage: it runs on
             // under the recent captures and fades into the window instead of stopping at an edge.
             Grid back = new Grid { Height = SceneBack, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 0, -SceneBack), IsHitTestVisible = false };
-            Color top = pal.Dark ? Ds.Rgb(40, 38, 46) : Colors.White;
+            Color top = pal.High ? pal.Window : pal.Dark ? Ds.Rgb(40, 38, 46) : Colors.White;
             LinearGradientBrush wash = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
             wash.GradientStops.Add(new GradientStop(top, 0));
             wash.GradientStops.Add(new GradientStop(Ds.WithAlpha(top, 0.85), 0.3));
@@ -1214,7 +1243,7 @@ namespace Stackshot
                 // Cached as a bitmap: the fade and growth then act on a smooth texture (a faint gradient re-rasterized at low
                 // opacity shows rings) and the mascot redrawing in front no longer re-rasterizes it.
                 halo.CacheMode = new BitmapCache();
-                back.Children.Add(halo);
+                if (!pal.High) back.Children.Add(halo);
                 HomeEnter(halo, 0, 0, 0, 0.9, 900);
 
                 // A pool of light on the floor where it stands.
@@ -1228,7 +1257,7 @@ namespace Stackshot
                     Width = 300, Height = 64, Background = pool, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(cx - 150, feet - 30, 0, 0)
                 };
-                back.Children.Add(floor);
+                if (!pal.High) back.Children.Add(floor);
                 HomeEnter(floor, 120, 0, 0, 1, 700);
 
                 MascotHost host = new MascotHost(mascot, box, false);
@@ -1255,11 +1284,12 @@ namespace Stackshot
             HomeEnter(q, 90, 18, 0, 1);
             // The blue row is the main mode, or stopping while a recording runs (as the minimal bar does).
             int lead = Recorder.Recording ? Math.Max(0, Array.IndexOf(Settings.Actions, "video")) : 0;
-            for (int i = 0; i < Settings.Actions.Length; i++)
+            for (int j = 0; j < HomeModeIndex.Length; j++)
             {
+                int i = HomeModeIndex[j];
                 FrameworkElement mr = ModeRow(i, i == lead);
                 right.Children.Add(mr);
-                HomeEnter(mr, 150 + i * 45, 22, 0, 1);
+                HomeEnter(mr, 150 + j * 45, 22, 0, 1);
             }
             stage.Children.Add(right);
 
@@ -1286,11 +1316,11 @@ namespace Stackshot
             Palette pal = Ds.Brushes;
             string action = Settings.Actions[i];
             bool stop = action == "video" && Recorder.Recording;
-            Border b = new Border { Height = 34, CornerRadius = new CornerRadius(9), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 0, 3) };
-            Color rest = primary ? pal.Accent : Colors.Transparent, over = primary ? Ds.Rgb(48, 150, 255) : pal.ControlHover;
+            Border b = new TapBorder { Label = stop ? "Detener grabaci\u00F3n" : ActionShort[i], Height = 34, CornerRadius = new CornerRadius(9), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 0, 3) };
+            Color rest = primary ? pal.Accent : Colors.Transparent, over = primary ? pal.AccentDeep : pal.ControlHover;
             SolidColorBrush bg = new SolidColorBrush(rest);
             b.Background = bg;
-            Color ink = primary ? Colors.White : pal.Label;
+            Color ink = primary ? pal.OnAccent : pal.Label;
             Grid g = new Grid { Margin = new Thickness(10, 0, 10, 0) };
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
@@ -1300,7 +1330,7 @@ namespace Stackshot
             Grid.SetColumn(t, 1);
             g.Children.Add(t);
             string combo = settings.HotkeysFor(action);
-            TextBlock k = Label(Hotkeys.Split(combo).Count > 0 ? Hotkeys.Display(combo).Replace(" + ", "+") : "", Ds.Regular, 11.5, primary ? Ds.Argb(0.78, 255, 255, 255) : pal.Label3);
+            TextBlock k = Label(Hotkeys.Split(combo).Count > 0 ? Hotkeys.Display(combo).Replace(" + ", "+") : "", Ds.Regular, 11.5, primary ? pal.OnAccent : pal.Label3);
             Grid.SetColumn(k, 2);
             g.Children.Add(k);
             b.Child = g;

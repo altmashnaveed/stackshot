@@ -10,11 +10,13 @@ namespace Stackshot
     {
         static readonly string LocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
-        public static readonly string DataDir = Path.Combine(LocalAppData, "Stackshot");
+        // The recording tests (tests\cine\e2e) run the real recorder against a private folder; FFmpeg stays shared.
+        public static readonly string DataDir = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("STACKSHOT_TEST_DATA"))
+            ? Path.Combine(LocalAppData, "Stackshot") : Environment.GetEnvironmentVariable("STACKSHOT_TEST_DATA");
         public static readonly string TempDir = Path.Combine(DataDir, "temp");
         public static readonly string FilePath = Path.Combine(DataDir, "settings.ini");
         public static readonly string LogFile = Path.Combine(DataDir, "stackshot.log");
-        public static readonly string FfmpegDir = Path.Combine(DataDir, "ffmpeg");
+        public static readonly string FfmpegDir = Path.Combine(LocalAppData, "Stackshot", "ffmpeg");
         public static readonly string InstallDir = Path.Combine(LocalAppData, "Programs", "Stackshot");
         public static readonly string InstalledExe = Path.Combine(InstallDir, "Stackshot.exe");
 
@@ -31,10 +33,12 @@ namespace Stackshot
         public string HotScroll = "Ctrl+Alt+PrintScreen";
         public string HotVideo = "Shift+PrintScreen";
         public string HotGif = "Ctrl+Shift+PrintScreen";
+        public string HotText = "Ctrl+Shift+Alt+T";
         public string HotMarkdown = "Ctrl+Shift+Alt+M";
+        public string HotRepeat = "";       // capture the last area again; no shortcut unless the user gives it one
         public int VideoFps = 30;
         public int GifFps = 15;
-        public int VideoQuality = 0;    // 0 standard, 1 maximum (60 fps, lossless capture, slow encode), 2 high (60 fps, crisp), 3 cinema (maximum at twice the resolution)
+        public int VideoQuality = 0;    // 0 standard, 1 maximum (60 fps, lossless capture, slow encode), 2 high (60 fps, crisp), 3 cinema (lossless RGB H.264 + PCM in MKV, verified)
         public bool RecordSystemAudio;  // what the computer plays
         public bool RecordMic;
         public string MicDevice = "";   // Core Audio endpoint id; empty = Windows' default microphone
@@ -88,12 +92,38 @@ namespace Stackshot
         public string LastUpdateCheck = "";
         public bool AutoUpdate = false;     // download, verify and install new versions on its own
         public string UpdateNotified = "";  // release tag already announced (each version is announced once)
+        // Recording package: Cine options.
+        public int CineFps = 60;            // 60 or 30, for any area
+        public int CinePeakMemory = 0;      // memory for motion peaks: 0 normal (min(2 GiB, free/4)), 1 high (min(8 GiB, free/2))
+        public bool RecordSetup = true;     // after choosing the area: show the take's options and a Grabar button
+        public int RecordCountdown = 3;     // seconds counted down before recording starts: 0, 3, 5 or 10
+        // Player and export.
+        public bool PlayerOpensVideos = true; // videos open in Stackshot's player (off: Windows' default app; Cine masters always in Stackshot)
+        public int PlayerScaling = 0;       // picture scaling: 0 best (Lanczos), 1 fast (bilinear)
+        public bool PlayerFill;             // enlarge the picture to fill the window; off: never above its real size (sharpest)
+        public bool XmlWatch;               // open the XML files that appear in XmlWatchFolder (Egara's C:\egarsat\temp when empty)
+        public string XmlWatchFolder = "";
+        public int PlayerVolume = 100;      // 0..100
+        public bool PlayerLoop = false;
+        public int ExportQuality = 0;       // MP4 made by the editor: 0 maximum, 1 high, 2 light, 3 up to 16 MB, 4 up to 25 MB
+        // Captures.
+        public const string DefaultNameTemplate = "{tipo} {fecha} {hora}";
+        public bool CaptureCursor;          // draw the mouse pointer into screenshots (where it was when the capture started)
+        public string FileNameTemplate = DefaultNameTemplate; // file name of each capture ({tipo} {fecha} {hora} {app} {ventana} ...)
+        public int SaveSubfolder = 0;       // kept captures go to: 0 the save folder, 1 a folder per month (2026-10), 2 per year and month (2026\10)
+        public bool SensitiveAuto;          // cover the personal data (DNI, IBAN, emails...) that OCR finds in every new capture
+        public bool HistorySearch = true;   // read the text of every capture, locally, so the history can be searched by it
+        // Recording overlays.
+        public bool RecordClicks;           // draw a ring where the mouse is clicked
+        public bool RecordKeys;             // show the keys pressed (shortcuts) at the bottom of the video
 
         // Every save keeps the file it replaces as settings.ini.bak, used when the current one can't be read or came out
         // empty or zeroed (a power cut right after a save), so settings are never silently reset to the defaults.
         public static Settings Load()
         {
-            return Load(FilePath);
+            Settings s = Load(FilePath);
+            Policy.Apply(s); // what IT forces; the file keeps the user's own choices
+            return s;
         }
 
         // Reads a settings file; a missing, unreadable or meaningless one falls back to its backup, then to the defaults.
@@ -122,7 +152,7 @@ namespace Stackshot
         {
             for (int attempt = 0; ; attempt++)
             {
-                try { return File.Exists(path) ? File.ReadAllLines(path, Encoding.UTF8) : null; }
+                try { return File.Exists(path) ? Lines(File.ReadAllBytes(path)) : null; }
                 catch (Exception ex)
                 {
                     if (attempt >= 4 || !(ex is IOException || ex is UnauthorizedAccessException))
@@ -133,6 +163,21 @@ namespace Stackshot
                     System.Threading.Thread.Sleep(40);
                 }
             }
+        }
+
+        // UTF-8 (with or without BOM) or UTF-16 with BOM; a file that is not valid UTF-8 is taken as Windows-1252 (ANSI).
+        static string[] Lines(byte[] b)
+        {
+            string text;
+            if (b.Length >= 2 && ((b[0] == 0xFF && b[1] == 0xFE) || (b[0] == 0xFE && b[1] == 0xFF)))
+                using (StreamReader r = new StreamReader(new MemoryStream(b), Encoding.UTF8, true)) text = r.ReadToEnd();
+            else
+            {
+                try { text = new UTF8Encoding(false, true).GetString(b); }
+                catch (DecoderFallbackException) { text = Encoding.GetEncoding(1252).GetString(b); }
+            }
+            if (text.Length > 0 && text[0] == (char)0xFEFF) text = text.Substring(1);
+            return text.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
         }
 
         // Applies key = value lines; returns how many known keys were found.
@@ -171,7 +216,7 @@ namespace Stackshot
                         case "profile": s.Profile = Int(v, s.Profile, 0, 2); break;
                         case "showintro": s.ShowIntro = Bool(v, s.ShowIntro); break;
                         case "mascot": s.MascotOn = Bool(v, s.MascotOn); break;
-                        case "mascotname": if (v.Length > 0) s.MascotName = v.Length > 16 ? v.Substring(0, 16) : v; break;
+                        case "mascotname": if (v.Length > 0) s.MascotName = Cut(v, 16); break;
                         case "mascotcolor": s.MascotColor = Int(v, s.MascotColor, 0, 99); break;
                         case "mascottalks": s.MascotTalks = Bool(v, s.MascotTalks); break;
                         case "mascotkind": s.MascotKind = Int(v, s.MascotKind, 0, 99); break;
@@ -200,6 +245,8 @@ namespace Stackshot
                         case "video": s.HotVideo = v; break;
                         case "gif": s.HotGif = v; break;
                         case "markdown": s.HotMarkdown = v; break;
+                        case "text": s.HotText = v; break;
+                        case "repeat": s.HotRepeat = v; break;
                         case "videofps": s.VideoFps = Int(v, s.VideoFps, 5, 60); break;
                         case "giffps": s.GifFps = Int(v, s.GifFps, 5, 30); break;
                         case "videoquality": s.VideoQuality = Int(v, s.VideoQuality, 0, 3); break;
@@ -217,12 +264,40 @@ namespace Stackshot
                         case "bgradius": s.BgRadius = Int(v, s.BgRadius, 0, 100); break;
                         case "bgshadow": s.BgShadow = Bool(v, s.BgShadow); break;
                         case "bgratio": if (v == "auto" || v == "16:9" || v == "4:3" || v == "1:1") s.BgRatio = v; break;
+                        // Recording package.
+                        case "cinefps": s.CineFps = Int(v, s.CineFps, 1, 1000) >= 45 ? 60 : 30; break;
+                        case "cinepeakmemory": s.CinePeakMemory = Int(v, s.CinePeakMemory, 0, 1); break;
+                        case "recordsetup": s.RecordSetup = Bool(v, s.RecordSetup); break;
+                        case "recordcountdown": s.RecordCountdown = Countdown(Int(v, s.RecordCountdown, 0, 60)); break;
+                        case "playeropensvideos": s.PlayerOpensVideos = Bool(v, s.PlayerOpensVideos); break;
+                        case "playerscaling": s.PlayerScaling = Int(v, s.PlayerScaling, 0, 1); break;
+                        case "playerfill": s.PlayerFill = Bool(v, s.PlayerFill); break;
+                        case "xmlwatch": s.XmlWatch = Bool(v, s.XmlWatch); break;
+                        case "xmlwatchfolder": v = Unquote(v); s.XmlWatchFolder = v.Length > 0 ? Folder(v, "") : ""; break;
+                        case "capturecursor": s.CaptureCursor = Bool(v, s.CaptureCursor); break;
+                        case "filenametemplate": v = Unquote(v).Trim(); if (v.Length > 0) s.FileNameTemplate = v; break;
+                        case "savesubfolder": s.SaveSubfolder = Int(v, s.SaveSubfolder, 0, 2); break;
+                        case "sensitiveauto": s.SensitiveAuto = Bool(v, s.SensitiveAuto); break;
+                        case "historysearch": s.HistorySearch = Bool(v, s.HistorySearch); break;
+                        case "recordclicks": s.RecordClicks = Bool(v, s.RecordClicks); break;
+                        case "recordkeys": s.RecordKeys = Bool(v, s.RecordKeys); break;
+                        case "playervolume": s.PlayerVolume = Int(v, s.PlayerVolume, 0, 100); break;
+                        case "playerloop": s.PlayerLoop = Bool(v, s.PlayerLoop); break;
+                        case "exportquality": s.ExportQuality = Int(v, s.ExportQuality, 0, 4); break;
                         default: known--; break;
                     }
                 }
                 catch (Exception ex) { ShotStack.Log("Ajustes (" + k + "): " + ex.Message); }
             }
             return known;
+        }
+
+        // At most n UTF-16 units, never ending in half of a surrogate pair.
+        static string Cut(string v, int n)
+        {
+            if (v.Length <= n) return v;
+            if (char.IsHighSurrogate(v[n - 1])) n--;
+            return v.Substring(0, n);
         }
 
         // A path pasted with Explorer's "Copy as path" comes in quotes.
@@ -232,7 +307,7 @@ namespace Stackshot
         }
 
         // A save folder must be a full path that Windows accepts; anything else keeps the default.
-        static string Folder(string v, string fallback)
+        internal static string Folder(string v, string fallback)
         {
             try
             {
@@ -249,13 +324,14 @@ namespace Stackshot
 
         static readonly object saveLock = new object();
         static string badFile;  // a settings file that was unreadable when loaded (its backup was used instead)
+        internal Policy.Kept PolicyKept; // the user's own values of what IT policies force (see Policy)
 
         public void Save()
         {
             if (ReadOnly) return;
             try
             {
-                lock (saveLock) Write(FilePath);
+                lock (saveLock) Policy.ForFile(this).Write(FilePath);
             }
             catch (Exception ex) { ShotStack.Log("Guardar ajustes: " + ex.Message); }
         }
@@ -277,7 +353,9 @@ namespace Stackshot
             b.AppendLine("Scroll = " + OneLine(HotScroll));
             b.AppendLine("Video = " + OneLine(HotVideo));
             b.AppendLine("Gif = " + OneLine(HotGif));
+            b.AppendLine("Text = " + OneLine(HotText));
             b.AppendLine("Markdown = " + OneLine(HotMarkdown));
+            b.AppendLine("Repeat = " + OneLine(HotRepeat));
             b.AppendLine("VideoFps = " + VideoFps);
             b.AppendLine("GifFps = " + GifFps);
             b.AppendLine("Profile = " + Profile);
@@ -334,6 +412,32 @@ namespace Stackshot
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("AutoUpdate = " + (AutoUpdate ? "1" : "0"));
             b.AppendLine("UpdateNotified = " + OneLine(UpdateNotified));
+            b.AppendLine("# Cine: fotogramas por segundo (60 o 30) y memoria para picos de movimiento (0 normal, 1 alta)");
+            b.AppendLine("CineFps = " + (CineFps == 30 ? 30 : 60));
+            b.AppendLine("CinePeakMemory = " + CinePeakMemory);
+            b.AppendLine("# Antes de grabar: opciones de la toma (1/0) y cuenta atr\u00E1s en segundos (0, 3, 5 o 10)");
+            b.AppendLine("RecordSetup = " + (RecordSetup ? "1" : "0"));
+            b.AppendLine("RecordCountdown = " + Countdown(RecordCountdown));
+            b.AppendLine("# Reproductor: abrir los v\u00EDdeos en Stackshot (1/0), escalado (0 mejor, 1 r\u00E1pido), ampliar para llenar la ventana (1/0; 0 = tama\u00F1o real), volumen 0-100, repetir (1/0)");
+            b.AppendLine("PlayerOpensVideos = " + (PlayerOpensVideos ? "1" : "0"));
+            b.AppendLine("PlayerScaling = " + PlayerScaling);
+            b.AppendLine("PlayerFill = " + (PlayerFill ? "1" : "0"));
+            b.AppendLine("PlayerVolume = " + PlayerVolume);
+            b.AppendLine("PlayerLoop = " + (PlayerLoop ? "1" : "0"));
+            b.AppendLine("# MP4 del editor: 0 m\u00E1xima, 1 alta, 2 ligera, 3 hasta 16 MB (WhatsApp), 4 hasta 25 MB (correo)");
+            b.AppendLine("ExportQuality = " + ExportQuality);
+            b.AppendLine("# Visor XML: abrir solos los XML nuevos de una carpeta (1/0) y esa carpeta (vac\u00EDa = la de Egara, C:\\egarsat\\temp)");
+            b.AppendLine("XmlWatch = " + (XmlWatch ? "1" : "0"));
+            b.AppendLine("XmlWatchFolder = " + OneLine(XmlWatchFolder));
+            b.AppendLine("# Capturas: puntero (1/0), nombre ({tipo} {fecha} {hora} {app} {ventana}), subcarpetas al guardar (0 no, 1 por mes, 2 por a\u00F1o y mes), tapar datos sensibles (1/0), buscar por el texto (1/0)");
+            b.AppendLine("CaptureCursor = " + (CaptureCursor ? "1" : "0"));
+            b.AppendLine("FileNameTemplate = " + OneLine(FileNameTemplate));
+            b.AppendLine("SaveSubfolder = " + SaveSubfolder);
+            b.AppendLine("SensitiveAuto = " + (SensitiveAuto ? "1" : "0"));
+            b.AppendLine("HistorySearch = " + (HistorySearch ? "1" : "0"));
+            b.AppendLine("# Grabaci\u00F3n: mostrar los clics (1/0) y las teclas pulsadas (1/0)");
+            b.AppendLine("RecordClicks = " + (RecordClicks ? "1" : "0"));
+            b.AppendLine("RecordKeys = " + (RecordKeys ? "1" : "0"));
             // Write to a temp file and swap it in, so a crash mid-write never leaves an empty file; the file it
             // replaces becomes the backup.
             string tmp = path + ".tmp", bak = path + ".bak";
@@ -366,16 +470,18 @@ namespace Stackshot
         }
 
         // Hotkey actions, in menu order.
-        public static readonly string[] Actions = { "region", "screen", "window", "scroll", "video", "gif", "markdown" };
+        public static readonly string[] Actions = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif", "markdown" };
 
         public string HotkeysFor(string action)
         {
             switch (action)
             {
                 case "region": return HotRegion;
+                case "repeat": return HotRepeat;
                 case "screen": return HotScreen;
                 case "window": return HotWindow;
                 case "scroll": return HotScroll;
+                case "text": return HotText;
                 case "markdown": return HotMarkdown;
                 case "video": return HotVideo;
                 default: return HotGif;
@@ -387,9 +493,11 @@ namespace Stackshot
             switch (action)
             {
                 case "region": HotRegion = value; break;
+                case "repeat": HotRepeat = value; break;
                 case "screen": HotScreen = value; break;
                 case "window": HotWindow = value; break;
                 case "scroll": HotScroll = value; break;
+                case "text": HotText = value; break;
                 case "markdown": HotMarkdown = value; break;
                 case "video": HotVideo = value; break;
                 default: HotGif = value; break;
@@ -411,8 +519,23 @@ namespace Stackshot
 
         static int Int(string v, int def, int min, int max)
         {
-            int n;
-            return int.TryParse(v, out n) ? Math.Max(min, Math.Min(max, n)) : def;
+            long n;
+            if (long.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out n))
+                return (int)Math.Max(min, Math.Min(max, n));
+            // A run of digits too long for a long still means "far past the limit".
+            int digits = v.Length > 0 && (v[0] == '-' || v[0] == '+') ? 1 : 0;
+            if (v.Length > digits)
+            {
+                for (int i = digits; i < v.Length; i++) if (v[i] < '0' || v[i] > '9') return def;
+                return v[0] == '-' ? min : max;
+            }
+            return def;
+        }
+
+        // The nearest of the offered countdowns: 0, 3, 5 or 10 seconds.
+        internal static int Countdown(int s)
+        {
+            return s <= 1 ? 0 : s <= 4 ? 3 : s <= 7 ? 5 : 10;
         }
     }
 }

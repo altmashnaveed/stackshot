@@ -242,6 +242,12 @@ namespace Stackshot
             TextKit.Draw(g, glyph, Fonts.Get(Theme.IconFont, Math.Max(1, px)), r, c, TextFormatFlags.HorizontalCenter |
                                   TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
         }
+
+        // Where its visible body is headed, in screen pixels (for other surfaces to keep clear of it).
+        public Rectangle BodyTarget
+        {
+            get { return new Rectangle((int)Math.Round(moving ? tx : x), (int)Math.Round(moving ? ty : y), body.Width, body.Height); }
+        }
     }
 
 }

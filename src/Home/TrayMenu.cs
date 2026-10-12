@@ -73,7 +73,7 @@ namespace Stackshot
         {
             menu.BackColor = Back;
             StringBuilder k = new StringBuilder();
-            k.Append(s).Append('|').Append(Ds.Dark);
+            k.Append(s).Append('|').Append(Ds.Dark).Append('|').Append(HighContrast.Generation);
             foreach (ToolStripItem it in menu.Items) k.Append('|').Append(it.Text).Append(it.Tag as string).Append(ShortcutOf(it)).Append(it.Available);
             string key = k.ToString();
             if (key == r.Key) return;
@@ -135,7 +135,8 @@ namespace Stackshot
                 Native.DwmSetWindowAttribute(h, 20, ref dark, 4);
                 int round = 2;
                 Native.DwmSetWindowAttribute(h, 33, ref round, 4);
-                int border = Ds.Dark ? (68 | (68 << 8) | (71 << 16)) : (216 | (216 << 8) | (217 << 16));
+                M.Color hc = Ds.Brushes.Hairline;
+                int border = Ds.Brushes.High ? hc.R | (hc.G << 8) | (hc.B << 16) : Ds.Dark ? (68 | (68 << 8) | (71 << 16)) : (216 | (216 << 8) | (217 << 16));
                 Native.DwmSetWindowAttribute(h, 34, ref border, 4);
             }
             catch { }
@@ -168,7 +169,7 @@ namespace Stackshot
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {
             if (Environment.OSVersion.Version.Build >= 22000) return; // Windows draws the border
-            using (Pen p = new Pen(Ds.Dark ? Color.FromArgb(68, 68, 71) : Color.FromArgb(216, 216, 217))) e.Graphics.DrawRectangle(p, 0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+            using (Pen p = new Pen(Ds.Brushes.High ? Ds.Gdi(Ds.Brushes.Hairline) : Ds.Dark ? Color.FromArgb(68, 68, 71) : Color.FromArgb(216, 216, 217))) e.Graphics.DrawRectangle(p, 0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
         }
 
         protected override void OnRenderImageMargin(ToolStripRenderEventArgs e) { }
@@ -195,7 +196,7 @@ namespace Stackshot
 
         protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
         {
-            e.ArrowColor = e.Item != null && e.Item.Selected ? Color.White : Ds.Gdi(Ds.Brushes.Label2);
+            e.ArrowColor = e.Item != null && e.Item.Selected ? Ds.Gdi(Ds.Brushes.OnAccent) : Ds.Gdi(Ds.Brushes.Label2);
             base.OnRenderArrow(e);
         }
 
@@ -227,7 +228,7 @@ namespace Stackshot
                 double rr = Math.Round(6 * s);
                 dc.DrawRoundedRectangle(Ds.Brush(pal.Accent), null, r, rr, rr);
             }
-            M.Color ink = sel ? M.Colors.White : enabled ? pal.Label : pal.Label3;
+            M.Color ink = sel ? pal.OnAccent : enabled ? pal.Label : pal.Label3;
             double x = r.X + Math.Round(10 * s), gs = Math.Round(16 * s);
             bool app = icon == "app";
             if (app)
@@ -238,7 +239,7 @@ namespace Stackshot
             }
             else if (check || icon != null)
             {
-                M.Color c = sel ? M.Colors.White : !enabled ? pal.Label3 : check ? pal.Accent : icon == "stop" ? pal.Red : Ds.WithAlpha(pal.Label, pal.Dark ? 0.72 : 0.68);
+                M.Color c = sel ? pal.OnAccent : !enabled ? pal.Label3 : check ? pal.Link : icon == "stop" ? pal.Red : pal.MenuIcon;
                 string g = check ? "check" : icon == "stop" ? "stop!" : icon;
                 Glyph.Draw(dc, g, x, Math.Round(cy - gs / 2), gs, c, 1.45 * s);
             }

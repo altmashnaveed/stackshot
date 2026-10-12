@@ -88,17 +88,17 @@ namespace Stackshot
                 shadow = Ink.Shadow(w, h, sb, R, P(10), Ds.Argb(Ds.Dark ? 0.5 : 0.25, 0, 0, 0));
                 shadowFor = new Size(w, h);
             }
-            dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
             Palette pal = Ds.Brushes;
-            M.Color bg = pal.Dark ? Ds.Rgb(44, 44, 46) : Ds.Rgb(255, 255, 255);
-            M.Color over = pal.Dark ? Ds.Rgb(58, 58, 60) : Ds.Rgb(242, 242, 247);
-            M.Color down = pal.Dark ? Ds.Rgb(72, 72, 74) : Ds.Rgb(229, 229, 234);
+            if (!pal.High) dc.DrawImage(shadow, new W.Rect(0, 0, w, h));
+            M.Color bg = pal.High ? pal.Window : pal.Dark ? Ds.Rgb(44, 44, 46) : Ds.Rgb(255, 255, 255);
+            M.Color over = pal.High ? pal.Window : pal.Dark ? Ds.Rgb(58, 58, 60) : Ds.Rgb(242, 242, 247);
+            M.Color down = pal.High ? pal.Window : pal.Dark ? Ds.Rgb(72, 72, 74) : Ds.Rgb(229, 229, 234);
             Ink.Round(dc, Blend(Blend(bg, over, hoverT.Value), down, pressT.Value), b, R);
             Ink.Hairline(dc, pal.Hairline, b, R);
             M.FormattedText ft = Ink.Px(label, Ds.Semibold, P(12), pal.Label);
             double gs = P(14), total = gs + P(4) + ft.WidthIncludingTrailingWhitespace;
             double left = b.X + (b.Width - total) / 2;
-            Glyph.Draw(dc, dir < 0 ? "up" : "down", left, b.Y + (b.Height - gs) / 2, gs, pal.Accent, P(2));
+            Glyph.Draw(dc, dir < 0 ? "up" : "down", left, b.Y + (b.Height - gs) / 2, gs, pal.Link, P(2));
             dc.DrawText(ft, new W.Point(Math.Round(left + gs + P(4)), Math.Round(b.Y + (b.Height - ft.Height) / 2)));
         }
 

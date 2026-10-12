@@ -125,13 +125,13 @@ namespace Stackshot
             Grid head = new Grid { Height = compact ? 80 : 112 };
             Border halo = new Border { Width = 300, Height = 200, Margin = new Thickness(0, -60, 0, -40), IsHitTestVisible = false };
             halo.Background = new RadialGradientBrush(Ds.Argb(pal.Dark ? 0.32 : 0.22, 110, 120, 255), Ds.Argb(0, 110, 120, 255));
-            head.Children.Add(halo);
+            if (!pal.High) head.Children.Add(halo);
             double inset = logoSize * 6 / 256.0, body = logoSize - 2 * inset;
-            head.Children.Add(new SoftShadow(body * 0.235, 12, logoSize / 16, pal.Dark ? 0.42 : 0.24)
+            head.Children.Add(new SoftShadow(body * 0.235, 12, logoSize / 16, pal.High ? 0 : pal.Dark ? 0.42 : 0.24)
             {
                 Width = body, Height = body, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
             });
-            Image logo = new Image { Width = logoSize, Height = logoSize, Source = Icon as ImageSource, HorizontalAlignment = HorizontalAlignment.Center };
+            Image logo = new DecorImage { Width = logoSize, Height = logoSize, Source = Icon as ImageSource, HorizontalAlignment = HorizontalAlignment.Center };
             RenderOptions.SetBitmapScalingMode(logo, BitmapScalingMode.HighQuality);
             head.Children.Add(logo);
             col.Children.Add(head);
@@ -162,6 +162,12 @@ namespace Stackshot
             Grid.SetColumn(change, 1);
             change.VerticalAlignment = VerticalAlignment.Center;
             AutomationProperties.SetName(change, "Cambiar la carpeta de capturas");
+            if (Policy.FolderForced)
+            {
+                change.IsEnabled = false;
+                change.ToolTip = Policy.Managed;
+                ToolTipService.SetShowOnDisabled(change, true);
+            }
             frow.Children.Add(change);
             ShowFolder();
             col.Children.Add(Card(list));
@@ -230,7 +236,7 @@ namespace Stackshot
             return new Border
             {
                 CornerRadius = new CornerRadius(12),
-                Background = Ds.Brush(pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Ds.Argb(0.75, 255, 255, 255)),
+                Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Ds.Argb(0.75, 255, 255, 255)),
                 BorderBrush = Ds.Brush(pal.Hairline),
                 BorderThickness = new Thickness(1),
                 Child = list

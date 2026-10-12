@@ -1,4 +1,4 @@
-// Stackshot - Per-user file associations for .md and .xml (HKCU only; Windows keeps the final choice to the user).
+// Stackshot - Per-user file associations for .md, .xml and .mkv (HKCU only; Windows keeps the final choice to the user).
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
 using System.Diagnostics;
@@ -21,6 +21,9 @@ namespace Stackshot
     {
         public static readonly AssocKind Markdown = new AssocKind("Stackshot.Markdown", "Documento Markdown", ".md", ".markdown");
         public static readonly AssocKind Xml = new AssocKind("Stackshot.Xml", "Documento XML", ".xml");
+        // Cine masters: Windows' own player cannot decode them, Stackshot's can.
+        public static readonly AssocKind Video = new AssocKind("Stackshot.Video", "V\u00EDdeo MKV", ".mkv");
+        static readonly AssocKind[] All = { Markdown, Xml, Video };
 
         const string Classes = @"Software\Classes\";
         const string CapKey = @"Software\Stackshot\Capabilities";
@@ -29,6 +32,10 @@ namespace Stackshot
 
         [DllImport("shell32.dll")] static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 
+        // Tests point the current user's registry somewhere else.
+        internal static RegistryKey HkcuOverride { get; set; }
+        static RegistryKey Hkcu { get { return HkcuOverride ?? Registry.CurrentUser; } }
+
         // The command Windows runs for a file: this copy, with the file as its only argument.
         public static string Command { get { return "\"" + Installer.ExePath + "\" \"%1\""; } }
 
@@ -36,7 +43,7 @@ namespace Stackshot
         {
             try
             {
-                using (RegistryKey r = Registry.CurrentUser.OpenSubKey(Classes + k.ProgId + @"\shell\open\command"))
+                using (RegistryKey r = Hkcu.OpenSubKey(Classes + k.ProgId + @"\shell\open\command"))
                     return r != null;
             }
             catch { return false; }
@@ -47,7 +54,7 @@ namespace Stackshot
         {
             try
             {
-                using (RegistryKey r = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\" + ext + @"\UserChoice"))
+                using (RegistryKey r = Hkcu.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\" + ext + @"\UserChoice"))
                     return r == null ? null : r.GetValue("ProgId") as string;
             }
             catch { return null; }
@@ -65,7 +72,7 @@ namespace Stackshot
             try
             {
                 string cmd = Command, exe = Installer.ExePath;
-                using (RegistryKey p = Registry.CurrentUser.CreateSubKey(Classes + k.ProgId))
+                using (RegistryKey p = Hkcu.CreateSubKey(Classes + k.ProgId))
                 {
                     p.SetValue("", k.Friendly);
                     using (RegistryKey i = p.CreateSubKey("DefaultIcon")) i.SetValue("", "\"" + exe + "\",0");
@@ -76,17 +83,17 @@ namespace Stackshot
                     }
                 }
                 foreach (string ext in k.Exts)
-                    using (RegistryKey w = Registry.CurrentUser.CreateSubKey(Classes + ext + @"\OpenWithProgids"))
+                    using (RegistryKey w = Hkcu.CreateSubKey(Classes + ext + @"\OpenWithProgids"))
                         w.SetValue(k.ProgId, "", RegistryValueKind.String);
-                using (RegistryKey cap = Registry.CurrentUser.CreateSubKey(CapKey))
+                using (RegistryKey cap = Hkcu.CreateSubKey(CapKey))
                 {
                     cap.SetValue("ApplicationName", AppName);
-                    cap.SetValue("ApplicationDescription", "Capturas de pantalla, v\u00EDdeo y GIF, con visor de Markdown y XML");
+                    cap.SetValue("ApplicationDescription", "Capturas de pantalla, v\u00EDdeo y GIF, con reproductor de v\u00EDdeo y visor de Markdown y XML");
                     cap.SetValue("ApplicationIcon", "\"" + exe + "\",0");
                     using (RegistryKey fa = cap.CreateSubKey("FileAssociations"))
                         foreach (string ext in k.Exts) fa.SetValue(ext, k.ProgId);
                 }
-                using (RegistryKey ra = Registry.CurrentUser.CreateSubKey(RegApps)) ra.SetValue(AppName, CapKey);
+                using (RegistryKey ra = Hkcu.CreateSubKey(RegApps)) ra.SetValue(AppName, CapKey);
                 Changed();
                 ShotStack.Log("Asociaci\u00F3n registrada: " + k.ProgId);
                 return true;
@@ -100,21 +107,22 @@ namespace Stackshot
             if (Settings.ReadOnly) return;
             try
             {
-                Registry.CurrentUser.DeleteSubKeyTree(Classes + k.ProgId, false);
+                Hkcu.DeleteSubKeyTree(Classes + k.ProgId, false);
                 foreach (string ext in k.Exts)
                 {
-                    using (RegistryKey w = Registry.CurrentUser.OpenSubKey(Classes + ext + @"\OpenWithProgids", true))
+                    using (RegistryKey w = Hkcu.OpenSubKey(Classes + ext + @"\OpenWithProgids", true))
                         if (w != null) w.DeleteValue(k.ProgId, false);
                     DropIfEmpty(Classes + ext + @"\OpenWithProgids");
                     DropIfEmpty(Classes + ext);
                 }
-                using (RegistryKey fa = Registry.CurrentUser.OpenSubKey(CapKey + @"\FileAssociations", true))
+                using (RegistryKey fa = Hkcu.OpenSubKey(CapKey + @"\FileAssociations", true))
                     if (fa != null) foreach (string ext in k.Exts) fa.DeleteValue(ext, false);
                 // The last one out takes the registration with it.
-                if (!Registered(Markdown) && !Registered(Xml))
+                if (!Array.Exists(All, delegate(AssocKind a) { return Registered(a); }))
                 {
-                    Registry.CurrentUser.DeleteSubKeyTree(CapKey, false);
-                    using (RegistryKey ra = Registry.CurrentUser.OpenSubKey(RegApps, true))
+                    Hkcu.DeleteSubKeyTree(CapKey, false);
+                    DropIfEmpty(@"Software\Stackshot"); // only when nothing else of Stackshot is kept there
+                    using (RegistryKey ra = Hkcu.OpenSubKey(RegApps, true))
                         if (ra != null) ra.DeleteValue(AppName, false);
                 }
                 Changed();
@@ -128,25 +136,26 @@ namespace Stackshot
             try
             {
                 bool empty;
-                using (RegistryKey r = Registry.CurrentUser.OpenSubKey(path))
+                using (RegistryKey r = Hkcu.OpenSubKey(path))
                 {
                     if (r == null) return;
                     empty = r.SubKeyCount == 0 && r.ValueCount == 0;
                 }
-                if (empty) Registry.CurrentUser.DeleteSubKey(path, false);
+                if (empty) Hkcu.DeleteSubKey(path, false);
             }
             catch { }
         }
 
         static void Changed()
         {
+            if (HkcuOverride != null) return;
             try { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); } catch { } // SHCNE_ASSOCCHANGED
         }
 
         // Our Capabilities entry names the ProgID for every extension of the kind (it is ours only when it does).
         static bool CapabilityHas(AssocKind k)
         {
-            using (RegistryKey fa = Registry.CurrentUser.OpenSubKey(CapKey + @"\FileAssociations"))
+            using (RegistryKey fa = Hkcu.OpenSubKey(CapKey + @"\FileAssociations"))
             {
                 if (fa == null) return false;
                 foreach (string ext in k.Exts)
@@ -159,13 +168,17 @@ namespace Stackshot
         public static void Repair()
         {
             if (Settings.ReadOnly) return;
-            foreach (AssocKind k in new AssocKind[] { Markdown, Xml })
+            foreach (AssocKind k in All)
             {
                 try
                 {
-                    if (!Registered(k) || !CapabilityHas(k)) continue;
-                    using (RegistryKey c = Registry.CurrentUser.OpenSubKey(Classes + k.ProgId + @"\shell\open\command"))
-                        if (c != null && string.Equals(c.GetValue("") as string, Command, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!Registered(k)) continue;
+                    // Our ProgID (its name is ours) with another exe's command, or without its capability entry (a
+                    // registration cut halfway): written again in full.
+                    bool same;
+                    using (RegistryKey c = Hkcu.OpenSubKey(Classes + k.ProgId + @"\shell\open\command"))
+                        same = c != null && string.Equals(c.GetValue("") as string, Command, StringComparison.OrdinalIgnoreCase);
+                    if (same && CapabilityHas(k)) continue;
                     Enable(k);
                 }
                 catch (Exception ex) { ShotStack.Log("Reparar asociaci\u00F3n: " + ex.Message); }

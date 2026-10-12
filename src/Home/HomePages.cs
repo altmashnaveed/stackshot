@@ -15,15 +15,17 @@ namespace Stackshot
 {
     public partial class HomeWindow
     {
-        static readonly string[] ActionNames = { "Capturar un \u00E1rea", "Capturar la pantalla", "Capturar la ventana activa", "Captura con desplazamiento", "Grabar v\u00EDdeo", "Grabar GIF", "Ver y ordenar Markdown" };
-        static readonly string[] ActionShort = { "Un \u00E1rea", "Pantalla completa", "Una ventana", "Con desplazamiento", "V\u00EDdeo", "GIF animado", "Markdown" };
-        static readonly string[] ActionIcons = { "area", "screen", "window", "scroll", "video", "gif", "markdown" };
+        static readonly string[] ActionNames = { "Capturar un \u00E1rea", "Repetir la \u00FAltima \u00E1rea", "Capturar la pantalla", "Capturar la ventana activa", "Captura con desplazamiento", "Copiar texto de la pantalla", "Grabar v\u00EDdeo", "Grabar GIF", "Ver y ordenar Markdown" };
+        static readonly string[] ActionShort = { "Un \u00E1rea", "La \u00FAltima \u00E1rea", "Pantalla completa", "Una ventana", "Con desplazamiento", "Copiar texto", "V\u00EDdeo", "GIF animado", "Markdown" };
+        static readonly string[] ActionIcons = { "area", "update", "screen", "window", "scroll", "textscan", "video", "gif", "markdown" };
         static readonly D.Color[,] ActionColors =
         {
             { D.Color.FromArgb(64, 156, 255), D.Color.FromArgb(10, 110, 230) },
+            { D.Color.FromArgb(100, 180, 255), D.Color.FromArgb(48, 118, 236) },
             { D.Color.FromArgb(90, 200, 250), D.Color.FromArgb(0, 122, 255) },
             { D.Color.FromArgb(191, 90, 242), D.Color.FromArgb(120, 70, 220) },
             { D.Color.FromArgb(52, 199, 89), D.Color.FromArgb(0, 160, 120) },
+            { D.Color.FromArgb(100, 210, 200), D.Color.FromArgb(20, 150, 170) },
             { D.Color.FromArgb(255, 85, 100), D.Color.FromArgb(230, 40, 40) },
             { D.Color.FromArgb(255, 179, 64), D.Color.FromArgb(245, 110, 40) },
             { D.Color.FromArgb(140, 150, 255), D.Color.FromArgb(88, 86, 214) }
@@ -68,14 +70,15 @@ namespace Stackshot
             {
                 CornerRadius = new CornerRadius(10),
                 Background = Ds.Brush(pal.Group),
-                BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Argb(0.07, 0, 0, 0)),
+                BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.07, 255, 255, 255) : Ds.Argb(0.07, 0, 0, 0)),
                 BorderThickness = new Thickness(1),
                 Child = list
             };
             Grid holder = new Grid { Margin = new Thickness(0, 0, 0, 24) };
-            if (!pal.Dark) holder.Children.Add(new SoftShadow(10, 3, 0.5, 0.06));
+            if (!pal.Dark && !pal.High) holder.Children.Add(new SoftShadow(10, 3, 0.5, 0.06));
             holder.Children.Add(card);
             body.Children.Add(holder);
+            SearchGroup(caption, holder, rows);
         }
 
         void Note(string text)
@@ -97,10 +100,11 @@ namespace Stackshot
         static System.Windows.Documents.Hyperlink InlineLink(string text, Action act)
         {
             System.Windows.Documents.Hyperlink h = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(text));
-            h.Foreground = Ds.Brush(Ds.Brushes.Accent);
+            h.Foreground = Ds.Brush(Ds.Brushes.Link);
             h.TextDecorations = null;
             h.Cursor = Cursors.Hand;
             h.Focusable = false;
+            AccessLink(h);
             h.MouseEnter += delegate { h.TextDecorations = TextDecorations.Underline; };
             h.MouseLeave += delegate { h.TextDecorations = null; };
             // Run after the click: the action may repaint the very text this link lives in.
@@ -146,6 +150,8 @@ namespace Stackshot
             // A description that follows the setting (null hides it), used instead of Sub.
             public Func<string> SubNow;
             protected TextBlock SubText;
+            bool greyed;
+            internal string SubShown { get { return SubText != null && SubText.Visibility == Visibility.Visible ? SubText.Text : null; } }
 
             string CurrentSub()
             {
@@ -176,13 +182,15 @@ namespace Stackshot
                 }
                 StackPanel text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 9, 14, 9) };
                 Grid.SetColumn(text, 1);
-                TextBlock title = Label(Title, Ds.Regular, 13.5, pal.Label);
+                // A contrast theme shows a row that does not apply in GrayText instead of fading it.
+                greyed = pal.High && When != null && !When();
+                TextBlock title = Label(Title, Ds.Regular, 13.5, greyed ? pal.Label3 : pal.Label);
                 title.TextTrimming = TextTrimming.CharacterEllipsis;
                 text.Children.Add(title);
                 SubText = null;
                 if (sub != null || SubNow != null || (When != null && WhenOff != null))
                 {
-                    SubText = Label(sub ?? "", Ds.Regular, 12, pal.Label2);
+                    SubText = Label(sub ?? "", Ds.Regular, 12, greyed ? pal.Label3 : pal.Label2);
                     SubText.TextWrapping = TextWrapping.Wrap;
                     SubText.Margin = new Thickness(0, 2, 0, 0);
                     SubText.Visibility = sub != null ? Visibility.Visible : Visibility.Collapsed;
@@ -195,6 +203,7 @@ namespace Stackshot
                     c.VerticalAlignment = VerticalAlignment.Center;
                     Grid.SetColumn(c, 2);
                     Children.Add(c);
+                    AccessRow(this, sub);
                 }
                 Sync(false);
             }
@@ -206,7 +215,8 @@ namespace Stackshot
                 {
                     bool live = When();
                     IsEnabled = live;
-                    double to = live ? 1 : 0.42;
+                    if (Ds.Brushes.High && greyed == live) { Build(); return; }
+                    double to = live || Ds.Brushes.High ? 1 : 0.42;
                     // Only a change fades (every switch on the page syncs all its rows).
                     if (animate) { if (Math.Abs(Opacity - to) > 0.001) HomeWindow.Glide(this, OpacityProperty, to, 220); }
                     else { BeginAnimation(OpacityProperty, null); Opacity = to; }
@@ -217,6 +227,7 @@ namespace Stackshot
                     SubText.Text = sub ?? "";
                     SubText.Visibility = sub != null ? Visibility.Visible : Visibility.Collapsed;
                     MinHeight = sub != null ? 58 : 48;
+                    AccessRow(this, sub);
                 }
             }
         }
@@ -328,16 +339,28 @@ namespace Stackshot
                 if (!on)
                     foreach (string c in Hotkeys.Split(W.settings.HotkeysFor(action)))
                         if (Hotkeys.IsBusy(action, c)) { taken = c; break; }
-                if (taken != null) Sub = Hotkeys.DisplayOne(taken) + " lo est\u00E1 usando otro programa";
+                if (taken != null)
+                {
+                    // Refused because another action of Stackshot has it (a settings file edited by hand), or another program.
+                    string other = null;
+                    for (int i = 0; i < Settings.Actions.Length && other == null; i++)
+                    {
+                        if (Settings.Actions[i] == action) continue;
+                        foreach (string c in Hotkeys.Split(W.settings.HotkeysFor(Settings.Actions[i])))
+                            if (Hotkeys.Same(c, taken)) { other = ActionNames[i]; break; }
+                    }
+                    Sub = Hotkeys.DisplayOne(taken) + (other != null ? " tambi\u00E9n es de \u00AB" + other + "\u00BB" : " lo est\u00E1 usando otro programa");
+                }
                 base.Build();
-                if (taken != null && SubText != null) SubText.Foreground = Ds.Brush(Ds.Brushes.Orange);
+                if (taken != null && SubText != null) SubText.Foreground = Ds.Brush(Ds.Brushes.Warn);
             }
 
             protected override FrameworkElement Control()
             {
                 Palette pal = Ds.Brushes;
                 StopPulse();
-                field = new Border { Width = 236, Height = 32, CornerRadius = new CornerRadius(8), Cursor = Cursors.Hand, Margin = new Thickness(0, 8, 0, 8) };
+                field = new TapBorder { Width = 236, Height = 32, CornerRadius = new CornerRadius(8), Cursor = Cursors.Hand, Margin = new Thickness(0, 8, 0, 8),
+                                        Do = Click, Help = on ? KeysPrompt : Hotkeys.Display(W.settings.HotkeysFor(action)) };
                 if (on)
                 {
                     field.BorderThickness = new Thickness(2);
@@ -417,13 +440,13 @@ namespace Stackshot
                 liveShown = state;
                 if (hint != null)
                 {
-                    TextBlock t = Label(hint, Ds.Semibold, 12.5, pal.Orange);
+                    TextBlock t = Label(hint, Ds.Semibold, 12.5, pal.Warn);
                     field.ToolTip = hint;
                     field.Child = Center(t);
                     return;
                 }
                 field.ToolTip = null;
-                if (m == ModifierKeys.None) { field.Child = Center(Label("Pulsa la combinaci\u00F3n\u2026", Ds.Semibold, 12.5, pal.Accent)); return; }
+                if (m == ModifierKeys.None) { field.Child = Center(Label("Pulsa la combinaci\u00F3n\u2026", Ds.Semibold, 12.5, pal.Link)); return; }
                 string held = Hotkeys.DisplayMods((m & ModifierKeys.Control) != 0, (m & ModifierKeys.Shift) != 0, (m & ModifierKeys.Alt) != 0, (m & ModifierKeys.Windows) != 0);
                 FrameworkElement k = Fit(new Keycaps(held + " + \u2026", 20), HorizontalAlignment.Center);
                 k.Margin = new Thickness(6, 0, 6, 0);
@@ -691,8 +714,8 @@ namespace Stackshot
         {
             List<string> l = new List<string>();
             if (settings.ShowIntro != (p > 0)) l.Add("la animaci\u00F3n al abrir");
-            if (settings.MascotTalks != (p > 0)) l.Add("los saludos de la mascota");
-            if (settings.MascotDesktop != (p == 2)) l.Add("la mascota en el escritorio");
+            if (settings.MascotTalks != (p > 0) && !Policy.MascotForced) l.Add("los saludos de la mascota");
+            if (settings.MascotDesktop != (p == 2) && !Policy.MascotForced) l.Add("la mascota en el escritorio");
             if (settings.VideoQuality != (p == 2 ? 2 : 0)) l.Add("la calidad del v\u00EDdeo");
             if (p == 0 && settings.VideoFps != 30) l.Add("los fotogramas por segundo");
             if (p == 0 && settings.Webcam != 0) l.Add("la c\u00E1mara");
@@ -738,16 +761,29 @@ namespace Stackshot
                 new ToggleRow("Abrir .xml con Stackshot", null, "doc", Mac.Teal, Mac.Blue,
                               delegate { return FileAssoc.Registered(FileAssoc.Xml); }, delegate(bool v) { SetAssoc(FileAssoc.Xml, v); })
                     { SubNow = delegate { return AssocNote(FileAssoc.Xml, ".xml"); } },
+                new ToggleRow("Abrir .mkv con Stackshot", null, "video", D.Color.FromArgb(64, 156, 255), D.Color.FromArgb(10, 110, 230),
+                              delegate { return FileAssoc.Registered(FileAssoc.Video); }, delegate(bool v) { SetAssoc(FileAssoc.Video, v); })
+                    { SubNow = delegate { return AssocNote(FileAssoc.Video, ".mkv"); } },
                 new ButtonRow("Aplicaciones predeterminadas de Windows", "Ah\u00ED eliges qu\u00E9 programa abre cada tipo de archivo; Stackshot nunca lo cambia por su cuenta.", "gear", Gray1, Gray2, "Abrir", FileAssoc.OpenDefaultApps));
+            // Shown only while there is something in it: recordings saved from a crash or a failed final pass.
+            ButtonRow recovered = null;
+            long recoveredBytes = WorkFiles.Bytes(ShotStack.RecoveredDir);
+            if (recoveredBytes > 0)
+                recovered = new ButtonRow("Grabaciones recuperadas", Recents.Size(recoveredBytes) + " de grabaciones que no llegaron a terminar. Stackshot nunca las borra: \u00E1brelas, gu\u00E1rdalas o b\u00F3rralas t\u00FA.",
+                                          "folder", Mac.Orange, Mac.Red, "Abrir", OpenRecovered);
             ButtonRow print = null;
             if (PrintScreenToSnipping())
                 print = new ButtonRow("Usar la tecla Impr Pant", "Ahora la usa Recortes de Windows. Se cambia solo en tu usuario.", "keyboard", Mac.Orange, Mac.Red, "Usar", FreePrintScreen);
             Group("Recientes",
                 new ToggleRow("Mostrar capturas recientes en Inicio", "Desact\u00EDvalo y Inicio no muestra ni carga miniaturas.", "photo", Mac.Blue, Mac.Indigo,
                               delegate { return settings.ShowRecent; }, delegate(bool v) { settings.ShowRecent = v; Recents.Forget(); }),
+                new ToggleRow("Buscar por el texto de las capturas", "Stackshot lee el texto de cada captura en tu equipo para que el Historial la encuentre por lo que pon\u00EDa.", "search", Mac.Indigo, Mac.Blue,
+                              delegate { return settings.HistorySearch; }, delegate(bool v) { settings.HistorySearch = v; HistoryIndex.Apply(settings); }),
+                HistoryIndexRowIfAny(),
                 new SegRow("Guardar las temporales", "Cu\u00E1nto duran las capturas que no guardas en tu carpeta.", "stack", Mac.Teal, Mac.Blue, new string[] { "1 hora", "Al cerrar", "1 d\u00EDa", "7 d\u00EDas", "30 d\u00EDas" },
                            delegate { return settings.TempKeep; }, delegate(int i) { settings.TempKeep = i; owner.Sweep(); }),
-                new ButtonRow("Borrar recientes", "Quita las capturas temporales; las de tu carpeta no se tocan.", "trash", Mac.Red, Mac.Orange, "Borrar", ClearRecent));
+                new ButtonRow("Borrar recientes", "Quita las capturas temporales; las de tu carpeta no se tocan.", "trash", Mac.Red, Mac.Orange, "Borrar", ClearRecent),
+                recovered);
             Group("Al capturar",
                 new SegRow("Despu\u00E9s de seleccionar un \u00E1rea", "Directo la env\u00EDa a la pila; con opciones puedes ajustarla y elegir captura, v\u00EDdeo, GIF o desplazamiento.", "area", Mac.Blue, Mac.Indigo, new string[] { "Directo a la pila", "Mostrar opciones" },
                            delegate { return settings.AllInOne ? 1 : 0; }, delegate(int i) { settings.AllInOne = i == 1; }),
@@ -757,9 +793,82 @@ namespace Stackshot
                               delegate { return settings.CopyToClipboard; }, delegate(bool v) { settings.CopyToClipboard = v; }),
                 new ToggleRow("Seguir al rat\u00F3n entre pantallas", "Con varias pantallas, las miniaturas van a la del rat\u00F3n.", "screen", Mac.Indigo, Mac.Purple,
                               delegate { return settings.FollowMouse; }, delegate(bool v) { settings.FollowMouse = v; }),
+                new ToggleRow("Incluir el puntero", "El puntero del rat\u00F3n aparece en la captura, donde estaba al empezarla.", "cursor", Mac.Blue, Mac.Indigo,
+                              delegate { return settings.CaptureCursor; }, delegate(bool v) { settings.CaptureCursor = v; }),
                 print);
-            Group("Capturas guardadas", new FolderRow());
+            Group("Datos sensibles",
+                new ToggleRow("Tapar los datos sensibles al capturar", "DNI, NIE, n\u00FAmero de la Seguridad Social, IBAN, tarjetas, correos y tel\u00E9fonos se tapan solos en cada captura. Se leen en tu equipo; nada sale de \u00E9l.", "redact!", Mac.Red, Mac.Orange,
+                              delegate { return settings.SensitiveAuto; }, delegate(bool v) { settings.SensitiveAuto = v; }));
+            Note("Apagado, decides t\u00FA: en el editor, \u00ABDatos sensibles\u00BB los tapa con marcas que puedes quitar.");
+            Group("Capturas guardadas", new FolderRow(), new NameTemplateRow(), SubfolderRow());
             Note("Lo que no guardas se borra solo seg\u00FAn lo elegido en Recientes (nunca mientras tenga miniatura o est\u00E9 en el editor).");
+            BuildAdvanced();
+        }
+
+        // Egara's folder watch: only on Egara workstations (or where it is already set up); elsewhere nothing at all.
+        void BuildAdvanced()
+        {
+            if (!XmlWatch.Offered(settings)) return;
+            Group("Avanzado",
+                new ToggleRow("Abrir los XML nuevos de una carpeta", null, "doc", Mac.Teal, Mac.Blue,
+                              delegate { return settings.XmlWatch; }, delegate(bool v) { settings.XmlWatch = v; })
+                    { SubNow = XmlWatchNote },
+                new XmlFolderRow { When = delegate { return settings.XmlWatch; } });
+            Note("Pensado para la Consulta WS de Egara, que deja cada mensaje SOAP en " + XmlWatch.EgaraFolder + ". En el visor, [ y ] pasan al XML anterior o al siguiente, y \u00ABM\u00E1s opciones\u00BB lista los \u00FAltimos que han llegado.");
+        }
+
+        string XmlWatchNote()
+        {
+            if (!settings.XmlWatch) return "Cada XML que aparezca en esa carpeta se abre solo en el visor de Stackshot, delante de todo.";
+            if (XmlWatch.OldViewerRunning()) return "El visor XML Egara tambi\u00E9n est\u00E1 abierto: ci\u00E9rralo para no abrir cada XML dos veces.";
+            string dir = XmlWatch.FolderFor(settings);
+            bool exists = false;
+            try { exists = Directory.Exists(dir); } catch { }
+            if (!exists) return "La carpeta no existe todav\u00EDa; Stackshot la vuelve a buscar cada minuto.";
+            return "Activo: los XML nuevos se abren solos en el visor, delante de todo.";
+        }
+
+        // The folder whose new XML files open in the viewer: Egara's unless another one is chosen.
+        public class XmlFolderRow : Row
+        {
+            public XmlFolderRow() : base("", null, "folder", D.Color.FromArgb(90, 200, 250), D.Color.FromArgb(0, 122, 255)) { }
+            public override void Build()
+            {
+                string dir = XmlWatch.FolderFor(W.settings);
+                Title = ShortPath(dir);
+                Sub = string.IsNullOrEmpty(W.settings.XmlWatchFolder) ? "La carpeta de Egara." : "Carpeta elegida por ti.";
+                base.Build();
+                ToolTip = dir;
+                ToolTipService.SetInitialShowDelay(this, 700);
+            }
+            protected override FrameworkElement Control()
+            {
+                StackPanel p = new StackPanel { Orientation = Orientation.Horizontal };
+                if (!string.IsNullOrEmpty(W.settings.XmlWatchFolder))
+                {
+                    MacButton egara = new MacButton("La de Egara", ButtonKind.Secondary);
+                    egara.Margin = new Thickness(0, 0, 8, 0);
+                    egara.Click += delegate { W.settings.XmlWatchFolder = ""; W.Changed(); W.Rebuild(); };
+                    p.Children.Add(egara);
+                }
+                MacButton change = new MacButton("Cambiar\u2026", ButtonKind.Secondary);
+                change.Click += delegate
+                {
+                    using (WF.FolderBrowserDialog d = new WF.FolderBrowserDialog())
+                    {
+                        d.Description = "\u00BFQu\u00E9 carpeta vigilo? Cada XML nuevo que aparezca en ella se abrir\u00E1 en el visor.";
+                        d.ShowNewFolderButton = false;
+                        try { string cur = XmlWatch.FolderFor(W.settings); if (Directory.Exists(cur)) d.SelectedPath = cur; } catch { }
+                        if (d.ShowDialog(W.Win32) != WF.DialogResult.OK) return;
+                        bool same = string.Equals(d.SelectedPath.TrimEnd('\\'), XmlWatch.EgaraFolder, StringComparison.OrdinalIgnoreCase);
+                        W.settings.XmlWatchFolder = same ? "" : d.SelectedPath;
+                        W.Changed();
+                        W.Rebuild();
+                    }
+                };
+                p.Children.Add(change);
+                return p;
+            }
         }
 
         // Registers or removes the association. Windows keeps the final choice to the user, so after registering its
@@ -778,15 +887,24 @@ namespace Stackshot
 
         static string AssocNote(AssocKind k, string ext)
         {
-            if (!FileAssoc.Registered(k)) return "Doble clic en un " + ext + " y se abre en el visor de Stackshot.";
+            if (!FileAssoc.Registered(k))
+                return k == FileAssoc.Video ? "Doble clic en un " + ext + " (los m\u00E1sters Cine, que el reproductor de Windows no abre) y se ve en el reproductor de Stackshot, a tama\u00F1o real."
+                                            : "Doble clic en un " + ext + " y se abre en el visor de Stackshot.";
             if (FileAssoc.IsDefault(k)) return "Stackshot es la aplicaci\u00F3n predeterminada para " + ext + ".";
             return "Registrado, pero Windows abre los " + ext + " con otra aplicaci\u00F3n. Elige Stackshot en Aplicaciones predeterminadas.";
+        }
+
+        static void OpenRecovered()
+        {
+            try { System.Diagnostics.Process.Start(Native.Explorer, "\"" + ShotStack.RecoveredDir + "\""); }
+            catch (Exception ex) { ShotStack.Log("Recuperadas: " + ex.Message); }
         }
 
         void ClearRecent()
         {
             if (MessageBox.Show(this, "\u00BFBorrar las capturas temporales? Las guardadas en tu carpeta no se tocan.", "Stackshot", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             owner.ClearTemp();
+            HistoryIndex.RequestScan();
             Rebuild();
         }
 

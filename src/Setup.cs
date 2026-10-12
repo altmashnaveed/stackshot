@@ -22,6 +22,12 @@ namespace Stackshot
         public const string MutexName = "Local\\Stackshot";
         public const string ShowEvent = "Local\\Stackshot.Show";
         public const string OpenEvent = "Local\\Stackshot.Open";
+        // Exists while a closing Stackshot is still asking about unsaved work or saving a recording.
+        public const string SavingEvent = "Local\\Stackshot.Saving";
+
+        // Tests point the current user's registry somewhere else.
+        internal static RegistryKey HkcuOverride { get; set; }
+        static RegistryKey Hkcu { get { return HkcuOverride ?? Registry.CurrentUser; } }
 
         public static string StartupLink { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Stackshot.lnk"); } }
         public static string MenuLink { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Stackshot.lnk"); } }
@@ -230,8 +236,9 @@ namespace Stackshot
 
         static string OpenFile { get { return Path.Combine(Settings.DataDir, "open.txt"); } }
 
-        // Ask the running instance to open a .md or .xml in the viewer. The request is written first (with its time), so it
-        // is found even when the running copy is still starting; the event is then looked for up to waitMs.
+        // Ask the running instance to open a file (OpensHere: a .md or .xml in the viewer, a video in the player). The request
+        // is written first (with its time), so it is found even when the running copy is still starting; the event is then
+        // looked for up to waitMs.
         // False only when nothing could be written.
         public static bool SendOpen(string path, int waitMs)
         {
@@ -257,9 +264,15 @@ namespace Stackshot
             return true;
         }
 
+        // Requests are still waiting (the file could not be taken: an antivirus or indexer held it for a moment).
+        public static bool OpenPending { get { try { return File.Exists(OpenFile); } catch { return false; } } }
+
         // The paths waiting for the running instance (taken by renaming the file, so nothing is read twice). Requests
         // older than two minutes, or for files that are gone, are ignored.
-        public static List<string> TakeOpenRequests()
+        public static List<string> TakeOpenRequests() { return TakeOpenRequests(null); }
+
+        // The same; the commands among the requests (CliCommand) go to commands, or are dropped when it is null.
+        public static List<string> TakeOpenRequests(List<string> commands)
         {
             List<string> r = new List<string>();
             for (int round = 0; round < 5 && File.Exists(OpenFile); round++)
@@ -278,6 +291,7 @@ namespace Stackshot
                 {
                     foreach (string l in File.ReadAllLines(tmp, System.Text.Encoding.UTF8))
                     {
+                        // Trimmed as Windows itself trims a path: a trailing space is never part of a name it can open.
                         string p = l.Trim();
                         if (p.Length == 0) continue;
                         int tab = p.IndexOf('\t');
@@ -287,13 +301,26 @@ namespace Stackshot
                             p = p.Substring(tab + 1).Trim();
                             if (ticks > DateTime.UtcNow.Ticks + TimeSpan.TicksPerMinute || DateTime.UtcNow.Ticks - ticks > 2 * TimeSpan.TicksPerMinute) continue;
                         }
-                        if (ViewerFile(p) && File.Exists(p) && !r.Exists(x => string.Equals(x, p, StringComparison.OrdinalIgnoreCase))) r.Add(p);
+                        else ticks = 0;
+                        if (CliCommand.IsRequest(p)) { if (commands != null) CliCommand.Take(commands, p, ticks); continue; }
+                        // No File.Exists here (UI thread; a sleeping WSL share can stall it): the viewer reports a missing file.
+                        if (OpensHere(p) && !r.Exists(x => string.Equals(x, p, StringComparison.OrdinalIgnoreCase))) r.Add(p);
                     }
                 }
                 catch { }
                 try { File.Delete(tmp); } catch { }
             }
             return r;
+        }
+
+        // A file given on the command line (double click, "Open with") that the running Stackshot opens: a document in the
+        // viewer or a video in the player (a Cine master .mkv, which Windows' own player cannot decode). A GIF is still an
+        // image to edit.
+        public static bool OpensHere(string path)
+        {
+            if (ViewerFile(path)) return true;
+            try { return ShotStack.IsVideoFile(path) && !string.Equals(Path.GetExtension(path), ".gif", StringComparison.OrdinalIgnoreCase); }
+            catch { return false; }
         }
 
         // A file Stackshot opens in its viewer (Markdown or XML).
@@ -307,12 +334,13 @@ namespace Stackshot
             catch { return false; }
         }
 
-        // Ask the running instance to quit (keeping the clipboard) and wait for it.
+        // Ask the running instance to quit (keeping the clipboard) and wait for it: 10 s, or as long as it says it is
+        // still saving a recording or waiting for the user to answer about unsaved work (up to 10 minutes).
         public static void QuitRunning()
         {
             try { System.Threading.EventWaitHandle.OpenExisting(QuitEvent).Set(); }
             catch { return; }
-            DateTime until = DateTime.Now.AddSeconds(10);
+            DateTime start = DateTime.Now, until = start.AddSeconds(10), limit = start.AddMinutes(10);
             while (DateTime.Now < until)
             {
                 using (System.Threading.Mutex m = new System.Threading.Mutex(false, MutexName))
@@ -322,8 +350,21 @@ namespace Stackshot
                     catch (System.Threading.AbandonedMutexException) { free = true; }
                     if (free) { m.ReleaseMutex(); return; }
                 }
+                if (StillSaving()) until = DateTime.Now.AddSeconds(10) < limit ? DateTime.Now.AddSeconds(10) : limit;
                 System.Threading.Thread.Sleep(150);
             }
+        }
+
+        static bool StillSaving()
+        {
+            try
+            {
+                System.Threading.EventWaitHandle e;
+                if (!System.Threading.EventWaitHandle.TryOpenExisting(SavingEvent, out e)) return false;
+                e.Dispose();
+                return true;
+            }
+            catch { return false; }
         }
 
         public static void Uninstall(bool quiet)
@@ -336,13 +377,26 @@ namespace Stackshot
                 return;
             }
             Settings s = Settings.Load();
-            if (!quiet && MessageBox.Show("\u00BFDesinstalar Stackshot?\n\nLas capturas que hayas guardado en " + s.SaveFolder + " no se borran.",
+            long recovered = WorkFiles.Bytes(ShotStack.RecoveredDir);
+            string keepNote = recovered > 0 ? "\n\nLas grabaciones recuperadas (" + Recents.Size(recovered) + ") se quedan en " + ShotStack.RecoveredDir + "." : "";
+            if (!quiet && MessageBox.Show("\u00BFDesinstalar Stackshot?\n\nLas capturas que hayas guardado en " + s.SaveFolder + " no se borran." + keepNote,
                                           "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             QuitRunning();
+            if (Running)
+            {
+                // The user kept it open (unsaved changes) or it is still saving: nothing is removed under it.
+                ShotStack.Log("Desinstalar: Stackshot sigue abierto");
+                if (!quiet) MessageBox.Show("Stackshot sigue abierto: hay cambios sin guardar o una grabaci\u00F3n guard\u00E1ndose.\n\nCi\u00E9rralo y vuelve a desinstalar.",
+                                            "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            bool printBack = CleanShell();
+            // A recording interrupted earlier is kept with the other recovered ones before the temp folder goes.
+            WorkFiles.Rescue(Settings.TempDir, ShotStack.RecoveredDir, TimeSpan.Zero, true);
             try { if (File.Exists(StartupLink)) File.Delete(StartupLink); } catch { }
             try { if (File.Exists(MenuLink)) File.Delete(MenuLink); } catch { }
             try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
-            try { if (Directory.Exists(Settings.DataDir)) Directory.Delete(Settings.DataDir, true); } catch { }
+            bool keptRecovered = DeleteData(Settings.DataDir, s.SaveFolder);
             // A running .exe can't delete itself, so a hidden cmd removes the folder once this process exits.
             try
             {
@@ -356,7 +410,135 @@ namespace Stackshot
                 Process.Start(psi);
             }
             catch { }
-            if (!quiet) MessageBox.Show("Stackshot se ha desinstalado. \u00A1Gracias por probarlo!", "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (quiet) return;
+            string done = "Stackshot se ha desinstalado. \u00A1Gracias por probarlo!";
+            if (printBack) done += "\n\nLa tecla Impr Pant vuelve a abrir Recortes de Windows.";
+            if (keptRecovered) done += "\n\nLas grabaciones recuperadas siguen en " + ShotStack.RecoveredDir + ".";
+            MessageBox.Show(done, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // Deletes Stackshot's data folder except what can't be made again: recordings in recuperado\ and, should the save
+        // folder ever live inside it, the saved captures. True when recuperado\ was kept.
+        internal static bool DeleteData(string dataDir, string saveFolder)
+        {
+            if (!Directory.Exists(dataDir)) return false;
+            string recovered = Path.Combine(dataDir, "recuperado");
+            bool keep = WorkFiles.Bytes(recovered) > 0;
+            if (!string.IsNullOrEmpty(saveFolder) && ShotStack.SameFolder(dataDir, saveFolder))
+            {
+                // The data folder is also where captures are saved: only what Stackshot itself keeps here goes.
+                foreach (string d in SafeList(delegate { return Directory.GetDirectories(dataDir); }))
+                {
+                    string name = Path.GetFileName(d);
+                    bool own = Array.Exists(OwnFolders, delegate(string o) { return string.Equals(o, name, StringComparison.OrdinalIgnoreCase); }) ||
+                               (!keep && string.Equals(name, "recuperado", StringComparison.OrdinalIgnoreCase));
+                    if (!own) continue;
+                    try { Directory.Delete(d, true); } catch (Exception ex) { ShotStack.Log("Desinstalar, " + d + ": " + ex.Message); }
+                }
+                foreach (string f in SafeList(delegate { return Directory.GetFiles(dataDir); }))
+                {
+                    string name = Path.GetFileName(f);
+                    bool own = name.StartsWith("settings.ini", StringComparison.OrdinalIgnoreCase) || name.StartsWith("stackshot.log", StringComparison.OrdinalIgnoreCase) ||
+                               (name.StartsWith("open.", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase));
+                    if (!own) continue;
+                    try { File.Delete(f); } catch { }
+                }
+                return keep;
+            }
+            foreach (string d in SafeList(delegate { return Directory.GetDirectories(dataDir); }))
+            {
+                if (keep && ShotStack.SameFolder(d, recovered)) continue;
+                if (Contains(d, saveFolder)) continue;
+                try { Directory.Delete(d, true); } catch (Exception ex) { ShotStack.Log("Desinstalar, " + d + ": " + ex.Message); }
+            }
+            foreach (string f in SafeList(delegate { return Directory.GetFiles(dataDir); }))
+            {
+                try { File.Delete(f); } catch { }
+            }
+            if (!keep && !Contains(dataDir, saveFolder)) { try { Directory.Delete(dataDir, true); } catch { } }
+            return keep;
+        }
+
+        // The folders Stackshot creates inside its data folder (recuperado\ is handled apart).
+        static readonly string[] OwnFolders = { "temp", "ffmpeg", "cine", "Fondos", "posters", "update", "originales", "historial" };
+
+        static string[] SafeList(Func<string[]> list)
+        {
+            try { return list(); }
+            catch { return new string[0]; }
+        }
+
+        // Whether folder is dir itself or somewhere inside it.
+        static bool Contains(string dir, string folder)
+        {
+            if (string.IsNullOrEmpty(folder)) return false;
+            try
+            {
+                string d = Path.GetFullPath(dir).TrimEnd('\\') + "\\", f = Path.GetFullPath(folder).TrimEnd('\\') + "\\";
+                return f.StartsWith(d, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        // Puts back what Stackshot changed in Windows for this user: the .md/.xml/.mkv associations and, if Stackshot took
+        // it, the Print Screen key for Snipping Tool. Safe to run when nothing was changed (also `--cleanup-shell`, for the
+        // MSI's uninstall). True when Print Screen was given back.
+        public static bool CleanShell()
+        {
+            FileAssoc.Disable(FileAssoc.Markdown);
+            FileAssoc.Disable(FileAssoc.Xml);
+            FileAssoc.Disable(FileAssoc.Video);
+            bool back = RestorePrintScreen();
+            try
+            {
+                bool empty;
+                using (RegistryKey k = Hkcu.OpenSubKey(MsiKey))
+                    empty = k != null && k.SubKeyCount == 0 && k.ValueCount == 0;
+                if (empty && !Settings.ReadOnly) Hkcu.DeleteSubKey(MsiKey, false);
+            }
+            catch { }
+            return back;
+        }
+
+        const string Keyboard = @"Control Panel\Keyboard", PrintValue = "PrintScreenKeyForSnippingEnabled", FreedFlag = "FreedPrintScreen";
+
+        // FreedFlag remembers what the value was before Stackshot set it to 0: 1, or "none" when it wasn't there.
+        internal static bool RestorePrintScreen()
+        {
+            if (Settings.ReadOnly) return false;
+            try
+            {
+                string before;
+                using (RegistryKey k = Hkcu.OpenSubKey(MsiKey))
+                    before = k == null ? null : Convert.ToString(k.GetValue(FreedFlag));
+                if (string.IsNullOrEmpty(before)) return false;
+                using (RegistryKey kb = Hkcu.CreateSubKey(Keyboard))
+                {
+                    object now = kb.GetValue(PrintValue);
+                    // Changed back by the user meanwhile: theirs to keep.
+                    if (now is int && (int)now != 0) before = null;
+                    else if (before == "none") kb.DeleteValue(PrintValue, false);
+                    else kb.SetValue(PrintValue, 1, RegistryValueKind.DWord);
+                }
+                using (RegistryKey k = Hkcu.OpenSubKey(MsiKey, true))
+                    if (k != null) k.DeleteValue(FreedFlag, false);
+                if (before == null) return false;
+                KeyboardChanged();
+                ShotStack.Log("Impr Pant devuelta a Recortes");
+                return true;
+            }
+            catch (Exception ex) { ShotStack.Log("Devolver Impr Pant: " + ex.Message); return false; }
+        }
+
+        static void KeyboardChanged()
+        {
+            if (HkcuOverride != null) return;
+            try
+            {
+                UIntPtr result;
+                SendMessageTimeout((IntPtr)0xFFFF, 0x001A, UIntPtr.Zero, "Keyboard", 0x0002, 1000, out result); // WM_SETTINGCHANGE, SMTO_ABORTIFHUNG
+            }
+            catch { }
         }
 
         // Windows 11 maps Print Screen to Snipping Tool. Stackshot can take it over (current user only).
@@ -364,24 +546,36 @@ namespace Stackshot
         {
             get
             {
-                object v = Registry.GetValue(@"HKEY_CURRENT_USER\Control Panel\Keyboard", "PrintScreenKeyForSnippingEnabled", null);
+                object v = null;
+                try
+                {
+                    using (RegistryKey k = Hkcu.OpenSubKey(Keyboard))
+                        if (k != null) v = k.GetValue(PrintValue);
+                }
+                catch { }
                 if (v is int) return (int)v != 0;
                 return Environment.OSVersion.Version.Build >= 22000; // on by default on Windows 11
             }
         }
 
         // Windows 11 gives Print Screen to the Snipping Tool by default; this hands it back (current user only) and tells
-        // the shell the keyboard setting changed, so it applies right away where Windows supports it.
+        // the shell the keyboard setting changed, so it applies right away where Windows supports it. What it was before
+        // is remembered, so uninstalling gives it back.
         public static void FreePrintScreen()
         {
-            try { Registry.SetValue(@"HKEY_CURRENT_USER\Control Panel\Keyboard", "PrintScreenKeyForSnippingEnabled", 0, RegistryValueKind.DWord); }
-            catch (Exception ex) { ShotStack.Log("Impr Pant: " + ex.Message); return; }
             try
             {
-                UIntPtr result;
-                SendMessageTimeout((IntPtr)0xFFFF, 0x001A, UIntPtr.Zero, "Keyboard", 0x0002, 1000, out result); // WM_SETTINGCHANGE, SMTO_ABORTIFHUNG
+                using (RegistryKey kb = Hkcu.CreateSubKey(Keyboard))
+                {
+                    object was = kb.GetValue(PrintValue);
+                    if (!(was is int) || (int)was != 0)
+                        using (RegistryKey k = Hkcu.CreateSubKey(MsiKey))
+                            if (k.GetValue(FreedFlag) == null) k.SetValue(FreedFlag, was is int ? "1" : "none");
+                    kb.SetValue(PrintValue, 0, RegistryValueKind.DWord);
+                }
             }
-            catch { }
+            catch (Exception ex) { ShotStack.Log("Impr Pant: " + ex.Message); return; }
+            KeyboardChanged();
             ShotStack.Log("Impr Pant liberada de Recortes");
         }
 

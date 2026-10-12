@@ -141,6 +141,19 @@ namespace Stackshot
                     g.DrawLine(p, 9.5f, 12, 14.5f, 12);
                     break;
                 }
+                case "textscan":
+                {
+                    // The area's corners around a T: text read from the screen.
+                    float a = 5.2f;
+                    g.DrawLines(p, new PointF[] { new PointF(4, 4 + a), new PointF(4, 4), new PointF(4 + a, 4) });
+                    g.DrawLines(p, new PointF[] { new PointF(20 - a, 4), new PointF(20, 4), new PointF(20, 4 + a) });
+                    g.DrawLines(p, new PointF[] { new PointF(20, 20 - a), new PointF(20, 20), new PointF(20 - a, 20) });
+                    g.DrawLines(p, new PointF[] { new PointF(4 + a, 20), new PointF(4, 20), new PointF(4, 20 - a) });
+                    g.DrawLines(p, new PointF[] { new PointF(8.5f, 9.5f), new PointF(8.5f, 8), new PointF(15.5f, 8), new PointF(15.5f, 9.5f) });
+                    g.DrawLine(p, 12, 8, 12, 16);
+                    g.DrawLine(p, 10.2f, 16, 13.8f, 16);
+                    break;
+                }
                 case "screen":
                     RoundRect(g, p, 2.5f, 4, 21.5f, 16.5f, 2.2f);
                     g.DrawLine(p, 12, 16.5f, 12, 19.5f);

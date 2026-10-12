@@ -32,6 +32,7 @@ namespace Stackshot
             {
                 try
                 {
+                    if (TestPngDelayMs > 0) System.Threading.Thread.Sleep(TestPngDelayMs);
                     bool done = false;
                     if (copy == null)
                     {
@@ -70,15 +71,28 @@ namespace Stackshot
 
         public override object GetData(string format, bool autoConvert)
         {
+            // When the request arrived, not when the PNG was ready: a clipboard manager that reads every new copy at once
+            // and waits for a large PNG is not a paste.
+            double askedAfter = (DateTime.Now - since).TotalMilliseconds;
             if (format == "PNG") lock (pngLock) { while (!pngReady) System.Threading.Monitor.Wait(pngLock, 10000); }
             object o = base.GetData(format, autoConvert);
-            if (!used && o != null && !format.StartsWith("Can") && (DateTime.Now - since).TotalMilliseconds > 1000)
+            if (!used && o != null && CountsAsPaste(format, askedAfter))
             {
                 used = true;
                 if (onUsed != null) onUsed(this);
             }
             return o;
         }
+
+        // Reads in the first second are the system and clipboard tools looking at a new copy; the Can* flags are
+        // Windows asking about history and cloud sync.
+        internal static bool CountsAsPaste(string format, double askedAfterMs)
+        {
+            return format != null && !format.StartsWith("Can", StringComparison.Ordinal) && askedAfterMs > 1000;
+        }
+
+        // Tests make the PNG slow to prepare.
+        internal static int TestPngDelayMs { get; set; }
 
         // Deep pixel copy (memory to memory, a few ms even for huge captures).
         internal static Bitmap DeepCopy(Bitmap src)

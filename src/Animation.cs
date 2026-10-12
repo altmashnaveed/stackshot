@@ -121,6 +121,8 @@ namespace Stackshot
                 pacer = new Thread(Pace);
                 pacer.IsBackground = true;
                 pacer.Name = "Stackshot frames";
+                // It only waits and posts: a higher priority keeps frames on time under CPU load without taking CPU.
+                pacer.Priority = ThreadPriority.AboveNormal;
                 pacer.Start();
             }
             resume.Set();

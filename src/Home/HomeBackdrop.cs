@@ -25,16 +25,17 @@ namespace Stackshot
             Grid shell = new Grid { Height = 250, Margin = new Thickness(0, 0, 0, 26) };
             shell.Children.Add(CardShadow(16, 0.07, 14, 2, 1));
             Border card = CardFace(16);
-            card.Background = Ds.Brush(pal.Dark ? Ds.Rgb(24, 24, 27) : Ds.Rgb(236, 236, 240));
+            card.Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(24, 24, 27) : Ds.Rgb(236, 236, 240));
             // A swatch hovered on the page this one replaces (a theme change) is not tried on the new preview.
             tryPreset = -1;
-            if (tryTimer != null) tryTimer.Stop();
+            if (tryTimer != null && !indexing) tryTimer.Stop();
             previewImage = new Image { Stretch = Stretch.Uniform, Margin = new Thickness(20, 18, 20, 18) };
             RenderOptions.SetBitmapScalingMode(previewImage, BitmapScalingMode.HighQuality);
+            System.Windows.Automation.AutomationProperties.SetName(previewImage, "Vista previa del fondo");
             card.Child = previewImage;
             shell.Children.Add(card);
             Add(shell);
-            RefreshPreview();
+            if (!indexing) RefreshPreview();
 
             int[] pads = { 0, 25, 50, 85 }, radii = { 0, 40, 80 };
             string[] ratios = { "auto", "16:9", "4:3", "1:1" };
@@ -289,10 +290,10 @@ namespace Stackshot
                 MinHeight = 0;
                 RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
                 RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                WrapPanel wrap = new WrapPanel { Margin = new Thickness(-4, -2, -4, 10) };
+                WrapPanel wrap = new ListWrap { Margin = new Thickness(-4, -2, -4, 10), Label = "Fondos" };
                 Grid.SetRow(wrap, 1);
                 Grid.SetColumnSpan(wrap, 3);
-                rings = new Border[Backdrop.Count];
+                rings = new Border[W.indexing ? 0 : Backdrop.Count];
                 for (int i = 0; i < rings.Length; i++) wrap.Children.Add(Cell(i));
                 Children.Add(wrap);
                 Paint();
@@ -309,12 +310,13 @@ namespace Stackshot
                     Height = 46,
                     CornerRadius = new CornerRadius(8),
                     BorderThickness = new Thickness(1),
-                    BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.10, 0, 0, 0))
+                    BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Argb(0.10, 0, 0, 0))
                 };
                 BitmapSource src = Swatch(i);
                 swatch.Background = src != null ? (Brush)new ImageBrush(src) { Stretch = Stretch.UniformToFill } : Ds.Brush(pal.Control);
-                Border ring = new Border
+                Border ring = new TapBorder
                 {
+                    Role = Access.ListItem, On = delegate { return Selected == i; }, Do = delegate { Pick(i); },
                     CornerRadius = new CornerRadius(11),
                     BorderThickness = new Thickness(2),
                     Padding = new Thickness(2),
@@ -329,6 +331,8 @@ namespace Stackshot
                 ring.MouseEnter += delegate { hover = i; Paint(); W.TryBackdrop(i); };
                 ring.MouseLeave += delegate { if (hover == i) { hover = -1; W.TryBackdrop(-1); } Paint(); };
                 ring.MouseLeftButtonUp += delegate { Pick(i); };
+                ring.GotKeyboardFocus += delegate { hover = i; Paint(); W.TryBackdrop(i); };   // the keyboard tries it on, as the mouse does
+                ring.LostKeyboardFocus += delegate { if (hover == i && !ring.IsMouseOver) { hover = -1; W.TryBackdrop(-1); } Paint(); };
                 return ring;
             }
 

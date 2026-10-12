@@ -24,7 +24,7 @@ namespace Stackshot
             {
                 CornerRadius = new CornerRadius(radius),
                 Background = new SolidColorBrush(pal.Group),
-                BorderBrush = Ds.Brush(pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.07, 0, 0, 0)),
+                BorderBrush = Ds.Brush(pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.07, 0, 0, 0)),
                 BorderThickness = new Thickness(1)
             };
         }
@@ -33,7 +33,7 @@ namespace Stackshot
         static SoftShadow CardShadow(double radius, double opacity, double blur, double depth, double boost)
         {
             Palette pal = Ds.Brushes;
-            SoftShadow s = new SoftShadow(radius, blur, depth, Math.Min(1, (pal.Dark ? opacity * 2.5 : opacity) * boost));
+            SoftShadow s = new SoftShadow(radius, blur, depth, pal.High ? 0 : Math.Min(1, (pal.Dark ? opacity * 2.5 : opacity) * boost));
             s.Opacity = 1 / boost;
             s.Margin = new Thickness(1);
             return s;
@@ -63,8 +63,8 @@ namespace Stackshot
             glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(brand, pal.Dark ? 0.34 : 0.24), 0));
             glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(brand, pal.Dark ? 0.12 : 0.08), 0.5));
             glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(brand, 0), 1));
-            logo.Children.Add(new System.Windows.Shapes.Ellipse { Width = 260, Height = 260, Margin = new Thickness(-82), Fill = glow, IsHitTestVisible = false });
-            Image img = new Image { Width = 96, Height = 96, Source = Icon as ImageSource };
+            if (!pal.High) logo.Children.Add(new System.Windows.Shapes.Ellipse { Width = 260, Height = 260, Margin = new Thickness(-82), Fill = glow, IsHitTestVisible = false });
+            Image img = new DecorImage { Width = 96, Height = 96, Source = Icon as ImageSource };
             RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
             logo.Children.Add(img);
             head.Children.Add(logo);
@@ -102,10 +102,11 @@ namespace Stackshot
             Add(head);
 
             Add(UpdateCard());
+            if (Policy.Any) Add(PolicyNote());
 
             if (Installer.RunningInstalled)
             {
-                TextBlock un = Label("Desinstalar Stackshot\u2026", Ds.Regular, 12.5, pal.Red, new Thickness(0, 22, 0, 0));
+                TextBlock un = LinkLabel("Desinstalar Stackshot\u2026", Ds.Regular, 12.5, pal.Error, new Thickness(0, 22, 0, 0), delegate { try { Process.Start(Settings.InstalledExe, "--uninstall"); } catch { } });
                 un.HorizontalAlignment = HorizontalAlignment.Center;
                 un.Cursor = Cursors.Hand;
                 un.MouseEnter += delegate { un.TextDecorations = TextDecorations.Underline; };
@@ -119,7 +120,7 @@ namespace Stackshot
         FrameworkElement UpdateCard()
         {
             Palette pal = Ds.Brushes;
-            Updater.Release r = Updater.Available;
+            Updater.Release r = Policy.ChecksForced ? null : Updater.Available;
             Updater.Step step = Updater.Doing;
             DateTime last = Updater.LastChecked(settings);
             string mine = Installer.MyVersion.ToString(3), v = r != null ? r.Version.ToString(3) : mine;
@@ -131,7 +132,15 @@ namespace Stackshot
             ButtonKind kind = ButtonKind.Secondary;
             Action act = Updater.Check;
             bool wait = false, link = false;
-            if (working)
+            if (Policy.ChecksForced)
+            {
+                // The organization keeps Stackshot up to date: nothing is looked for or offered here.
+                key = "policy";
+                icon = "update"; c1 = gray1; c2 = gray2;
+                title = "Actualizaciones";
+                sub = "Tienes la versi\u00F3n " + mine + ". Las actualizaciones de Stackshot las gestiona tu organizaci\u00F3n.";
+            }
+            else if (working)
             {
                 key = "work";
                 icon = "save"; c1 = W(Mac.Blue); c2 = W(Mac.Indigo);
@@ -270,11 +279,11 @@ namespace Stackshot
                 Grid np = new Grid { Margin = new Thickness(0, 8, 0, 0) };
                 np.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 np.ColumnDefinitions.Add(new ColumnDefinition());
-                GlyphView gv = new GlyphView("warning", 14, pal.Orange, 1.5);
+                GlyphView gv = new GlyphView("warning", 14, pal.Warn, 1.5);
                 gv.VerticalAlignment = VerticalAlignment.Top;
                 gv.Margin = new Thickness(0, 1, 6, 0);
                 np.Children.Add(gv);
-                TextBlock nt = Paragraph(note, 12, pal.Orange);
+                TextBlock nt = Paragraph(note, 12, pal.Warn);
                 Grid.SetColumn(nt, 1);
                 np.Children.Add(nt);
                 text.Children.Add(np);
@@ -292,11 +301,11 @@ namespace Stackshot
             }
             if (link)
             {
-                StackPanel lk = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
-                                                 Cursor = Cursors.Hand, Background = Brushes.Transparent };
-                TextBlock lt = Label("Novedades en GitHub", Ds.Medium, 12, pal.Accent);
+                StackPanel lk = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
+                                               Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Label = "Novedades en GitHub", Do = delegate { Updater.OpenPage(); } };
+                TextBlock lt = Label("Novedades en GitHub", Ds.Medium, 12, pal.Link);
                 lk.Children.Add(lt);
-                GlyphView arrow = new GlyphView("open", 12, pal.Accent, 1.4);
+                GlyphView arrow = new GlyphView("open", 12, pal.Link, 1.4);
                 arrow.Margin = new Thickness(4, 1, 0, 0);
                 lk.Children.Add(arrow);
                 lk.MouseEnter += delegate { lt.TextDecorations = TextDecorations.Underline; };
@@ -327,10 +336,11 @@ namespace Stackshot
                 settings.CheckUpdates = on;
                 owner.ApplySettings();
                 Updater.SettingsChanged();
-                if (autoRow != null) { UpdateSwitchLive(autoRow, on && installed, true); autoRow.ToolTip = AutoTip(installed, on); }
+                if (autoRow != null) { UpdateSwitchLive(autoRow, on && installed && !Policy.AutoForced, true); autoRow.ToolTip = AutoTip(installed, on); }
             });
             checkRow.ToolTip = "Al abrir Stackshot y cada 3 horas. No env\u00EDa nada tuyo.";
             ToolTipService.SetInitialShowDelay(checkRow, 700);
+            LockedByPolicy(checkRow, Policy.ChecksForced);
             if (!msi)
             {
                 autoRow = UpdateSwitch(rows, "Instalarlas autom\u00E1ticamente", settings.AutoUpdate, delegate(bool on)
@@ -344,7 +354,7 @@ namespace Stackshot
                 autoRow.ToolTip = AutoTip(installed, settings.CheckUpdates);
                 ToolTipService.SetInitialShowDelay(autoRow, 700);
                 ToolTipService.SetShowOnDisabled(autoRow, true);
-                UpdateSwitchLive(autoRow, settings.CheckUpdates && installed, false);
+                UpdateSwitchLive(autoRow, settings.CheckUpdates && installed && !Policy.AutoForced, false);
             }
 
             // A new state arrives with a small pop of the icon and the text fading in.
@@ -376,6 +386,7 @@ namespace Stackshot
             ft.TextTrimming = TextTrimming.CharacterEllipsis;
             foot.Children.Add(ft);
             MacSwitch sw = new MacSwitch(value);
+            Access.Describe(sw, text, null);
             sw.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(sw, 1);
             sw.Toggled += delegate(bool on) { toggled(on); };
@@ -387,7 +398,8 @@ namespace Stackshot
         // What installing on its own does or, while it can't, why.
         static string AutoTip(bool installed, bool checking)
         {
-            return !installed ? "Solo con Stackshot instalado; esta copia no puede instalarse sola."
+            return Policy.AutoForced ? Policy.Managed
+                 : !installed ? "Solo con Stackshot instalado; esta copia no puede instalarse sola."
                  : !checking ? "Necesita \u00ABBuscar actualizaciones autom\u00E1ticamente\u00BB."
                  : "Se descargan, se comprueba su firma y se instalan cuando no est\u00E9s usando el equipo.";
         }
@@ -401,7 +413,7 @@ namespace Stackshot
 
         static FrameworkElement AboutLink(string text, string url)
         {
-            TextBlock t = Label(text, Ds.Regular, 12, Ds.Brushes.Accent);
+            TextBlock t = LinkLabel(text, Ds.Regular, 12, Ds.Brushes.Link, delegate { try { Process.Start(url); } catch (Exception ex) { ShotStack.Log("Enlace: " + ex.Message); } });
             t.Cursor = Cursors.Hand;
             t.MouseEnter += delegate { t.TextDecorations = TextDecorations.Underline; };
             t.MouseLeave += delegate { t.TextDecorations = null; };

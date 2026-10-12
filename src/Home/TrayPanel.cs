@@ -22,7 +22,7 @@ namespace Stackshot
     // and the app commands. Built once and reused, so it opens at once; hidden it costs nothing (no timers). The whole
     // panel is two cached layers (normal and highlighted), so hover only moves a rounded accent pill between them.
     // Commands run once it has faded out; it is excluded from capture anyway.
-    public sealed class TrayPanel : FloatWindow
+    public sealed partial class TrayPanel : FloatWindow
     {
         // region, screen, window, scroll, video, gif, home, folder, closeall, settings, quit.
         public Action<string> Command;
@@ -33,7 +33,7 @@ namespace Stackshot
         const int Recent = 4;
         const float RowH = 30, Inset = 6, Radius = 12, MinWidth = 292, Gap = 10;
         const double FlashMs = 90;
-        static readonly string[] Captures = { "region", "screen", "window", "scroll", "video", "gif" };
+        static readonly string[] Captures = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif" };
 
         sealed class Item
         {
@@ -240,7 +240,7 @@ namespace Stackshot
             pendingCommand = command;
             pendingFile = file;
             // Captures (and the commands that open nothing) give the focus back to the window that had it.
-            restoreAfter = command != null && (Array.IndexOf(Captures, command) >= 0 || command == "closeall" || command == "quit");
+            restoreAfter = command != null && (Array.IndexOf(Captures, command) >= 0 || command == "closeall" || command == "quit" || command == "pause");
             if (file != null) { BeginClose(false); return; }
             flashing = true;
             flashAt = Anim.Now;
@@ -475,11 +475,15 @@ namespace Stackshot
             Add(KHead, null, null, null, 0);
             Add(KLine, null, null, null, 0);
             AddCapture("region", "\u00C1rea", "area", 1);
+            AddCapture("repeat", "Repetir \u00E1rea", "update", 1);
             AddCapture("screen", "Pantalla", "screen", 1);
             AddCapture("window", "Ventana", "window", 1);
             AddCapture("scroll", scrolling ? "Terminar desplazamiento" : "Desplazamiento", "scroll", 1);
+            AddCapture("text", "Texto", "textscan", 1);
             Add(KLine, null, null, null, 0);
             AddCapture("video", recording ? "Detener grabaci\u00F3n" : "V\u00EDdeo", recording ? "stop!" : "video", 2).Alert = recording;
+            bool paused = recording && Recorder.Paused;
+            if (recording && Recorder.CanPause) Add(KRow, "pause", paused ? "Reanudar grabaci\u00F3n" : "Pausar grabaci\u00F3n", paused ? "play" : "pause", 2);
             if (!recording) AddCapture("gif", "GIF", "gif", 2);
             AddCapture("markdown", "Markdown", "markdown", 2);
             Add(KLine, null, null, null, 0);
@@ -490,12 +494,14 @@ namespace Stackshot
             }
             Add(KRow, "home", "Abrir Stackshot", "home", 3);
             Add(KRow, "folder", "Abrir capturas guardadas", "folder", 3);
+            Add(KRow, "openvideo", "Abrir v\u00EDdeo\u2026", "video", 3);
+            if (settings.XmlWatch) Add(KRow, "lastxml", "Abrir el \u00FAltimo XML", "doc", 3);
             Add(KRow, "closeall", "Cerrar todas las miniaturas", "stack", 3).Enabled = HasCards == null || HasCards();
             Add(KRow, "settings", "Ajustes\u2026", "gear", 3);
             Add(KLine, null, null, null, 0);
             Add(KRow, "quit", "Salir", "power", 4);
             statusAlert = recording;
-            status = recording ? "Grabando la pantalla" : scrolling ? "Captura con desplazamiento en curso"
+            status = recording ? (paused ? "Grabaci\u00F3n en pausa" : "Grabando la pantalla") : scrolling ? "Captura con desplazamiento en curso"
                    : today == 1 ? "1 captura hoy" : today > 1 ? today + " capturas hoy" : "Listo para capturar";
         }
 
@@ -581,7 +587,7 @@ namespace Stackshot
 
         // ---- Painting
 
-        internal static M.Color Back(bool dark) { return dark ? Ds.Rgb(40, 40, 43) : Ds.Rgb(248, 248, 249); }
+        internal static M.Color Back(bool dark) { return Ds.Brushes.High ? Ds.Brushes.Window : dark ? Ds.Rgb(40, 40, 43) : Ds.Rgb(248, 248, 249); }
 
         // The panel keeps its own pixels: a full repaint only when the content changes, and while hovering just the band
         // the highlight moved through (a tenth of the window), so animating costs next to nothing.
@@ -691,6 +697,7 @@ namespace Stackshot
         // A wide soft shadow plus a tight one under the edge; blurred once per scale and theme, any size after that.
         void PaintShadow(M.DrawingContext dc)
         {
+            if (Ds.Brushes.High) return;   // no shadows in a contrast theme
             string key = s + "|" + Ds.Dark;
             if (softShadow == null || key != shadowKey)
             {
@@ -753,14 +760,14 @@ namespace Stackshot
             dc.PushTransform(new M.TranslateTransform(Pad, Pad));
             double r = Px(Radius);
             W.Rect b = new W.Rect(0, 0, body.Width, body.Height);
-            if (pal.Dark)
+            if (pal.Dark && !pal.High)
             {
                 // A crisp dark outline outside and a faint light one inside, like dark macOS menus.
                 M.Pen outer = new M.Pen(Ds.Brush(Ds.Argb(0.75, 0, 0, 0)), 1);
                 dc.DrawRoundedRectangle(null, outer, new W.Rect(-0.5, -0.5, b.Width + 1, b.Height + 1), r + 0.5, r + 0.5);
             }
             Ink.Round(dc, Back(pal.Dark), b, r);
-            Ink.Hairline(dc, pal.Dark ? Ds.Argb(0.13, 255, 255, 255) : Ds.Argb(0.13, 0, 0, 0), b, r);
+            Ink.Hairline(dc, pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.13, 255, 255, 255) : Ds.Argb(0.13, 0, 0, 0), b, r);
             foreach (Item it in items)
             {
                 if (it.Kind == KRow) PaintRow(dc, it, false);
@@ -781,8 +788,8 @@ namespace Stackshot
         void PaintRow(M.DrawingContext dc, Item it, bool sel)
         {
             Palette pal = Ds.Brushes;
-            M.Color ink = sel ? M.Colors.White : it.Enabled ? pal.Label : pal.Label3;
-            M.Color icon = sel ? M.Colors.White : !it.Enabled ? pal.Label3 : it.Alert ? pal.Red : Ds.WithAlpha(pal.Label, pal.Dark ? 0.72 : 0.68);
+            M.Color ink = sel ? pal.OnAccent : it.Enabled ? pal.Label : pal.Label3;
+            M.Color icon = sel ? pal.OnAccent : !it.Enabled ? pal.Label3 : it.Alert ? pal.Red : pal.MenuIcon;
             double x = it.R.X + Px(10), cy = it.R.Y + it.R.Height / 2, gs = Px(16);
             Glyph.Draw(dc, it.Icon, x, Math.Round(cy - gs / 2), gs, icon, U(1.45));
             M.FormattedText t = Ink.Px(it.Text, Ds.Regular, U(13), ink);
@@ -833,7 +840,8 @@ namespace Stackshot
             {
                 double cw = CapW(k, s);
                 W.Rect cr = new W.Rect(x, y, cw, h);
-                if (sel) Ink.Round(dc, Ds.Argb(0.22, 255, 255, 255), cr, r);
+                if (pal.High) HcPaint.TrayKeycap(dc, cr, r, sel);
+                else if (sel) Ink.Round(dc, Ds.Argb(0.22, 255, 255, 255), cr, r);
                 else if (pal.Dark)
                 {
                     Ink.Round(dc, Ds.Argb(0.09, 255, 255, 255), cr, r);
@@ -847,7 +855,7 @@ namespace Stackshot
                     Ink.Round(dc, M.Colors.White, cr, r);
                     Ink.Hairline(dc, Ds.Argb(0.10, 0, 0, 0), cr, r);
                 }
-                M.Color ink = sel ? Ds.Argb(0.96, 255, 255, 255) : pal.Label2;
+                M.Color ink = pal.High ? (sel ? pal.OnAccent : pal.Label) : sel ? Ds.Argb(0.96, 255, 255, 255) : pal.Label2;
                 if (k == ShiftKey)
                 {
                     // Drawn, not typed: the fallback font makes the arrow tiny.
@@ -921,7 +929,7 @@ namespace Stackshot
                 W.Rect r = thumbR[i];
                 string path = recent[i].FullName;
                 bool media = ShotStack.IsMediaFile(path);
-                Ink.Round(dc, pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.05, 0, 0, 0), r, rr);
+                Ink.Round(dc, pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.05, 0, 0, 0), r, rr);
                 MI.BitmapSource src;
                 if (thumbs.TryGetValue(path, out src) && src != null && src.PixelWidth > 0 && src.PixelHeight > 0)
                 {
@@ -940,10 +948,10 @@ namespace Stackshot
                 {
                     double d = Px(14), g = Px(8);
                     W.Rect c = new W.Rect(r.X + Px(4), r.Bottom - Px(4) - d, d, d);
-                    dc.DrawEllipse(Ds.Brush(Ds.Argb(0.55, 0, 0, 0)), null, new W.Point(c.X + d / 2, c.Y + d / 2), d / 2, d / 2);
-                    Glyph.Draw(dc, "play!", c.X + (d - g) / 2 + U(0.5), c.Y + (d - g) / 2, g, M.Colors.White, 1);
+                    dc.DrawEllipse(Ds.Brush(Palette.HudBack(Ds.Argb(0.55, 0, 0, 0))), pal.High ? new M.Pen(Ds.Brush(pal.Hairline), 1) : null, new W.Point(c.X + d / 2, c.Y + d / 2), d / 2, d / 2);
+                    Glyph.Draw(dc, "play!", c.X + (d - g) / 2 + U(0.5), c.Y + (d - g) / 2, g, Palette.HudLabel, 1);
                 }
-                Ink.Hairline(dc, pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0), r, rr);
+                Ink.Hairline(dc, pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.14, 255, 255, 255) : Ds.Argb(0.12, 0, 0, 0), r, rr);
             }
         }
 
@@ -1132,9 +1140,14 @@ namespace Stackshot
                 case Keys.PageDown:
                     Arrow(2);
                     return true;
+                case Keys.Left:
+                case Keys.Right:
+                    ArrowThumb(keyData == Keys.Right ? 1 : -1);
+                    return true;
                 case Keys.Enter:
                 case Keys.Space:
                     if (hot >= 0) Choose(items[hot].Id, null);
+                    else if (hotThumb >= 0 && hotThumb < ThumbCount()) Choose(null, recent[hotThumb].FullName);
                     return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
@@ -1150,6 +1163,7 @@ namespace Stackshot
             int next = dir == 0 ? 0 : dir == 2 ? rows.Count - 1 : at < 0 ? (dir > 0 ? 0 : rows.Count - 1) : (at + dir + rows.Count) % rows.Count;
             SetHotThumb(-1);
             SetHot(rows[next]);
+            AccessFocus(rows[next]);
         }
 
         // Really closes it (the app is quitting); Alt+F4 and the like only hide it, since it is reused.

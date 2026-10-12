@@ -20,10 +20,10 @@ namespace Stackshot
     public partial class HomeWindow : Sheet
     {
         const double LW = 980, LH = 660, Side = 236, Bar = 52;
-        static readonly string[] PageIds = { "home", "keys", "general", "editor", "record", "mascot", "about" };
-        static readonly string[] PageNames = { "Inicio", "Atajos", "General", "Fondo y editor", "Grabaci\u00F3n", "Mascota", "Acerca de" };
-        static readonly string[] PageIcons = { "home", "keyboard", "gear", "photo", "video", "bot", "info" };
-        static readonly D.Color[] PageColors = { D.Color.FromArgb(10, 132, 255), D.Color.FromArgb(142, 142, 147), D.Color.FromArgb(142, 142, 147),
+        static readonly string[] PageIds = { "home", "history", "keys", "general", "editor", "record", "mascot", "about" };
+        static readonly string[] PageNames = { "Inicio", "Historial", "Atajos", "General", "Fondo y editor", "Grabaci\u00F3n", "Mascota", "Acerca de" };
+        static readonly string[] PageIcons = { "home", "history", "keyboard", "gear", "photo", "video", "bot", "info" };
+        static readonly D.Color[] PageColors = { D.Color.FromArgb(10, 132, 255), D.Color.FromArgb(94, 92, 230), D.Color.FromArgb(142, 142, 147), D.Color.FromArgb(142, 142, 147),
                                                  D.Color.FromArgb(175, 82, 222), D.Color.FromArgb(255, 59, 48), D.Color.FromArgb(255, 149, 0),
                                                  D.Color.FromArgb(142, 142, 147) };
 
@@ -31,7 +31,7 @@ namespace Stackshot
         readonly Settings settings;
         string page = "home";
         readonly Grid sidebar = new Grid(), pane = new Grid();
-        readonly StackPanel navList = new StackPanel();
+        readonly StackPanel navList = new TapPanel { Interactive = false, Role = Access.Tab, Label = "Secciones" };
         readonly Border widgetSlot = new Border();
         readonly ScrollViewer scroller = new ScrollViewer();
         readonly Grid pageHost = new Grid();
@@ -200,14 +200,14 @@ namespace Stackshot
         {
             sidebar.Children.Clear();
             sidebar.RowDefinitions.Clear();
-            sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(78) });
+            sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(78 + SearchBand) });
             sidebar.RowDefinitions.Add(new RowDefinition());
             sidebar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             sidebar.Background = HasMica ? Ds.Brush(Ds.Brushes.Dark ? Ds.Argb(0.10, 0, 0, 0) : Ds.Argb(0.18, 255, 255, 255)) : Ds.Brush(Ds.Brushes.Sidebar);
             if (sidebar.Parent == null) { Grid.SetColumn(sidebar, 0); Root.Children.Add(sidebar); }
 
             StackPanel brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20, 26, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-            Image logo = new Image { Width = 30, Height = 30, Source = Icon as ImageSource };
+            Image logo = new DecorImage { Width = 30, Height = 30, Source = Icon as ImageSource };
             RenderOptions.SetBitmapScalingMode(logo, BitmapScalingMode.HighQuality);
             brand.Children.Add(logo);
             StackPanel names = new StackPanel { Margin = new Thickness(10, -1, 0, 0) };
@@ -215,6 +215,7 @@ namespace Stackshot
             names.Children.Add(Label("Versi\u00F3n " + Installer.MyVersion.ToString(3), Ds.Regular, 11.5, Ds.Brushes.Label3));
             brand.Children.Add(names);
             sidebar.Children.Add(brand);
+            sidebar.Children.Add(SearchField());
 
             navList.Margin = new Thickness(10, 4, 10, 0);
             Grid.SetRow(navList, 1);
@@ -240,18 +241,19 @@ namespace Stackshot
         {
             string id = PageIds[i];
             bool on = page == id || (id == "mascot" && page == "mascotset");
-            Border b = new Border { Height = 32, CornerRadius = new CornerRadius(7), Margin = new Thickness(0, 0, 0, 2), Cursor = Cursors.Hand };
+            Border b = new TapBorder { Height = 32, CornerRadius = new CornerRadius(7), Margin = new Thickness(0, 0, 0, 2), Cursor = Cursors.Hand, BorderThickness = HcPaint.Edge,
+                                       Label = PageNames[i], Role = Access.TabItem, On = delegate { return on; }, Do = delegate { if (page != id) SetPage(id, true); else SearchHide(); } };
             b.Background = on ? Ds.Brush(Ds.Brushes.Accent) : Brushes.Transparent;
             StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
             row.Children.Add(new IconTile(PageIcons[i], 20, W(PageColors[i]), W(Darker(PageColors[i]))));
-            row.Children.Add(Label(PageNames[i], on ? Ds.Medium : Ds.Regular, 13, on ? Colors.White : Ds.Brushes.Label, new Thickness(9, 0, 0, 0)));
+            row.Children.Add(Label(PageNames[i], on ? Ds.Medium : Ds.Regular, 13, on ? Ds.Brushes.OnAccent : Ds.Brushes.Label, new Thickness(9, 0, 0, 0)));
             b.Child = row;
             if (!on)
             {
-                b.MouseEnter += delegate { b.Background = Ds.Brush(Ds.Brushes.Control); };
-                b.MouseLeave += delegate { b.Background = Brushes.Transparent; };
+                b.MouseEnter += delegate { b.Background = Ds.Brush(Ds.Brushes.Control); HcPaint.Outline(b, true); };
+                b.MouseLeave += delegate { b.Background = Brushes.Transparent; HcPaint.Outline(b, false); };
             }
-            b.MouseLeftButtonUp += delegate { if (page != id) SetPage(id, true); };
+            b.MouseLeftButtonUp += delegate { if (page != id) SetPage(id, true); else SearchHide(); };
             return b;
         }
 
@@ -295,7 +297,7 @@ namespace Stackshot
 
         bool ToolbarThrough(Point p)
         {
-            return p.Y >= DragBand && scroller.VerticalOffset <= 20;
+            return p.Y >= DragBand && PaneOffset() <= 20;
         }
 
         // The toolbar's own surface, with a part the hit test falls through.
@@ -330,12 +332,13 @@ namespace Stackshot
 
         void ToolbarShade()
         {
-            double k = Math.Max(0, Math.Min(1, scroller.VerticalOffset / 40.0));
+            double k = Math.Max(0, Math.Min(1, PaneOffset() / 40.0));
             Color bg = Ds.Brushes.Window;
-            toolbar.Background = Ds.Brush(Color.FromArgb((byte)(k * 245), bg.R, bg.G, bg.B));
+            toolbar.Background = Ds.Brush(Color.FromArgb((byte)(k * (Ds.Brushes.High ? 255 : 245)), bg.R, bg.G, bg.B));
             toolbar.BorderBrush = Ds.Brush(Ds.WithAlpha(Ds.Brushes.Separator, k));
             toolbar.BorderThickness = new Thickness(0, 0, 0, 1);
-            toolbarTitle.Opacity = Math.Max(0, Math.Min(1, (scroller.VerticalOffset - 30) / 30.0));
+            toolbarTitle.Opacity = Math.Max(0, Math.Min(1, (PaneOffset() - 30) / 30.0));
+            SectionShade();
         }
 
         void DragFromBackground(object sender, MouseButtonEventArgs e)
@@ -392,6 +395,7 @@ namespace Stackshot
 
         void Build()
         {
+            ReadPolicy();
             pane.Background = Ds.Brush(Ds.Brushes.Window);
             toolbarTitle.Foreground = Ds.Brush(Ds.Brushes.Label);
             int pi = Array.IndexOf(PageIds, page == "mascotset" ? "mascot" : page);
@@ -407,6 +411,7 @@ namespace Stackshot
             {
                 switch (page)
                 {
+                    case "history": BuildHistory(); break;
                     case "keys": BuildKeys(); break;
                     case "general": BuildGeneral(); break;
                     case "editor": BuildEditor(); break;
@@ -418,6 +423,8 @@ namespace Stackshot
                 }
             }
             catch (Exception ex) { ShotStack.Log("P\u00E1gina " + page + ": " + ex); }
+            PolicyRows();
+            PageBuilt();
             BuildWidget();
             ToolbarShade();
             Wake();
@@ -475,10 +482,11 @@ namespace Stackshot
         Border SideCard(bool hoverable)
         {
             Palette pal = Ds.Brushes;
-            Color rest = pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Ds.Argb(0.55, 255, 255, 255);
-            Color over = pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.85, 255, 255, 255);
+            Color rest = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Ds.Argb(0.55, 255, 255, 255);
+            Color over = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.09, 255, 255, 255) : Ds.Argb(0.85, 255, 255, 255);
             SolidColorBrush bg = new SolidColorBrush(rest);
-            Border card = new Border { CornerRadius = new CornerRadius(14), Background = bg, BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1) };
+            Border card = new TapBorder { CornerRadius = new CornerRadius(14), Background = bg, BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1),
+                                          Interactive = hoverable, Role = hoverable ? Access.Button : Access.Group };
             if (hoverable)
             {
                 card.Cursor = Cursors.Hand;
@@ -539,6 +547,7 @@ namespace Stackshot
 
             card.Child = g;
             card.MouseLeftButtonUp += delegate { SetPage("home", true); };
+            AccessSideCard(card, delegate { SetPage("home", true); });
             return card;
         }
 
@@ -580,6 +589,7 @@ namespace Stackshot
         // A soft radial glow of one colour that reaches zero at its radius.
         static RadialGradientBrush SideGlow(Color c, double a, Point centre, double rx, double ry)
         {
+            if (Ds.Brushes.High) a = 0;   // no glows in a contrast theme
             RadialGradientBrush b = new RadialGradientBrush();
             b.Center = b.GradientOrigin = centre;
             b.RadiusX = rx;
@@ -600,8 +610,8 @@ namespace Stackshot
             card.Padding = new Thickness(10);
             StackPanel st = new StackPanel();
 
-            Grid area = new Grid { Height = 66, Cursor = Cursors.Hand, Background = Brushes.Transparent };
-            Color restTint = Ds.WithAlpha(pal.Accent, pal.Dark ? 0.13 : 0.07), overTint = Ds.WithAlpha(pal.Accent, pal.Dark ? 0.22 : 0.13);
+            Grid area = new TapGrid { Height = 66, Cursor = Cursors.Hand, Background = Brushes.Transparent, Label = "Capturar un \u00E1rea" };
+            Color restTint = Ds.WithAlpha(pal.Accent, pal.High ? 0 : pal.Dark ? 0.13 : 0.07), overTint = Ds.WithAlpha(pal.Accent, pal.High ? 0 : pal.Dark ? 0.22 : 0.13);
             SolidColorBrush tint = new SolidColorBrush(restTint);
             System.Windows.Shapes.Rectangle marquee = new System.Windows.Shapes.Rectangle
             {
@@ -671,7 +681,8 @@ namespace Stackshot
             bool on = Recorder.Recording;
             Color rest = on ? Ds.WithAlpha(pal.Red, 0.16) : pal.Control, over = on ? Ds.WithAlpha(pal.Red, 0.26) : pal.ControlHover;
             SolidColorBrush bg = new SolidColorBrush(rest);
-            Border b = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = bg, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center };
+            Border b = new TapBorder { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = bg, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center,
+                                       BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = HcPaint.Edge };
             b.Child = new GlyphView(on ? "stop!" : "record!", on ? 13 : 15, pal.Red, 1.6);
             string combo = settings.HotVideo;
             b.ToolTip = (on ? "Detener la grabaci\u00F3n" : "Grabar v\u00EDdeo") + (Hotkeys.Split(combo).Count > 0 ? "  (" + Hotkeys.Display(combo) + ")" : "");
@@ -685,7 +696,7 @@ namespace Stackshot
         FrameworkElement StatusLine(string status, D.Color dot, double size)
         {
             DockPanel p = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
-            System.Windows.Shapes.Ellipse e = new System.Windows.Shapes.Ellipse { Width = 6, Height = 6, Fill = Ds.Brush(W(dot)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 6, 0) };
+            System.Windows.Shapes.Ellipse e = new System.Windows.Shapes.Ellipse { Width = 6, Height = 6, Fill = Ds.Brush(Ds.Brushes.High ? Ds.Brushes.Label : W(dot)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 6, 0) };
             DockPanel.SetDock(e, Dock.Left);
             p.Children.Add(e);
             TextBlock t = Label(status, Ds.Regular, size, Ds.Brushes.Label2);
@@ -742,13 +753,14 @@ namespace Stackshot
         {
             burstUntil = Anim.Now + 1200;
             if (!IsVisible || WindowState == WindowState.Minimized) return;
-            if (!timer.IsEnabled) { timer.Interval = 16; timer.Start(); }
+            if (!timer.IsEnabled) { timer.Interval = MascotRate.Anim; timer.Start(); }
         }
 
         void Tick(object sender, EventArgs e)
         {
             if (!IsVisible || WindowState == WindowState.Minimized) { timer.Stop(); return; }
             double now = Anim.Now;
+            if (Unseen()) { timer.Interval = MascotRate.Hidden; lastStir = now; return; }
             bool lively = false;
             if (intro != null)
             {
@@ -782,22 +794,36 @@ namespace Stackshot
                     nextTip = now + (38000 + Rng.NextDouble() * 20000) * TipScale;
                     if (mascot.Bubble == null && !mascot.Sleeping) mascot.Say(Tip(), 5200);
                 }
-                // Lively already covers a bubble fading in or out; one at rest needs no more than the idle rate. Asleep it
-                // always has a "z" in the air, which counts as lively, but those drift slowly (see dozing below); a pop-in
-                // or a reaction that starts while it naps still runs at the full rate.
+                // Lively already covers a bubble fading in or out; one at rest needs no more than the idle rate. Asleep, only
+                // a pop-in or a reaction that starts while it naps runs at the full rate.
                 if (mascot.Lively && (!mascot.Sleeping || now < burstUntil)) lively = true;
                 // Dozing off and waking up are the only status changes nothing announces.
                 if (sideStatus != null && mascot.Sleeping != sideSleepShown) FillSideStatus();
             }
 
-            // 60 fps while something animates, 30 while the mouse moves (the mascot follows it) or it naps, ~15 idle with
-            // the mascot breathing (lower when the window is in the background); with nothing to draw, the clock stops
-            // until something wakes it.
-            bool looking = mascotHost != null && now - lastMove < 600;
-            bool dozing = mascotHost != null && mascot.Sleeping;   // its z's drift up: half rate is smooth enough
-            int ms = lively ? (now < quietUntil ? 33 : 16) : looking ? 33 : dozing ? (active ? 33 : 66) : mascotHost != null ? (active ? 33 : 100) : 0;
+            // 60 fps while something animates, 32 while the mouse moves (the mascot follows it) or for a while after, then
+            // 16 (8 in the background once nothing has happened for 15 s) with the mascot just breathing; with nothing to
+            // draw, the clock stops until something wakes it (MascotRate.Home). The mascot moves on real time, so a lower
+            // rate is never slow motion.
+            bool looking = mascotHost != null && now - lastMove < MascotRate.NearMs;
+            if (lively || looking) lastStir = now;
+            int ms = MascotRate.Home(true, false, mascotHost != null, lively, now < quietUntil, looking, mascotHost != null && mascot.Sleeping,
+                                     active, now - lastStir);
             if (ms == 0) { timer.Stop(); return; }
             timer.Interval = ms;
+        }
+
+        double lastStir;
+
+        // On another virtual desktop (cloaked) or with the screen off or locked nobody sees it: the clock only checks,
+        // twice a second, whether it is back. MascotScreen reports the screen state with or without the desktop pet.
+        bool Unseen()
+        {
+            int cloaked;
+            MascotScreen.Ensure();
+            if (MascotRate.ScreenOff) MascotScreen.Check();
+            if (MascotRate.ScreenOff) return true;
+            return Handle != IntPtr.Zero && Native.DwmGetInt(Handle, 14, out cloaked, 4) == 0 && cloaked != 0;   // DWMWA_CLOAKED
         }
 
         void StartIntro()
@@ -879,6 +905,7 @@ namespace Stackshot
             bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0, shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
             // Ctrl+W is the close button. Esc only tucks the window away: it never quits Stackshot, even when closing does.
             if (ctrl && key == Key.W) { HideToTray(); e.Handled = true; return; }
+            if (key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && SearchEscape()) { e.Handled = true; return; }
             if (key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None)
             {
                 if (settings.CloseToTray) HideToTray();
@@ -971,8 +998,9 @@ namespace Stackshot
     // A slot for the mascot: a GDI+ layer a bit larger than the mascot (hats, hearts and stars spill over) and a speech
     // bubble in real text. The bubble sits over the mascot's head; when there is no room there (the toolbar, the edge of
     // the page) or it would cover a control, it slides sideways, moves beside the mascot or, as a last resort, below it.
-    // The mascot's clock. Up to 30 fps ticks ride the render loop (one frame, one tick, no second timer competing with it);
-    // slower rates use a low-priority timer so that an idle window never wakes the renderer.
+    // The mascot's clock. Only the full rate rides the render loop (one frame, one tick, no second timer competing with
+    // it); 32 fps and below use a low-priority timer, so an idle window never keeps the renderer running at the monitor's
+    // refresh rate.
     sealed class FrameClock
     {
         readonly DispatcherTimer slow = new DispatcherTimer(DispatcherPriority.Background);
@@ -1005,7 +1033,7 @@ namespace Stackshot
 
         void Apply()
         {
-            if (interval <= 33)
+            if (interval < 20)
             {
                 slow.Stop();
                 if (!hooked) { hooked = true; last = TimeSpan.Zero; CompositionTarget.Rendering += Frame; }
@@ -1030,7 +1058,7 @@ namespace Stackshot
         {
             TimeSpan t = ((RenderingEventArgs)e).RenderingTime;
             if (t == last) return;
-            // 16 ms asks for every frame; 33 for every other one (a frame early is tolerated)
+            // a frame early is tolerated
             if (last != TimeSpan.Zero && (t - last).TotalMilliseconds < interval - 4) return;
             last = t;
             Fire();
@@ -1100,6 +1128,8 @@ namespace Stackshot
         // Still in a window and in charge of the mascot.
         public bool Live { get { return attached && PresentationSource.FromVisual(this) != null; } }
 
+        protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new ActionPeer(this, delegate { Action h = Poked; if (h != null) h(); }, "Mascota"); }
+
         // The bubble lives outside the slot. A slot pulled up with a negative margin (the sidebar card) would otherwise be
         // clipped to its own box by layout and the bubble would never show.
         protected override Geometry GetLayoutClip(Size layoutSlotSize)
@@ -1155,7 +1185,7 @@ namespace Stackshot
             if (shownPalette != pal)
             {
                 shownPalette = pal;
-                bubble.Background = Ds.Brush(pal.Dark ? Ds.Rgb(58, 58, 62) : Colors.White);
+                bubble.Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Rgb(58, 58, 62) : Colors.White);
                 bubble.BorderBrush = Ds.Brush(pal.Hairline);
                 bubble.BorderThickness = new Thickness(1);
                 bubbleText.Foreground = Ds.Brush(pal.Label);

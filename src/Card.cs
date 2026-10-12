@@ -19,7 +19,7 @@ namespace Stackshot
     // A stack thumbnail, drawn like a Quick Access Overlay: rounded image with a soft shadow; on hover the capture blurs
     // and dims behind Copy / Save and round corner buttons. It slides in from the edge, springs into place, can be
     // swiped away or dragged from anywhere (buttons included) into other apps.
-    public class Card : FloatWindow
+    public partial class Card : FloatWindow
     {
         public enum Exit { Slide, Swipe, Drop }
 
@@ -271,6 +271,44 @@ namespace Stackshot
             return true;
         }
 
+        int reloadGen;
+
+        // The file changed (edited, renamed): the image is decoded on the thread pool and swapped in when ready, so a
+        // large capture never stalls the stack. sized runs if its proportions changed (the stack lays out again).
+        public void ReloadAsync(Action sized)
+        {
+            if (IsMedia || !IsHandleCreated)
+            {
+                Size before = origSize;
+                if (Reload() && origSize != before && sized != null) sized();
+                return;
+            }
+            int gen = ++reloadGen;
+            string path = FilePath;
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                Bitmap b = null;
+                Size orig = Size.Empty;
+                try { b = ShotStack.LoadPreview(path, 600, out orig); }
+                catch (Exception ex) { ShotStack.Log("No se pudo leer " + path + ": " + ex.Message); }
+                try
+                {
+                    BeginInvoke((Action)delegate
+                    {
+                        if (b == null) return;
+                        if (IsDisposed || gen != reloadGen || path != FilePath) { b.Dispose(); return; }
+                        Size before = origSize;
+                        ReleaseImages();
+                        preview = b;
+                        origSize = orig;
+                        Redraw();
+                        if (orig != before && sized != null) sized();
+                    });
+                }
+                catch { if (b != null) b.Dispose(); } // closed meanwhile
+            });
+        }
+
         // Fresh capture: the preview comes from memory while the PNG is still being written.
         public void UsePreview(Bitmap p, Size orig)
         {
@@ -287,7 +325,7 @@ namespace Stackshot
                 Size orig;
                 if (IsMedia)
                 {
-                    Bitmap t = ShotStack.ShellThumb(FilePath, 512);
+                    Bitmap t = ShotStack.Poster(FilePath) ?? ShotStack.ShellThumb(FilePath, 512);
                     if (t != null) origSize = t.Size;
                     return t;
                 }
@@ -323,6 +361,7 @@ namespace Stackshot
 
             List<Btn> pills = new List<Btn>();
             pills.Add(Pill("Copiar", Copy));
+            if (!IsMedia) pills.Add(Pill("Texto", CopyText));
             pills.Add(SavedPath == null ? Pill("Guardar", Keep) : Pill("Abrir", IsMedia ? (Action)OpenFile : (Action)Edit));
             int ph = P(28), gap = P(8), total = 0;
             foreach (Btn b in pills) { b.R.Width = Measure(b.Label) + P(26); total += b.R.Width; }
@@ -456,6 +495,7 @@ namespace Stackshot
         // The soft shadow as a nine-slice of that tile: a new card, size or monitor costs no blur.
         void PaintShadow(M.DrawingContext dc, int w, int h)
         {
+            if (Ds.Brushes.High) return;   // no shadows in a contrast theme
             double r = P((float)Ds.RCard);
             int blur = P(18), off = P(6), c = (int)Math.Ceiling(r) + blur + off + 2, t = 2 * Pad + 2 * c;
             if (body.Width < 2 * c || body.Height < 2 * c) { dc.DrawImage(Shadow(w, h), new W.Rect(0, 0, w, h)); return; }
@@ -525,7 +565,7 @@ namespace Stackshot
                 dc.DrawRectangle(vig, null, b);
             }
             dc.Pop();
-            Ink.Hairline(dc, pal.Dark ? Ds.Argb(0.16, 255, 255, 255) : Ds.Argb(0.14, 0, 0, 0), b, R);
+            Ink.Hairline(dc, pal.High ? pal.Hairline : pal.Dark ? Ds.Argb(0.16, 255, 255, 255) : Ds.Argb(0.14, 0, 0, 0), b, R);
 
             double rest = 1 - h;
             if (rest > 0.004)
@@ -535,7 +575,43 @@ namespace Stackshot
                 dc.Pop();
             }
             if (h > 0.004) PaintButtons(dc, h);
+            PaintSaving(dc, b, R);
             PaintFlash(dc, b, R);
+        }
+
+        double saving = -1;   // fraction copied while Guardar runs in the background, -1 otherwise
+
+        // Copy to the save folder under way: shown until it ends (MarkSaved or SaveFailed).
+        public void Saving(double fraction)
+        {
+            if (IsDisposed) return;
+            saving = Math.Max(0, Math.Min(1, fraction));
+            Redraw();
+        }
+
+        public void SaveFailed()
+        {
+            if (IsDisposed) return;
+            saving = -1;
+            Flash("No se pudo guardar", false);
+        }
+
+        void PaintSaving(M.DrawingContext dc, W.Rect b, double R)
+        {
+            if (saving < 0 || flash != null) return;
+            dc.PushClip(new M.RectangleGeometry(b, R, R));
+            Ink.Round(dc, Ds.Argb(0.30, 0, 0, 0), b, 0);
+            dc.Pop();
+            string text = "Guardando\u2026" + (saving > 0.005 ? " " + (int)Math.Round(saving * 100) + " %" : "");
+            M.FormattedText t = Ink.Px(text, Ds.Semibold, P(13), Palette.HudLabel);
+            double w = Math.Max(t.WidthIncludingTrailingWhitespace + P(28), P(150)), hh = P(40);
+            W.Rect r = new W.Rect((b.Width - w) / 2, (b.Height - hh) / 2, w, hh);
+            Ink.Round(dc, Palette.Hud, r, P(10));
+            Ink.Hairline(dc, Palette.HudLine, r, P(10));
+            dc.DrawText(t, new W.Point(Math.Round(r.X + (w - t.WidthIncludingTrailingWhitespace) / 2), Math.Round(r.Y + P(7))));
+            W.Rect track = new W.Rect(r.X + P(14), r.Bottom - P(10), w - P(28), P(3));
+            Ink.Round(dc, Ds.Brushes.High ? Ds.Brushes.Label3 : Ds.Argb(0.25, 255, 255, 255), track, track.Height / 2);
+            if (saving > 0) Ink.Round(dc, Ds.Brushes.Green, new W.Rect(track.X, track.Y, Math.Max(track.Height, track.Width * saving), track.Height), track.Height / 2);
         }
 
         // Resting state: play button and format on videos, green check once saved.
@@ -545,13 +621,13 @@ namespace Stackshot
             {
                 double d = P(40);
                 W.Rect c = new W.Rect((body.Width - d) / 2, (body.Height - d) / 2, d, d);
-                dc.DrawEllipse(Ds.Brush(Ds.Argb(0.42, 0, 0, 0)), null, new W.Point(c.X + d / 2, c.Y + d / 2), d / 2, d / 2);
+                dc.DrawEllipse(Ds.Brush(Palette.HudBack(Ds.Argb(0.42, 0, 0, 0))), HcPaint.Border(P(1)), new W.Point(c.X + d / 2, c.Y + d / 2), d / 2, d / 2);
                 Glyph.Draw(dc, "play!", c.X + P(10) + P(1), c.Y + P(10), P(20), Palette.HudLabel, 0);
                 string ext = Path.GetExtension(FilePath).TrimStart('.').ToUpperInvariant();
                 M.FormattedText t = Ink.Px(ext, Ds.Semibold, P(10.5f), Palette.HudLabel);
                 double lw = t.WidthIncludingTrailingWhitespace + P(12), lh = P(18);
                 W.Rect lr = new W.Rect(P(8), body.Height - P(8) - lh, lw, lh);
-                Ink.Round(dc, Ds.Argb(0.48, 0, 0, 0), lr, lh / 2);
+                Ink.Round(dc, Palette.HudBack(Ds.Argb(0.48, 0, 0, 0)), lr, lh / 2);
                 Ink.Center(dc, t, lr);
             }
             if (SavedPath != null)
@@ -562,9 +638,10 @@ namespace Stackshot
                     double cx = body.Width - P(8) - P(10), cy = body.Height - P(8) - P(10);
                     dc.DrawEllipse(Ds.Brush(pal.Green), new M.Pen(Ds.Brush(Ds.Argb(0.9, 255, 255, 255)), P(1.5f)), new W.Point(cx, cy), d / 2, d / 2);
                     double gs = P(13) * pop;
-                    Glyph.Draw(dc, "check", cx - gs / 2, cy - gs / 2, gs, Palette.HudLabel, P(2.2f) * pop);
+                    Glyph.Draw(dc, "check", cx - gs / 2, cy - gs / 2, gs, pal.High ? pal.Window : Palette.HudLabel, P(2.2f) * pop);
                 }
             }
+            PaintCoverNote(dc);
         }
 
         double HotAmount(int i)
@@ -589,19 +666,20 @@ namespace Stackshot
                 // White controls with dark ink, as in CleanShot's overlay: readable on any capture.
                 M.Color bg = b.Close ? Mix(Ds.Argb(0.94, 255, 255, 255), pal.Red, hotA) : Mix(Ds.Argb(0.94, 255, 255, 255), Ds.Rgb(255, 255, 255), hotA);
                 M.Color ink = b.Close && hotA > 0.5 ? Palette.HudLabel : Ds.Rgb(29, 29, 31);
+                if (pal.High) { bg = hotA > 0.5 ? pal.Accent : pal.Sys.ButtonFace; ink = hotA > 0.5 ? pal.OnAccent : pal.Sys.ButtonText; }
                 W.Rect sh = r;
                 sh.Offset(0, P(1));
                 if (b.Corner)
                 {
-                    dc.DrawEllipse(Ds.Brush(Ds.Argb(0.25, 0, 0, 0)), null, new W.Point(c.X, c.Y + P(1)), r.Width / 2 + 0.5, r.Height / 2 + 0.5);
-                    dc.DrawEllipse(Ds.Brush(bg), null, c, r.Width / 2, r.Height / 2);
+                    if (!pal.High) dc.DrawEllipse(Ds.Brush(Ds.Argb(0.25, 0, 0, 0)), null, new W.Point(c.X, c.Y + P(1)), r.Width / 2 + 0.5, r.Height / 2 + 0.5);
+                    dc.DrawEllipse(Ds.Brush(bg), HcPaint.Border(P(1)), c, r.Width / 2, r.Height / 2);
                     double gs = P(14);
                     Glyph.Draw(dc, b.Glyph, c.X - gs / 2 + (b.Glyph == "play!" ? P(1) : 0), c.Y - gs / 2, gs, ink, P(1.8f));
                 }
                 else
                 {
-                    Ink.Round(dc, Ds.Argb(0.22, 0, 0, 0), sh, r.Height / 2);
-                    Ink.Round(dc, bg, r, r.Height / 2);
+                    if (!pal.High) Ink.Round(dc, Ds.Argb(0.22, 0, 0, 0), sh, r.Height / 2);
+                    dc.DrawRoundedRectangle(Ds.Brush(bg), HcPaint.Border(P(1)), r, r.Height / 2, r.Height / 2);
                     Ink.Center(dc, Ink.Px(b.Label, Ds.Semibold, P(13), ink), r);
                 }
                 dc.Pop();
@@ -626,6 +704,7 @@ namespace Stackshot
             W.Rect r = new W.Rect(left, b.R.Y + (b.R.Height - hh) / 2, w, hh);
             dc.PushOpacity(a);
             Ink.Round(dc, Palette.Hud, r, hh / 2);
+            if (Ds.Brushes.High) Ink.Hairline(dc, Palette.HudLine, r, hh / 2);
             Ink.Center(dc, t, r);
             dc.Pop();
         }
@@ -847,6 +926,7 @@ namespace Stackshot
         // While dragging, the ghost follows the cursor and the card dims.
         void StartDrag()
         {
+            if (StillChecking()) return;
             ShotStack.WaitWritten(FilePath);
             if (!File.Exists(FilePath)) return;
             dragging = true;
@@ -888,9 +968,7 @@ namespace Stackshot
             {
                 try
                 {
-                    StringCollection sc = new StringCollection();
-                    sc.Add(FilePath);
-                    Clipboard.SetFileDropList(sc);
+                    ShotStack.CopyFiles(FilePath);
                     Flash("Copiado", true);
                 }
                 catch (Exception ex)
@@ -917,6 +995,22 @@ namespace Stackshot
             });
         }
 
+        // The text in the capture to the clipboard (Windows' OCR).
+        void CopyText()
+        {
+            Flash("Leyendo\u2026", true);
+            WithFull(FilePath, delegate(Bitmap img, string error)
+            {
+                if (img == null)
+                {
+                    ShotStack.Log("Copiar texto: " + error);
+                    if (!IsDisposed) Flash("No se pudo leer", false);
+                    return;
+                }
+                owner.CopyText(img, true, delegate(bool ok, string message) { if (!IsDisposed) Flash(message, ok); });
+            });
+        }
+
         // Decodes the whole capture off the UI thread (a large PNG takes a while), then continues on it.
         void WithFull(string path, Action<Bitmap, string> then)
         {
@@ -936,39 +1030,65 @@ namespace Stackshot
         {
             WithFull(FilePath, delegate(Bitmap img, string error)
             {
-                if (img == null) { ShotStack.Log("Fijar: " + error); return; }
+                if (img == null)
+                {
+                    ShotStack.Log("Fijar: " + error);
+                    owner.Notify("No se pudo fijar la captura", "No se ha podido leer la imagen. Vuelve a intentarlo.");
+                    return;
+                }
                 try { PinWindow.Open(img); }
                 catch (Exception ex) { img.Dispose(); ShotStack.Log("Fijar: " + ex.Message); }
             });
             owner.Remove(this);
         }
 
+        // Videos open in Stackshot's player (Cine masters always, as Windows can't decode them) or, when that is off, in Windows' player.
         void OpenFile()
         {
-            ShotStack.WaitWritten(FilePath);
-            try { Process.Start(FilePath); }
-            catch (Exception ex) { ShotStack.Log("Abrir: " + ex.Message); }
+            string path = FilePath;
+            ShotStack.OpenRoute route = ShotStack.RouteFor(path, owner.Settings.PlayerOpensVideos);
+            if (route == ShotStack.OpenRoute.Player) { owner.OpenPlayerWhenReady(path); return; }
+            if (route == ShotStack.OpenRoute.Editor && !ShotStack.IsEditorFile(path)) { owner.OpenMedia(path); return; }
+            OffUi(path, delegate { Process.Start(path); }, "Abrir", "No se pudo abrir");
         }
 
         void ShowInFolder()
         {
-            ShotStack.WaitWritten(FilePath);
-            try { Process.Start(Native.Explorer, "/select,\"" + (SavedPath ?? FilePath) + "\""); }
-            catch (Exception ex) { ShotStack.Log("Carpeta: " + ex.Message); }
+            string path = FilePath, shown = SavedPath ?? FilePath;
+            OffUi(path, delegate { Process.Start(Native.Explorer, "/select,\"" + shown + "\""); }, "Carpeta", "No se pudo mostrar");
+        }
+
+        // Waits for a fresh capture's file and starts the program on the thread pool, so the stack never freezes.
+        void OffUi(string path, Action start, string what, string failed)
+        {
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                ShotStack.WaitWritten(path);
+                try { start(); }
+                catch (Exception ex)
+                {
+                    ShotStack.Log(what + ": " + ex.Message);
+                    string why = ShotStack.ExplainOpen(ex, path);
+                    owner.Ui(delegate
+                    {
+                        if (!IsDisposed) Flash(failed, false);
+                        owner.Notify(failed, Path.GetFileName(path) + ": " + why);
+                    });
+                }
+            });
         }
 
         void Keep()
         {
-            try { owner.Keep(FilePath); }
-            catch (Exception ex)
+            owner.KeepAsync(FilePath, delegate(string dest, string error)
             {
-                ShotStack.Log("Guardar: " + ex.Message);
-                Flash("No se pudo guardar", false);
-            }
+                if (error != null) owner.Notify("No se pudo guardar", error);
+            });
         }
 
         public void MarkSaved(string dest)
         {
+            saving = -1;
             bool first = SavedPath == null;
             SavedPath = dest;
             BuildButtons();
@@ -1001,6 +1121,7 @@ namespace Stackshot
         {
             base.OnFormClosed(e);
             ReleaseImages();
+            ShotStack.DropUnsaved(FilePath);
         }
     }
 

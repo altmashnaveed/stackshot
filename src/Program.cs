@@ -22,10 +22,14 @@ namespace Stackshot
     //   --updated              started by an update: quietly, without the window (--home: on Acerca de)
     //   --update-failed <ver>  started again after the update to <ver> failed (it is then offered by hand)
     //   --uninstall [--quiet]  uninstall (used by Settings > Apps)
+    //   --cleanup-shell        undo the file associations and the Print Screen change (for the MSI's uninstall)
     //   --restart              ask the running instance to quit and take its place
     //   --portable             run in place without installing
     //   --edit <file>          editor only (same as dropping a file on the .exe)
     //   <file.md|.xml>         opens the viewer on that file (in the running Stackshot when there is one); --open <file> is the same
+    //   --capture <mode>       captures as its hotkey does (region, screen, window, scroll, text, video, gif, markdown, pause...)
+    //   --open-home, --last-xml   the main window; the newest XML of the watched folder (all three in the running Stackshot
+    //                          when there is one; also /capture region; an unknown mode does nothing and exits with 2)
     //   --test                 not excluded from capture; leaves clipboard, hotkeys and the single-instance lock alone
     //   --background           start without showing the window (startup shortcut)
     //   --home                 with --test, show the window anyway
@@ -77,13 +81,14 @@ namespace Stackshot
             Init();
 
             if (Has("--uninstall")) { Installer.Uninstall(Has("--quiet")); return 0; }
+            if (Has("--cleanup-shell")) { Installer.CleanShell(); return 0; }
 
             bool test = Has("--test"), portable = Has("--portable") || test, updated = Has("--updated");
             Settings.ReadOnly = test; // tests never write the real settings
 
-            // An image or video dropped on the .exe (or --edit): editor only.
+            // An image or GIF dropped on the .exe (or anything with --edit): editor only. A video goes to the player below.
             string edit = Value("--edit");
-            if (edit == null && args.Length == 1 && File.Exists(args[0]) && ShotStack.IsEditable(args[0])) edit = args[0];
+            if (edit == null && args.Length == 1 && File.Exists(args[0]) && ShotStack.IsEditable(args[0]) && !Installer.OpensHere(args[0])) edit = args[0];
             if (edit != null)
             {
                 Ds.Apply(Settings.Load().Appearance); // light or dark as chosen in the app, not only as Windows says
@@ -99,17 +104,23 @@ namespace Stackshot
                 catch (Exception ex)
                 {
                     ShotStack.Log("Editar " + edit + ": " + ex);
-                    MessageBox.Show("No se pudo abrir " + Path.GetFileName(edit) + ":\n" + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("No se pudo abrir " + Path.GetFileName(edit) + ".\n\n" + OpenProblem(ex, edit), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 return 0;
             }
 
-            // A Markdown or XML file (double click, "Open with", the command line): the viewer opens it, in the running
-            // Stackshot when there is one.
+            // A Markdown or XML file, or a video such as a Cine master (double click, "Open with", the command line): the
+            // viewer or the player opens it, in the running Stackshot when there is one.
             string view = null;
-            if (args.Length == 1 && File.Exists(args[0]) && Installer.ViewerFile(args[0])) view = Path.GetFullPath(args[0]);
-            else if (Value("--open") != null && File.Exists(Value("--open")) && Installer.ViewerFile(Value("--open"))) view = Path.GetFullPath(Value("--open"));
+            if (args.Length == 1 && File.Exists(args[0]) && Installer.OpensHere(args[0])) view = Path.GetFullPath(args[0]);
+            else if (Value("--open") != null && File.Exists(Value("--open")) && Installer.OpensHere(Value("--open"))) view = Path.GetFullPath(Value("--open"));
             if (view != null) ShotStack.OpenAtStart = view;
+
+            // A command (a keypad button): the running Stackshot carries it out at once, with nothing shown here.
+            string badCommand, command = CliCommand.Parse(args, out badCommand);
+            if (badCommand != null) { ShotStack.Log("Orden desconocida: " + badCommand); return 2; }
+            if (command != null && !test && !Has("--restart") && Installer.Running) return CliCommand.Forward(command, view);
+            ShotStack.CommandAtStart = command;
 
             Settings s = Settings.Load();
             Ds.Apply(s.Appearance);
@@ -151,6 +162,7 @@ namespace Stackshot
             {
                 if (Installer.IsInstalled && (s.FirstRunDone || Installer.ManagedByMsi))
                 {
+                    if (command != null) { Start(Settings.InstalledExe, CliCommand.Arguments(command, view)); return 0; }
                     // Already installed: update if this build is newer, otherwise open the installed one.
                     // MSI installs are updated through the MSI, never overwritten here.
                     if (Installer.MyVersion > Installer.InstalledVersion && Installer.ManagedByMsi)
@@ -171,7 +183,8 @@ namespace Stackshot
                 bool startup;
                 if (!SetupWindow.Welcome(s, out startup)) return 0;
                 if (!TryInstall(startup)) return 1;
-                Start(Settings.InstalledExe, "--welcome-done");
+                // The file that was double-clicked to get here opens in the installed copy.
+                Start(Settings.InstalledExe, "--welcome-done" + (view != null ? " --open \"" + view + "\"" : ""));
                 return 0;
             }
 
@@ -189,8 +202,11 @@ namespace Stackshot
                     {
                         // Already running: ask it to show its window (unless starting with Windows or after an update).
                         // The request is written first, so the running copy finds it even while it is still starting.
-                        if (view != null) { if (!Installer.SendOpen(view, 3000)) Installer.SignalShow(); }
-                        else if (!Has("--background") && !updated) Installer.SignalShow();
+                        // This copy was started by the user (Explorer gave it the foreground): it lets the running one take
+                        // it, so the viewer or the player opens in front instead of flashing in the taskbar.
+                        if (command != null) return CliCommand.Forward(command, view);
+                        if (view != null) { Native.AllowSetForegroundWindow(-1); if (!Installer.SendOpen(view, 3000)) Installer.SignalShow(); }
+                        else if (!Has("--background") && !updated) { Native.AllowSetForegroundWindow(-1); Installer.SignalShow(); }
                         return 0;
                     }
                     Installer.QuitRunning();
@@ -228,12 +244,15 @@ namespace Stackshot
                 }
                 if (!portable) { Installer.Repair(); FileAssoc.Repair(); }
                 ShotStack.Test = test;
+                // For the whole process, not only while the desktop mascot exists: recording threads and the stack must
+                // keep their pace while another app has the focus.
+                Power.OptOutOfThrottling();
                 FloatWindow.ExcludeFromCapture = !test;
                 Card.ForceHover = false;
                 Version failed;
                 if (Version.TryParse(Value("--update-failed") ?? "", out failed)) Updater.FailedBefore(failed);
                 // After an update it comes back quietly; one asked for by hand reopens on Acerca de, with the new version.
-                bool show = (!Has("--background") && !updated && !test && view == null) || Has("--home");
+                bool show = (!Has("--background") && !updated && !test && view == null && command == null) || Has("--home");
                 Application.Run(new ShotStack(s, Has("--welcome-done"), show, updated && Has("--home") ? "about" : null));
                 ShotStack.Log("Cerrada");
             }
@@ -243,6 +262,14 @@ namespace Stackshot
                 if (mine) { try { mutex.ReleaseMutex(); } catch { } }
             }
             return 0;
+        }
+
+        // A file the editor can't read: not an image or video it understands, or a file problem in plain words.
+        static string OpenProblem(Exception ex, string path)
+        {
+            if (ex is IOException || ex is UnauthorizedAccessException) return ShotStack.ExplainOpen(ex, path);
+            if (ex is ArgumentException || ex is OutOfMemoryException) return "No parece una imagen v\u00E1lida, o est\u00E1 da\u00F1ada.";
+            return "El archivo no se puede abrir en el editor.";
         }
 
         // Installs this copy; a failure is explained instead of crashing, and a copy it had already closed is reopened.
@@ -256,7 +283,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Instalar " + Installer.MyVersion.ToString(3) + ": " + ex);
-                MessageBox.Show("No se pudo instalar Stackshot:\n" + ex.Message + "\n\nCierra lo que pueda estar us\u00E1ndolo y vuelve a intentarlo.",
+                MessageBox.Show("No se pudo instalar Stackshot.\n\n" + ShotStack.Explain(ex, Settings.InstalledExe) + "\n\nSi Stackshot sigue abierto (una grabaci\u00F3n guard\u00E1ndose, cambios sin guardar), ci\u00E9rralo y vuelve a intentarlo.",
                                 "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 if (Installer.IsInstalled) Start(Settings.InstalledExe, "--background");
                 return false;

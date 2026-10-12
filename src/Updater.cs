@@ -27,7 +27,8 @@ namespace Stackshot
     //   - its RSA-PSS signature verifies with the public key below. The private key exists only as a secret of the
     //     release workflow, so a compromised download host or a re-uploaded asset can't push code to users.
     // Anything missing or wrong fails closed, and the file is verified again, held open, right before it runs.
-    // MSI-managed installs only get a notice: IT deploys the new MSI.
+    // MSI-managed installs only get a notice: IT deploys the new MSI. IT policies can turn off the looking (and so any
+    // update from here) or the automatic installs (see Policy).
     public static class Updater
     {
         const string Api = "https://api.github.com/repos/rubenitx/stackshot/releases/latest";
@@ -258,7 +259,7 @@ namespace Stackshot
 
         static void Check(bool manual)
         {
-            if (owner == null) return;
+            if (owner == null || Policy.ChecksForced) return; // the organization said never to look
             if (Busy)
             {
                 if (!manual) Schedule(Retry); // an update is under way: look again later
@@ -331,11 +332,11 @@ namespace Stackshot
         // moment; otherwise announce it, once, when someone is at the computer.
         static void Act()
         {
-            Release r = Available;
+            Release r = Policy.ChecksForced ? null : Available;
             bool waiting = false;
             if (r != null && !Busy)
             {
-                if (S.AutoUpdate && CanInstall && autoFailed != r.Tag)
+                if (S.AutoUpdate && !Policy.AutoForced && CanInstall && autoFailed != r.Tag)
                 {
                     // Downloads only after a good answer (offline, a failed check would just fail it again).
                     if (!IsReady) { if (failures == 0) Prepare(r, false); }
@@ -476,7 +477,12 @@ namespace Stackshot
         {
             string what = download ? "descargar la actualizaci\u00F3n" : "consultar GitHub";
             WebException we = ex as WebException;
-            if (we == null) return "No se pudo " + what + " (" + ex.Message.TrimEnd('.') + ").";
+            if (we == null)
+            {
+                if (ex is InvalidDataException) return "No se pudo " + what + " (" + ex.Message.TrimEnd('.') + ")."; // our own words
+                if (ex is IOException || ex is UnauthorizedAccessException) return "No se pudo " + what + ". " + ShotStack.Explain(ex, Path.Combine(UpdateDir, "x"));
+                return "No se pudo " + what + ". Se volver\u00E1 a intentar m\u00E1s tarde.";
+            }
             HttpWebResponse resp = we.Response as HttpWebResponse;
             if (resp != null)
             {
@@ -501,7 +507,7 @@ namespace Stackshot
                 case WebExceptionStatus.SecureChannelFailure:
                     return "No se pudo abrir una conexi\u00F3n segura con GitHub.";
             }
-            return "No se pudo " + what + " (" + we.Message.TrimEnd('.') + ").";
+            return "No se pudo " + what + ". Se volver\u00E1 a intentar m\u00E1s tarde.";
         }
 
         // ---- Installing
@@ -524,7 +530,7 @@ namespace Stackshot
         public static void Install()
         {
             Release r = Available;
-            if (r == null) return;
+            if (r == null || Policy.ChecksForced) return;
             if (Doing == Step.Checking) { installAfterCheck = true; return; } // right after this check
             if (Busy) return;
             if (!CanInstall) { OpenPage(); return; }
@@ -637,7 +643,7 @@ namespace Stackshot
             if (r == null || readyExe == null) return;
             launchManual = manual;
             Doing = Step.Installing;
-            if (Recorder.Recording || ScrollCapture.Active)
+            if (Recorder.Busy || ScrollCapture.Active)
             {
                 // Closing now would lose the recording: wait until it has been saved.
                 if (hold == null)
@@ -646,7 +652,7 @@ namespace Stackshot
                     hold.Interval = 1000;
                     hold.Tick += delegate
                     {
-                        if (Recorder.Recording || ScrollCapture.Active) return;
+                        if (Recorder.Busy || ScrollCapture.Active) return;
                         hold.Stop();
                         if (Doing == Step.Installing) Launch(launchManual);
                     };
@@ -680,7 +686,11 @@ namespace Stackshot
                     }
                 }
             }
-            catch (Exception ex) { error = "No se pudo iniciar la actualizaci\u00F3n (" + ex.Message.TrimEnd('.') + ")."; }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Iniciar la actualizaci\u00F3n: " + ex);
+                error = "No se pudo iniciar la actualizaci\u00F3n. " + ShotStack.ExplainOpen(ex, readyExe);
+            }
             if (error != null) Failed(r, error, !manual, false);
         }
 
@@ -787,15 +797,44 @@ namespace Stackshot
         // in use (captures in the stack, editors and pinned images would be lost).
         static bool QuietNow()
         {
-            if (Recorder.Recording || ScrollCapture.Active || IdleMs() < QuietMs) return false;
+            if (Recorder.Recording || Recorder.Busy || ScrollCapture.Active || IdleMs() < QuietMs) return false;
+            if (Editor.AnyUnsaved || MarkdownWindow.AnyUnsaved) return false;
             int q = Presence();
             if ((q >= 2 && q <= 4) || q == 7) return false;
+            HashSet<IntPtr> allowed = new HashSet<IntPtr>();
             foreach (Form f in Application.OpenForms)
             {
                 if (f is Card || f is Editor || f is PinWindow) return false;
                 if (f.Visible && !(f is PetWindow) && !(f is UpdateNotice) && !(f is Chip)) return false;
+                if (f.IsHandleCreated) allowed.Add(f.Handle);
             }
-            return true;
+            // WPF windows (the Markdown/XML viewer, the FFmpeg download, Home) are not in OpenForms.
+            return !OtherWindowShown(allowed);
+        }
+
+        // A visible window of this process on some screen that isn't one of the given WinForms ones.
+        static bool OtherWindowShown(HashSet<IntPtr> allowed)
+        {
+            uint me = (uint)Process.GetCurrentProcess().Id;
+            bool found = false;
+            Native.EnumWindows(delegate(IntPtr h, IntPtr l)
+            {
+                uint pid;
+                Native.GetWindowPid(h, out pid);
+                if (pid != me || allowed.Contains(h) || !Native.IsWindowVisible(h)) return true;
+                if (!Native.IsIconic(h) && !OnScreen(h)) return true; // a minimized window is still in use
+                found = true;
+                return false;
+            }, IntPtr.Zero);
+            return found;
+        }
+
+        // Parked far off screen (Home warming up) counts as hidden.
+        static bool OnScreen(IntPtr h)
+        {
+            Native.RECT r;
+            if (!Native.GetWindowRect(h, out r) || r.Right <= r.Left || r.Bottom <= r.Top) return false;
+            return SystemInformation.VirtualScreen.IntersectsWith(System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom));
         }
     }
 }
