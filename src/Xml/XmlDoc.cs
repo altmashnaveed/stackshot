@@ -22,9 +22,19 @@ namespace Stackshot
         public List<XItem> Sibs;
         public readonly List<XItem> Kids = new List<XItem>();
         public bool Empty, Expanded = true;
+        public bool Inner;        // an element whose children are the XML escaped in its text (ExpandInner)
+        public int Line, Col;     // where it starts in the text (1-based; an element at its name)
+        public int EndLine, EndCol;   // an element: where its end tag names it (0 when it is empty)
 
         // One row: no children, or just one piece of text.
         public bool Inline { get { return Kind != XKind.Element || Kids.Count == 0 || (Kids.Count == 1 && Kids[0].Kind == XKind.Text); } }
+    }
+
+    // How Formatear lays the XML out.
+    public sealed class XmlFormat
+    {
+        public string Indent = "  ";
+        public bool AttrLines;      // each attribute on its own line
     }
 
     public sealed class XmlModel
@@ -57,8 +67,15 @@ namespace Stackshot
             string s = t.TrimStart();
             if (s.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase)) return true;
             if (s.Length < 3 || s[0] != '<' || t.Length > 1024 * 1024) return false;
-            XmlModel m; string err; int l, c;
-            return Parse(t, out m, out err, out l, out c) && m != null && m.Top.Any(n => n.Kind == XKind.Element);
+            // Read through without building the tree: the background parse that follows builds it once.
+            try
+            {
+                bool element = false;
+                using (XmlReader r = Reader(t, true))
+                    while (r.Read()) if (r.NodeType == XmlNodeType.Element) element = true;
+                return element;
+            }
+            catch (Exception) { return false; }
         }
 
         public static string CheckText(string t)
@@ -82,6 +99,12 @@ namespace Stackshot
         // True when it is well-formed (model filled); otherwise error holds a friendly message with line and column.
         public static bool Parse(string text, out XmlModel model, out string error, out int line, out int col)
         {
+            return Parse(text, null, out model, out error, out line, out col);
+        }
+
+        // cancelled: asked now and then; when it says so the parse stops and returns false with no error.
+        public static bool Parse(string text, Func<bool> cancelled, out XmlModel model, out string error, out int line, out int col)
+        {
             model = null; error = null; line = 0; col = 0;
             XmlModel m = new XmlModel();
             XItem cur = null;
@@ -89,9 +112,12 @@ namespace Stackshot
             {
                 using (XmlReader r = Reader(text, true))
                 {
+                    IXmlLineInfo li = r as IXmlLineInfo;
                     bool capped = false;
+                    int reads = 0;
                     while (r.Read())
                     {
+                        if (cancelled != null && (++reads & 4095) == 0 && cancelled()) return false;
                         if (capped) continue;
                         if (m.Count >= MaxNodes) { capped = true; m.Truncated = true; continue; }
                         XItem n = null;
@@ -107,11 +133,11 @@ namespace Stackshot
                                     r.MoveToElement();
                                 }
                                 break;
-                            case XmlNodeType.EndElement: if (cur != null) cur = cur.Parent; continue;
+                            case XmlNodeType.EndElement: if (cur != null) { if (li != null) { cur.EndLine = li.LineNumber; cur.EndCol = li.LinePosition; } cur = cur.Parent; } continue;
                             case XmlNodeType.Text:
                             case XmlNodeType.SignificantWhitespace:
                             case XmlNodeType.Whitespace:
-                                if (r.Value.Trim().Length == 0) continue;
+                                if (Blank(r.Value)) continue;
                                 n = new XItem { Kind = XKind.Text, Value = r.Value };
                                 break;
                             case XmlNodeType.CDATA: n = new XItem { Kind = XKind.CData, Value = r.Value }; break;
@@ -119,6 +145,7 @@ namespace Stackshot
                             case XmlNodeType.ProcessingInstruction: n = new XItem { Kind = XKind.Pi, Name = r.Name, Value = r.Value }; break;
                             default: continue;
                         }
+                        if (li != null) { n.Line = li.LineNumber; n.Col = li.LinePosition; }
                         n.Parent = cur;
                         n.Sibs = cur != null ? cur.Kids : m.Top;
                         n.Sibs.Add(n);
@@ -177,14 +204,104 @@ namespace Stackshot
             return attr ? s.Replace("\"", "&quot;") : s;
         }
 
+        // ---- XML inside XML: a web service that answers with a whole document escaped in one field
+
+        // Elements whose only content is text that is itself a document (it starts with '<' and parses) show that
+        // document as their children, marked Inner; the file itself is not changed. Up to three levels deep and 4 MB in
+        // all. Inner nodes point at their host's line. Returns how many fields were opened.
+        public static int ExpandInner(XmlModel m)
+        {
+            int budget = 4 * 1024 * 1024, found = 0;
+            Queue<KeyValuePair<XItem, int>> work = new Queue<KeyValuePair<XItem, int>>();
+            foreach (XItem t in m.Top) work.Enqueue(new KeyValuePair<XItem, int>(t, 0));
+            while (work.Count > 0)
+            {
+                KeyValuePair<XItem, int> w = work.Dequeue();
+                XItem e = w.Key;
+                if (e.Kind != XKind.Element) continue;
+                // Opened by an earlier pass: its document still counts as a level.
+                if (e.Inner) { foreach (XItem k in e.Kids) work.Enqueue(new KeyValuePair<XItem, int>(k, w.Value + 1)); continue; }
+                if (w.Value < 3 && e.Kids.Count == 1 && (e.Kids[0].Kind == XKind.Text || e.Kids[0].Kind == XKind.CData))
+                {
+                    string v = e.Kids[0].Value.Trim();
+                    XmlModel inner;
+                    string err;
+                    int l, c;
+                    if (v.Length > 2 && v[0] == '<' && v[v.Length - 1] == '>' && v.Length <= budget &&
+                        Parse(v, out inner, out err, out l, out c) && inner != null && inner.Top.Exists(delegate(XItem x) { return x.Kind == XKind.Element; }))
+                    {
+                        budget -= v.Length;
+                        found++;
+                        e.Kids.Clear();
+                        foreach (XItem k in inner.Top)
+                        {
+                            if (k.Kind == XKind.Decl) continue;
+                            k.Parent = e;
+                            k.Sibs = e.Kids;
+                            e.Kids.Add(k);
+                        }
+                        e.Inner = true;
+                        PointAt(e.Kids, e.Line, e.Col);
+                        foreach (XItem k in e.Kids) work.Enqueue(new KeyValuePair<XItem, int>(k, w.Value + 1));
+                        continue;
+                    }
+                }
+                foreach (XItem k in e.Kids) work.Enqueue(new KeyValuePair<XItem, int>(k, w.Value));
+            }
+            return found;
+        }
+
+        static void PointAt(List<XItem> items, int line, int col)
+        {
+            foreach (XItem k in items)
+            {
+                k.Line = line; k.Col = col; k.EndLine = 0; k.EndCol = 0;
+                PointAt(k.Kids, line, col);
+            }
+        }
+
+        // A SOAP fault anywhere in the document (escaped XML included, once expanded): its code and its message (SOAP 1.1
+        // faultcode and faultstring, 1.2 Code/Value and Reason/Text). False when there is none.
+        public static bool Fault(XmlModel m, out string code, out string message)
+        {
+            code = message = null;
+            XItem f = Find(m.Top, delegate(XItem x) { return x.Kind == XKind.Element && x.Local == "Fault"; });
+            if (f == null) return false;
+            XItem c = Find(f.Kids, delegate(XItem x) { return x.Kind == XKind.Element && (x.Local == "faultcode" || (x.Local == "Value" && x.Parent != null && x.Parent.Local == "Code")); });
+            XItem s = Find(f.Kids, delegate(XItem x) { return x.Kind == XKind.Element && (x.Local == "faultstring" || (x.Local == "Text" && x.Parent != null && x.Parent.Local == "Reason")); });
+            code = c != null ? TextOf(c) : "";
+            message = s != null ? TextOf(s) : "";
+            return true;
+        }
+
+        static XItem Find(List<XItem> items, Predicate<XItem> want)
+        {
+            foreach (XItem i in items)
+            {
+                if (want(i)) return i;
+                XItem k = Find(i.Kids, want);
+                if (k != null) return k;
+            }
+            return null;
+        }
+
+        // The text right inside an element, trimmed.
+        public static string TextOf(XItem e)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (XItem k in e.Kids) if (k.Kind == XKind.Text || k.Kind == XKind.CData) sb.Append(k.Value);
+            return sb.ToString().Trim();
+        }
+
         // ---- XPath of a node (indexes only where a sibling shares the name; default-namespace names use local-name())
 
+        // Inside escaped XML (ExpandInner) the path has two parts: the host field's, then the one within that document.
         public static string XPath(XItem n)
         {
-            List<string> parts = new List<string>();
+            List<string> docs = new List<string>(), parts = new List<string>();
             for (XItem c = n; c != null; c = c.Parent)
             {
-                string step;
+                string step = null;
                 switch (c.Kind)
                 {
                     case XKind.Element:
@@ -200,12 +317,19 @@ namespace Stackshot
                     case XKind.Text: case XKind.CData: step = Counted(c, "text()", true); break;
                     case XKind.Comment: step = Counted(c, "comment()", false); break;
                     case XKind.Pi: step = "processing-instruction('" + c.Name + "')"; break;
-                    default: continue;
                 }
-                parts.Add(step);
+                if (step != null) parts.Add(step);
+                if (c.Parent != null && c.Parent.Inner)
+                {
+                    parts.Reverse();
+                    docs.Add("/" + string.Join("/", parts.ToArray()));
+                    parts.Clear();
+                }
             }
             parts.Reverse();
-            return "/" + string.Join("/", parts.ToArray());
+            docs.Add("/" + string.Join("/", parts.ToArray()));
+            docs.Reverse();
+            return string.Join(" \u00BB ", docs.ToArray());
         }
 
         static string Counted(XItem c, string fn, bool text)
@@ -223,20 +347,41 @@ namespace Stackshot
             using (XmlReader r = Reader(text, false)) return XDocument.Load(r, LoadOptions.PreserveWhitespace);
         }
 
+        // Whitespace as XML means it: space, tab, CR and LF only. A no-break or ideographic space is content (string.Trim
+        // would take it for blank and formatting would delete <b>&#160;</b>'s text).
+        static bool Blank(string s)
+        {
+            foreach (char c in s ?? "") if (c != ' ' && c != '\t' && c != '\r' && c != '\n') return false;
+            return true;
+        }
+
+        // Whitespace inside xml:space="preserve" (SVG text, XAML runs, Office XML) is content: it is never touched.
         static void DropBlanks(XDocument d)
         {
-            foreach (XElement e in d.Descendants().ToList())
+            XName space = XNamespace.Xml + "space";
+            // Whitespace between the declaration, comments and the root would make the writer stop indenting there.
+            foreach (XText t in d.Nodes().OfType<XText>().ToList()) t.Remove();
+            Stack<KeyValuePair<XElement, bool>> st = new Stack<KeyValuePair<XElement, bool>>();
+            if (d.Root != null) st.Push(new KeyValuePair<XElement, bool>(d.Root, false));
+            while (st.Count > 0)
             {
-                bool mixed = e.Nodes().Any(x => x is XCData || (x is XText && ((XText)x).Value.Trim().Length > 0));
-                if (mixed) continue;
-                foreach (XText t in e.Nodes().OfType<XText>().Where(x => !(x is XCData)).ToList()) t.Remove();
+                KeyValuePair<XElement, bool> top = st.Pop();
+                XElement e = top.Key;
+                XAttribute a = e.Attribute(space);
+                bool keep = a != null ? a.Value == "preserve" : top.Value;
+                if (!keep)
+                {
+                    bool mixed = e.Nodes().Any(x => x is XCData || (x is XText && !Blank(((XText)x).Value)));
+                    if (!mixed) foreach (XText t in e.Nodes().OfType<XText>().Where(x => !(x is XCData)).ToList()) t.Remove();
+                }
+                foreach (XElement k in e.Elements()) st.Push(new KeyValuePair<XElement, bool>(k, keep));
             }
         }
 
-        static string Write(XDocument d, bool indent)
+        static string Write(XDocument d, bool indent, XmlFormat f)
         {
             DropBlanks(d);
-            XmlWriterSettings s = new XmlWriterSettings { OmitXmlDeclaration = true, Indent = indent, IndentChars = "  ", NewLineChars = "\n", NewLineHandling = NewLineHandling.None, ConformanceLevel = ConformanceLevel.Document };
+            XmlWriterSettings s = new XmlWriterSettings { OmitXmlDeclaration = true, Indent = indent, IndentChars = f.Indent, NewLineChars = "\n", NewLineHandling = NewLineHandling.Entitize, ConformanceLevel = ConformanceLevel.Document, NewLineOnAttributes = indent && f.AttrLines };
             StringBuilder body = new StringBuilder();
             using (StringWriter sw = new StringWriter(body))
             using (XmlWriter w = XmlWriter.Create(sw, s)) d.Save(w);
@@ -249,8 +394,13 @@ namespace Stackshot
         // Null with the reason in error when the text is not well-formed.
         public static string Format(string text, bool indent, out string error)
         {
+            return Format(text, indent, new XmlFormat(), out error);
+        }
+
+        public static string Format(string text, bool indent, XmlFormat f, out string error)
+        {
             error = null;
-            try { return Write(Load(text), indent); }
+            try { return Write(Load(text), indent, f ?? new XmlFormat()); }
             catch (XmlException ex) { error = (ex.LineNumber > 0 ? "L\u00EDnea " + ex.LineNumber + ", columna " + ex.LinePosition + ": " : "") + Friendly(ex); return null; }
             catch (OutOfMemoryException) { error = "Est\u00E1 tan anidado o es tan grande que no se puede formatear con sangr\u00EDa."; return null; }
             catch (Exception ex) { error = "No he podido leer el XML: " + ex.Message; return null; }

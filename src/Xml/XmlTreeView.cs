@@ -18,6 +18,7 @@ namespace Stackshot
     public sealed class XmlLook
     {
         public readonly Brush Ink, Punct, Name, AttrName, AttrValue, Comment, CData, Pi, Ns, Hint, Match;
+        public readonly Brush MatchInk;   // text of a search hit, when it needs its own colour (contrast theme)
         public readonly Color Accent;
         public readonly bool Dark;
         public string Query = "";
@@ -37,6 +38,22 @@ namespace Stackshot
             Ns = Ds.Brush(Dark ? Ds.Rgb(100, 210, 220) : Ds.Rgb(0, 120, 140));
             Hint = Ds.Brush(pal.Label2);
             Match = Ds.Brush(Dark ? Ds.Argb(0.40, 255, 214, 10) : Ds.Argb(0.55, 255, 214, 10));
+            if (!pal.High) return;
+            // Contrast theme: names and namespaces as links, values in Highlight, comments in GrayText, the rest in the
+            // text colour; search hits in Highlight with HighlightText.
+            Punct = AttrName = CData = Pi = Ink;
+            Name = Ns = Ds.Brush(pal.Link);
+            AttrValue = Ds.Brush(pal.Accent);
+            Match = Ds.Brush(pal.Accent);
+            MatchInk = Ds.Brush(pal.OnAccent);
+        }
+
+        // The same look for a picture of the tree: the colours exports have always had, whatever the theme.
+        public XmlLook ForExport()
+        {
+            XmlLook x = new XmlLook(Palette.Export());
+            x.Query = Query;
+            return x;
         }
 
         public Brush For(Seg s)
@@ -139,7 +156,7 @@ namespace Stackshot
                     int i = p.Text.IndexOf(q, at, StringComparison.OrdinalIgnoreCase);
                     if (i < 0) { text.Inlines.Add(new System.Windows.Documents.Run(p.Text.Substring(at)) { Foreground = b }); break; }
                     if (i > at) text.Inlines.Add(new System.Windows.Documents.Run(p.Text.Substring(at, i - at)) { Foreground = b });
-                    text.Inlines.Add(new System.Windows.Documents.Run(p.Text.Substring(i, q.Length)) { Foreground = b, Background = r.Look.Match });
+                    text.Inlines.Add(new System.Windows.Documents.Run(p.Text.Substring(i, q.Length)) { Foreground = r.Look.MatchInk ?? b, Background = r.Look.Match });
                     at = i + q.Length;
                 }
             }
@@ -244,9 +261,14 @@ namespace Stackshot
                         o.Add(new Piece(">", Seg.Punct));
                         o.Add(new Piece(" \u2026 ", Seg.Hint));
                         o.Add(new Piece("</", Seg.Punct)); Name(o, n); o.Add(new Piece(">", Seg.Punct));
-                        o.Add(new Piece("  " + n.Kids.Count + (n.Kids.Count == 1 ? " nodo" : " nodos"), Seg.Hint));
+                        o.Add(new Piece("  " + n.Kids.Count + (n.Kids.Count == 1 ? " nodo" : " nodos") + (n.Inner ? " \u00B7 XML interno" : ""), Seg.Hint));
                     }
-                    else o.Add(new Piece(">", Seg.Punct));
+                    else
+                    {
+                        o.Add(new Piece(">", Seg.Punct));
+                        // XML that travels escaped in this field, shown opened (XmlDoc.ExpandInner).
+                        if (n.Inner) o.Add(new Piece("   XML interno", Seg.Hint));
+                    }
                     break;
             }
             return o;
@@ -304,7 +326,8 @@ namespace Stackshot
             Width = 190;
             CornerRadius = new CornerRadius(8);
             Margin = new Thickness(8, 0, 0, 0);
-            Background = Ds.Brush(pal.Dark ? Ds.Argb(0.10, 255, 255, 255) : Ds.Argb(0.06, 0, 0, 0));
+            Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.10, 255, 255, 255) : Ds.Argb(0.06, 0, 0, 0));
+            if (pal.High) { BorderBrush = Ds.Brush(pal.Hairline); BorderThickness = new Thickness(1); }
             Grid g = new Grid();
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
@@ -331,9 +354,9 @@ namespace Stackshot
         }
     }
 
-    public sealed class XmlTreeView : Grid
+    public sealed partial class XmlTreeView : Grid
     {
-        readonly ListBox list = new ListBox();
+        readonly ListBox list = new XmlLineList();
         readonly XmlLook look;
         XmlModel model;
         HashSet<XItem> keep;
@@ -341,6 +364,7 @@ namespace Stackshot
         int matches;
 
         public event Action<string> PathChanged;
+        public event Action<XItem> Picked;      // the user selected one node
         public event Action<string, string> CopyRequest;
         public event Action<MouseButtonEventArgs, List<MenuEntry>> Menu;
 
@@ -374,9 +398,10 @@ namespace Stackshot
 
             list.SelectionChanged += delegate
             {
-                if (PathChanged == null) return;
                 XRow r = list.SelectedItem as XRow;
-                PathChanged(r == null || list.SelectedItems.Count != 1 ? null : XmlDoc.XPath(r.Node));
+                bool one = r != null && list.SelectedItems.Count == 1;
+                if (PathChanged != null) PathChanged(one ? XmlDoc.XPath(r.Node) : null);
+                if (one && !quiet && Picked != null) Picked(r.Node);
             };
             list.PreviewMouseLeftButtonDown += OnDown;
             list.PreviewMouseRightButtonDown += OnRightDown;
@@ -547,11 +572,7 @@ namespace Stackshot
             MenuEntry path = MenuEntry.Item("Copiar ruta (XPath)", "copy", false, delegate { CopyPath(); });
             path.Enabled = r != null;
             m.Add(path);
-            if (r != null && !r.Close && r.Node.Kind != XKind.Decl)
-            {
-                string v = r.Node.Kind == XKind.Element ? (r.Node.Inline && r.Node.Kids.Count == 1 ? r.Node.Kids[0].Value : null) : r.Node.Value;
-                if (v != null) m.Add(MenuEntry.Item("Copiar valor", "copy", false, delegate { Ask(v, "Valor copiado."); }));
-            }
+            if (r != null) ValueEntries(m, r, e);
             if (r != null && r.Collapsible && !Filtering)
             {
                 m.Add(MenuEntry.Line());
@@ -582,17 +603,33 @@ namespace Stackshot
             if (r != null) Ask(XmlDoc.XPath(r.Node), "Ruta copiada.");
         }
 
+        // Copies stop here: more would not fit comfortably in the clipboard (or in whatever it is pasted into).
+        public const int MaxCopy = 50 * 1024 * 1024;
+
         public string SelectionText()
         {
-            List<XRow> sel = new List<XRow>();
-            foreach (object o in list.SelectedItems) sel.Add((XRow)o);
-            sel.Sort(delegate(XRow a, XRow b) { return rows.IndexOf(a).CompareTo(rows.IndexOf(b)); });
+            bool cut;
+            return SelectionText(out cut);
+        }
+
+        // The selected rows in the order shown (rows are walked once; looking each one up was quadratic).
+        public string SelectionText(out bool cut)
+        {
+            cut = false;
+            HashSet<XRow> chosen = new HashSet<XRow>();
+            foreach (object o in list.SelectedItems) chosen.Add((XRow)o);
             StringBuilder s = new StringBuilder();
-            foreach (XRow r in sel)
+            foreach (XRow r in rows)
             {
+                if (!chosen.Contains(r)) continue;
+                if (s.Length > MaxCopy) { cut = true; break; }
                 // A collapsed element copies everything inside it.
                 if (r.Collapsed && !r.Close)
-                    foreach (XRow x in XmlRows.Walk(new List<XItem> { r.Node }, r.Depth, true, null, look, int.MaxValue)) s.Append(XmlRows.Line(x)).Append("\r\n");
+                    foreach (XRow x in XmlRows.Walk(new List<XItem> { r.Node }, r.Depth, true, null, look, int.MaxValue))
+                    {
+                        s.Append(XmlRows.Line(x)).Append("\r\n");
+                        if (s.Length > MaxCopy) { cut = true; break; }
+                    }
                 else s.Append(XmlRows.Line(r)).Append("\r\n");
             }
             return s.ToString().TrimEnd('\r', '\n');
@@ -600,8 +637,71 @@ namespace Stackshot
 
         public void CopySelection()
         {
-            string t = SelectionText();
-            if (t.Length > 0) Ask(t, list.SelectedItems.Count == 1 ? "Copiado." : "Copiadas " + list.SelectedItems.Count + " l\u00EDneas.");
+            bool cut;
+            string t = SelectionText(out cut);
+            int n = list.SelectedItems.Count;
+            if (t.Length > 0) Ask(t, cut ? "Copiado en parte: la selecci\u00F3n es demasiado grande." : n == 1 ? "Copiado." : "Copiadas " + n.ToString("N0") + " l\u00EDneas.");
+        }
+
+        // ---- Text positions (for moving between the tree and the editor)
+
+        static int Cmp(int l1, int c1, int l2, int c2) { return l1 != l2 ? l1.CompareTo(l2) : c1.CompareTo(c2); }
+
+        // The deepest node at a line and column of the text: the element whose tags contain it, or the node just before it.
+        public static XItem At(XmlModel m, int line, int col)
+        {
+            if (m == null) return null;
+            List<XItem> level = m.Top;
+            XItem found = null;
+            while (level != null && level.Count > 0)
+            {
+                // Last node at this level that starts at or before the position (they are in text order).
+                int lo = 0, hi = level.Count - 1, pick = -1;
+                while (lo <= hi)
+                {
+                    int mid = (lo + hi) / 2;
+                    XItem x = level[mid];
+                    if (Cmp(x.Line, x.Col - 1, line, col) <= 0) { pick = mid; lo = mid + 1; } else hi = mid - 1;
+                }
+                if (pick < 0) break;
+                XItem n = level[pick];
+                bool inside;
+                if (n.Kind != XKind.Element) inside = true;
+                // An empty element's end is not recorded: on its own line it is taken to end there.
+                else if (n.Empty || n.EndLine == 0) inside = line == n.Line;
+                else inside = Cmp(line, col, n.EndLine, n.EndCol + n.Name.Length + 1) <= 0;
+                if (!inside) break;
+                found = n;
+                // On the end tag itself: the element, not its last child.
+                if (n.Kind != XKind.Element || n.EndLine == 0 || Cmp(line, col, n.EndLine, n.EndCol - 2) >= 0) break;
+                level = n.Kids;
+            }
+            return found;
+        }
+
+        bool quiet;
+
+        // Shows the node in the tree (opening what holds it) and selects it, without telling Picked.
+        public void Reveal(XItem n)
+        {
+            if (n == null || model == null) return;
+            if (n.Kind == XKind.Text && n.Parent != null && n.Parent.Inline) n = n.Parent;
+            bool changed = false;
+            if (keep == null)
+                for (XItem a = n.Parent; a != null; a = a.Parent)
+                    if (!a.Expanded) { a.Expanded = true; changed = true; }
+            int i = -1;
+            if (changed) Reflow(true, null);
+            for (int k = 0; k < rows.Count; k++) if (rows[k].Node == n && !rows[k].Close) { i = k; break; }
+            if (i < 0) return;
+            quiet = true;
+            try
+            {
+                list.SelectedItems.Clear();
+                list.SelectedIndex = i;
+                list.ScrollIntoView(rows[i]);
+            }
+            finally { quiet = false; }
         }
 
         // ---- Picture
@@ -611,13 +711,14 @@ namespace Stackshot
         {
             error = null;
             if (rows.Count == 0) { error = "No hay nada que mostrar."; return null; }
+            look = look.ForExport();
             const double W = 1000;
             int n = Math.Min(rows.Count, 700);
             Border page = null;
             while (true)
             {
                 StackPanel sp = new StackPanel { Width = W };
-                for (int i = 0; i < n; i++) sp.Children.Add(new XmlRowView(rows[i]));
+                for (int i = 0; i < n; i++) sp.Children.Add(new XmlRowView(ForExport(rows[i], look)));
                 if (n < rows.Count)
                     sp.Children.Add(new TextBlock { Text = "\u2026 y " + (rows.Count - n).ToString("N0") + " l\u00EDneas m\u00E1s (contrae lo que no necesites para verlas)", Foreground = look.Hint, FontSize = 12.5, Margin = new Thickness(XmlRowView.Gutter, 8, 0, 0) });
                 page = new Border { Background = Ds.Brush(look.Dark ? Ds.Rgb(30, 30, 32) : Colors.White), Padding = new Thickness(28, 26, 28, 28), Width = W + 56, UseLayoutRounding = true, Child = sp };
@@ -637,6 +738,11 @@ namespace Stackshot
             rtb.Render(page);
             rtb.Freeze();
             return rtb;
+        }
+
+        static XRow ForExport(XRow r, XmlLook look)
+        {
+            return new XRow { Node = r.Node, Depth = r.Depth, Close = r.Close, Collapsed = r.Collapsed, Filtered = r.Filtered, Look = look };
         }
     }
 }
