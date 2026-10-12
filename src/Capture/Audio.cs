@@ -194,9 +194,20 @@ namespace Stackshot
     // silence, overlaps are dropped, and the slow drift between the sound card's clock and the system clock is absorbed
     // one sample at a time, which is inaudible. The video uses the same clock, so sound and image stay in sync however
     // long the recording is.
-    sealed class AudioCapture
+    sealed partial class AudioCapture
     {
         public const int Rate = 48000;
+        // What the timeline had to do, read when the recording ends.
+        public long SilenceFrames, OverlapFrames, Duplicated, Removed, TrimmedFrames;
+        // Full scale reached and held (3 samples or more in a row at |x| >= 0.999): the source itself was clipping.
+        public long ClipEvents, ClipFrames;
+        public double FirstClipSeconds = -1;
+        int clipRunL, clipRunR;
+        long lastClip;
+        readonly List<long[]> clipRuns = new List<long[]>();   // every unbroken run of clipped frames: first file frame, length
+        const int MaxRuns = 200000;
+        const int MergeFrames = Rate / 4;
+        public bool Converted;            // the device did not give 48 kHz stereo float: converted here
         const int Shared = 0, Loopback = 0x20000, AutoConvert = unchecked((int)0x80000000), DefaultQuality = 0x08000000;
         const int Invalidated = unchecked((int)0x88890004), AccessDenied = unchecked((int)0x80070005), NotFound = unchecked((int)0x80070490);
         static readonly Guid IidAudioClient = new Guid("1CB9AD4C-DBFA-4C32-B178-C2F568A703B2");
@@ -207,6 +218,7 @@ namespace Stackshot
         public readonly bool Computer;   // what the computer plays; otherwise a microphone
         readonly string wantedId;         // null: Windows' default device, followed if it changes
         readonly string path;
+        readonly bool exact;              // drift correction only repeats or drops a frame, never interpolates
         public string DeviceName = "";
         public string Error;              // why it could not start
         public volatile bool Muted;
@@ -214,6 +226,7 @@ namespace Stackshot
         volatile bool stopping;
         Thread thread;
         readonly ManualResetEvent ready = new ManualResetEvent(false);
+        readonly object gate = new object();
         FileStream file;
         long t0 = long.MinValue;          // timeline start, in 100 ns units of the QPC clock
         long written;                     // frames written to the file
@@ -237,13 +250,24 @@ namespace Stackshot
         float lastL, lastR;
         float[] work = new float[0];
 
-        public AudioCapture(bool computer, string deviceId, string path)
+        public AudioCapture(bool computer, string deviceId, string path) : this(computer, deviceId, path, false) { }
+
+        public AudioCapture(bool computer, string deviceId, string path, bool exact)
         {
             Computer = computer;
             wantedId = string.IsNullOrEmpty(deviceId) ? null : deviceId;
             this.path = path;
+            this.exact = exact;
         }
 
+        // No device: a file and a timeline starting at 0, fed through Feed.
+        internal static AudioCapture ForTest(string path, bool exact)
+        {
+            AudioCapture a = new AudioCapture(true, null, path, exact);
+            a.file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1 << 16);
+            a.t0 = 0;
+            return a;
+        }
 
         // Peak of the last moments, 0..1 (for the meter while recording).
         public float Level { get { return level; } }
@@ -256,9 +280,15 @@ namespace Stackshot
             thread.Priority = ThreadPriority.Highest;
             thread.SetApartmentState(ApartmentState.MTA);
             thread.Start();
-            ready.WaitOne(4000);
-            if (Error == null && client == null) Error = "El dispositivo de sonido no responde.";
-            if (Error != null) { stopping = true; thread.Join(2000); }
+            bool answered = ready.WaitOne(4000);
+            // Giving up and creating the work file share a lock: a device that opens after this point (Bluetooth
+            // switching to hands-free, say) never leaves an orphan file behind.
+            lock (gate)
+            {
+                if (!answered && Error == null) Error = "El dispositivo de sonido no responde.";
+                if (Error != null) stopping = true;
+            }
+            if (Error != null) thread.Join(2000);
             return Error == null;
         }
 
@@ -276,9 +306,15 @@ namespace Stackshot
             try
             {
                 if (file == null) return;
+                CommitHeld();
                 if (written < frames) WriteSilence(frames - written);
                 file.Flush();
-                if (written > frames) file.SetLength(frames * 8);
+                if (written > frames)
+                {
+                    TrimmedFrames += written - frames;
+                    file.SetLength(frames * 8);
+                    ForgetClipsFrom(frames);
+                }
                 file.Dispose();
                 file = null;
             }
@@ -289,12 +325,28 @@ namespace Stackshot
 
         void Run()
         {
+            // Sound packets must be drained on time even when the machine is busy: the multimedia scheduler's "Pro
+            // Audio" class, and no efficiency-mode throttling.
+            Power.OptOutThisThread();
+            IntPtr mm = Power.JoinMmcss("Pro Audio");
+            try { Listen(); }
+            finally { Power.LeaveMmcss(mm); }
+        }
+
+        void Listen()
+        {
             try
             {
                 enumerator = AudioDevices.Enumerator();
                 string why = Open();
                 if (why != null) { Error = why; ready.Set(); Close(); return; }
-                file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1 << 16);
+                bool late;
+                lock (gate)
+                {
+                    late = stopping;
+                    if (!late) file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1 << 16);
+                }
+                if (late) { ready.Set(); stopping = true; Close(); return; }
             }
             catch (Exception ex) { Error = ex.Message; ready.Set(); Close(); return; }
             ready.Set();
@@ -322,6 +374,17 @@ namespace Stackshot
             }
             Drain();
             Close();
+            // Start gave up just after the file was made: it belongs to no recording.
+            if (Error != null)
+                lock (gate)
+                {
+                    try
+                    {
+                        if (file != null) { file.Dispose(); file = null; }
+                        if (File.Exists(path)) File.Delete(path);
+                    }
+                    catch { }
+                }
         }
 
         string DefaultId()
@@ -560,11 +623,31 @@ namespace Stackshot
         {
             bool silent = (flags & 2) != 0 || Muted;
             int frames = ToStereo(data, n, silent);
+            Feed(work, frames, false, qpc);
+        }
+
+        // Interleaved stereo float at 48 kHz, `frames` long, whose first sample belongs at when100ns.
+        internal void Feed(float[] interleaved, int frames, bool silent, long when100ns)
+        {
+            long qpc = when100ns;
+            if (!ReferenceEquals(interleaved, work))
+            {
+                Ensure(frames * 2);
+                if (silent) Array.Clear(work, 0, frames * 2);
+                else Array.Copy(interleaved, work, frames * 2);
+            }
             float peak = 0;
             for (int i = 0; i < frames * 2; i++) { float a = Math.Abs(work[i]); if (a > peak) peak = a; }
             level = Math.Max(peak, level * 0.85f);
             long start = Interlocked.Read(ref t0);
             if (start == long.MinValue || file == null) return;
+            if (Pauses != null) { Hold(frames, qpc, start); return; }
+            Place(frames, qpc, start);
+        }
+
+        // `frames` frames of `work` onto the timeline; qpc: when the first one belongs (100 ns units).
+        void Place(int frames, long qpc, long start)
+        {
             // Where this packet belongs, in frames from the start of the recording.
             double at = (qpc - start) * (Rate / 10000000.0);
             int skip = 0;
@@ -587,7 +670,9 @@ namespace Stackshot
             else if (err < -Rate * 0.03)
             {
                 // Overlap: this part was already covered.
+                int before = skip;
                 skip = (int)Math.Min(frames, skip + Math.Round(-err));
+                OverlapFrames += skip - before;
                 drift = 0;
                 glitches++;
                 if (skip >= frames) return;
@@ -595,9 +680,53 @@ namespace Stackshot
             else drift = drift * 0.98 + err * 0.02;
             int count = frames - skip, target = count;
             // Clock drift: stretch or squeeze this packet by one sample when the error passes 2 ms.
-            if (drift > Rate * 0.002 && count > 32) { target = count + 1; drift -= 1; }
-            else if (drift < -Rate * 0.002 && count > 32) { target = count - 1; drift += 1; }
+            if (drift > Rate * 0.002 && count > 32) { target = count + 1; drift -= 1; Duplicated++; }
+            else if (drift < -Rate * 0.002 && count > 32) { target = count - 1; drift += 1; Removed++; }
+            // Counted on what goes into the file, at its place there (after any silence written for a gap).
+            CountClipping(work, skip, count);
             WriteFrames(skip, count, target);
+        }
+
+        internal void CountClipping(float[] w, int from, int count)
+        {
+            for (int i = from; i < from + count; i++)
+            {
+                clipRunL = Math.Abs(w[2 * i]) >= 0.999f ? clipRunL + 1 : 0;
+                clipRunR = Math.Abs(w[2 * i + 1]) >= 0.999f ? clipRunR + 1 : 0;
+                if (clipRunL < 3 && clipRunR < 3) continue;
+                long pos = written + (i - from);
+                // Clipped frames closer together than MergeFrames are one moment (a passage held at full scale).
+                bool first = clipRuns.Count == 0 && ClipFrames == 0;
+                if (first || pos - lastClip >= MergeFrames)
+                {
+                    ClipEvents++;
+                    if (FirstClipSeconds < 0) FirstClipSeconds = pos / (double)Rate;
+                }
+                // Each unbroken run is kept (start, length) so a trim at the end can be counted exactly.
+                if (!first && pos == lastClip + 1 && clipRuns.Count > 0) clipRuns[clipRuns.Count - 1][1]++;
+                else if (clipRuns.Count < MaxRuns) clipRuns.Add(new long[] { pos, 1 });
+                ClipFrames++;
+                lastClip = pos;
+            }
+        }
+
+        // What lies in the part of the file Finish cut off is not in the recording: the runs there are dropped (one cut
+        // through keeps its frames before the cut) and the moments counted again.
+        void ForgetClipsFrom(long frames)
+        {
+            if (clipRuns.Count == 0 || clipRuns.Count >= MaxRuns) return;
+            clipRuns.RemoveAll(r => r[0] >= frames);
+            foreach (long[] r in clipRuns) r[1] = Math.Min(r[1], frames - r[0]);
+            ClipEvents = 0;
+            ClipFrames = 0;
+            long end = long.MinValue;
+            foreach (long[] r in clipRuns)
+            {
+                if (ClipEvents == 0 || r[0] - end >= MergeFrames) ClipEvents++;
+                ClipFrames += r[1];
+                end = r[0] + r[1] - 1;
+            }
+            FirstClipSeconds = clipRuns.Count > 0 ? clipRuns[0][0] / (double)Rate : -1;
         }
 
         // Converts n device frames into `work` as interleaved stereo float at 48 kHz; returns the frame count.
@@ -611,6 +740,7 @@ namespace Stackshot
                 else Marshal.Copy(data, work, 0, n * 2);
                 return n;
             }
+            Converted = true;
             float[] src = new float[n * 2];
             if (!silent)
             {
@@ -662,10 +792,16 @@ namespace Stackshot
         byte[] outBytes = new byte[0];
 
         // Writes `count` frames of `work` starting at `skip`, resampled to `target` frames (target = count +-1 at most).
+        // Exact: the last frame is repeated or dropped, so every sample written is one that was received.
         void WriteFrames(int skip, int count, int target)
         {
             if (outBytes.Length < target * 8) outBytes = new byte[target * 8];
             if (target == count) Buffer.BlockCopy(work, skip * 8, outBytes, 0, count * 8);
+            else if (exact)
+            {
+                Buffer.BlockCopy(work, skip * 8, outBytes, 0, Math.Min(count, target) * 8);
+                if (target > count) Buffer.BlockCopy(work, (skip + count - 1) * 8, outBytes, count * 8, 8);
+            }
             else
             {
                 float[] tmp = new float[target * 2];
@@ -687,6 +823,9 @@ namespace Stackshot
 
         void WriteSilence(long frames)
         {
+            SilenceFrames += Math.Max(0, frames);
+            // Silence between two packets breaks a run of full-scale samples: the file has no clip across it.
+            if (frames > 0) clipRunL = clipRunR = 0;
             byte[] zero = new byte[Math.Min(frames, 4800) * 8];
             while (frames > 0)
             {

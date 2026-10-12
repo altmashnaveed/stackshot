@@ -18,7 +18,7 @@ namespace Stackshot
         static readonly int[] RecOrder = { Recorder.Standard, Recorder.High, Recorder.Maximum, Recorder.Cinema };
         static readonly string[] RecNames = { "Est\u00E1ndar", "Alta", "M\u00E1xima", "Cine" };
         static readonly string[] RecLines = { "Ligera y fluida, para chats y correos.", "60 fps n\u00EDtidos, listo al momento.", "60 fps sin p\u00E9rdida al grabar.",
-                                              "Lo mejor: el doble de resoluci\u00F3n, 60 fps." };
+                                              "Sin p\u00E9rdidas y verificado, en MKV." };
         static readonly string[] RecIcons = { "share", "video", "sparkle", "film" };
         static readonly Color[,] RecTiles =
         {
@@ -33,10 +33,11 @@ namespace Stackshot
         {
             "Est\u00E1ndar: 24, 30 o 60 fps con buena compresi\u00F3n. Archivos peque\u00F1os que se env\u00EDan en segundos.",
             "Alta: 60 fps y mucho detalle, codificado mientras grabas, as\u00ED que se guarda al instante. Archivos m\u00E1s grandes.",
-            "M\u00E1xima: 60 fps al ritmo exacto de tu monitor, se graba sin ninguna p\u00E9rdida y al terminar se codifica con calidad muy alta. Tarda un poco en guardar.",
-            "Cine: lo m\u00E1ximo que da de s\u00ED la pantalla. Se graba sin ninguna p\u00E9rdida a 60 fps al ritmo exacto del monitor y se guarda al doble de " +
-            "resoluci\u00F3n (hasta 4K) conservando el color exacto de cada p\u00EDxel: texto, c\u00F3digo y l\u00EDneas finas se ven perfectos en cualquier pantalla " +
-            "y aguantan la recompresi\u00F3n de YouTube, Teams o LinkedIn. Sonido a 320 kbps. Usa m\u00E1s CPU y disco y tarda en guardar (en pantalla completa, unas dos veces lo que dura el v\u00EDdeo)."
+            "M\u00E1xima: 60 fps al ritmo exacto de tu monitor, se graba sin ninguna p\u00E9rdida (en \u00E1reas de m\u00E1s de 1920 \u00D7 1200 con calidad muy alta, pero no sin p\u00E9rdidas) y al terminar se codifica con calidad muy alta. Tarda un poco en guardar.",
+            "Cine: guarda cada p\u00EDxel y el sonido tal como los entrega Windows, sin p\u00E9rdidas (archivo .mkv), y al terminar lo comprueba fotograma a fotograma. Ocupa mucho (de MB a GB por minuto, seg\u00FAn el movimiento) " +
+            "y usa bastante CPU, memoria y disco. Se reproduce dentro de Stackshot (el reproductor de Windows no lo abre); para compartirlo, Exportar en el editor crea un MP4 compatible y el original no cambia. " +
+            "Graba a 60 o 30 fps (lo eliges aqu\u00ED debajo) y no capta todos los refrescos de una pantalla de m\u00E1s de 60 Hz. " +
+            "Es fiel a lo que entrega Windows, no al color que muestra tu monitor (el HDR lo convierte Windows a SDR). Si el equipo no puede seguir el ritmo, la grabaci\u00F3n se detiene y conserva lo grabado."
         };
         static readonly int[] RecFps = { 24, 30, 60 }, RecGifFps = { 10, 15, 20, 25 };
 
@@ -44,7 +45,8 @@ namespace Stackshot
         static bool recSearching;
         RecCard[] recCards;
         TextBlock recNote;
-        FrameworkElement recFps;
+        FrameworkElement recFps, recCine;
+        TextBlock recCineFpsNote, recCineMemNote;
         Border recCamPill;
         TextBlock recCamText;
         bool recCamMenuWanted;
@@ -53,8 +55,10 @@ namespace Stackshot
         {
             RecHeader();
             RecQuality();
+            RecBefore();
             RecSound();
             RecCamera();
+            RecInput();
             RecGifAndEngine();
             RecAfter();
         }
@@ -69,7 +73,7 @@ namespace Stackshot
             head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             StackPanel titles = new StackPanel();
             titles.Children.Add(Label("Grabaci\u00F3n", Ds.Title, 26, pal.Label));
-            TextBlock sub = Paragraph("V\u00EDdeo en MP4 con sonido y GIF animado. Para parar, pulsa el atajo otra vez o el bot\u00F3n de la barrita roja.", 13, pal.Label2);
+            TextBlock sub = Paragraph("V\u00EDdeo con sonido (MP4, o MKV sin p\u00E9rdidas en Cine) y GIF animado. Para parar, pulsa el atajo otra vez o el bot\u00F3n de la barrita roja.", 13, pal.Label2);
             sub.Margin = new Thickness(0, 5, 0, 0);
             titles.Children.Add(sub);
             head.Children.Add(titles);
@@ -117,6 +121,7 @@ namespace Stackshot
         {
             Palette pal = Ds.Brushes;
             Grid inside = Widget(row, col, 0, 1, 1, null);
+            AccessGroup(inside, title);
             inside.Margin = new Thickness(18, 16, 18, 18);
             StackPanel p = new StackPanel();
             StackPanel head = new StackPanel { Orientation = Orientation.Horizontal };
@@ -131,12 +136,14 @@ namespace Stackshot
                 p.Children.Add(subText);
             }
             inside.Children.Add(p);
+            SearchWidget(inside, icon, tint, title, sub);
             return p;
         }
 
         // Neutral fill of the tiles inside a widget.
         static Color RecTile(bool hot)
         {
+            if (Ds.Brushes.High) return Ds.Brushes.Window;
             return Ds.Brushes.Dark ? Ds.Argb(hot ? 0.09 : 0.05, 255, 255, 255) : Ds.Argb(hot ? 0.06 : 0.035, 0, 0, 0);
         }
 
@@ -176,8 +183,8 @@ namespace Stackshot
         Border RecPill(string icon, out TextBlock text)
         {
             Palette pal = Ds.Brushes;
-            Border b = new Border { Height = 32, CornerRadius = new CornerRadius(9), Cursor = Cursors.Hand, BorderThickness = new Thickness(1), BorderBrush = Ds.Brush(pal.Hairline) };
-            Color rest = pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Colors.White, over = pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Rgb(247, 247, 249);
+            Border b = new TapBorder { Height = 32, CornerRadius = new CornerRadius(9), Cursor = Cursors.Hand, BorderThickness = new Thickness(1), BorderBrush = Ds.Brush(pal.Hairline) };
+            Color rest = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.06, 255, 255, 255) : Colors.White, over = pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.12, 255, 255, 255) : Ds.Rgb(247, 247, 249);
             SolidColorBrush bg = new SolidColorBrush(rest);
             b.Background = bg;
             Grid g = new Grid { Margin = new Thickness(10, 0, 10, 0) };
@@ -204,7 +211,7 @@ namespace Stackshot
         static void RecSetText(TextBlock t, string s, bool warn)
         {
             t.Text = s;
-            t.Foreground = Ds.Brush(warn ? Ds.Brushes.Orange : Ds.Brushes.Label);
+            t.Foreground = Ds.Brush(warn ? Ds.Brushes.Warn : Ds.Brushes.Label);
             FrameworkElement grid = t.Parent as FrameworkElement;
             if (grid != null && grid.Parent is FrameworkElement) ((FrameworkElement)grid.Parent).ToolTip = s;
         }
@@ -230,6 +237,7 @@ namespace Stackshot
                 cards.Children.Add(c.Root);
                 Press(c.Root, delegate { RecPickQuality(k); });
                 recCards[i] = c;
+                SearchMark(c.Root, RecNames[i], RecLines[i], RecIcons[i], RecTiles[i, 0], RecTiles[i, 1]);
             }
             p.Children.Add(cards);
 
@@ -248,7 +256,9 @@ namespace Stackshot
             TextBlock fl = Label("Fotogramas por segundo", Ds.Regular, 11.5, pal.Label2);
             fl.HorizontalAlignment = HorizontalAlignment.Center;
             fps.Children.Add(fl);
+            if (!indexing) settings.VideoFps = RecFps[Nearest(RecFps, settings.VideoFps)]; // what is shown is what gets recorded
             MacSegmented fs = new MacSegmented(new string[] { "24", "30", "60" }, Nearest(RecFps, settings.VideoFps));
+            Access.Describe(fs, fl.Text, fps.ToolTip as string);
             fs.Margin = new Thickness(0, 6, 0, 0);
             fs.HorizontalAlignment = HorizontalAlignment.Center;
             fs.Changed += delegate(int i)
@@ -261,9 +271,79 @@ namespace Stackshot
             Grid.SetColumn(fps, 2);
             dg.Children.Add(fps);
             recFps = fps;
-            detail.Child = dg;
+            StackPanel inside = new StackPanel();
+            inside.Children.Add(dg);
+            recCine = RecCineOptions();
+            inside.Children.Add(recCine);
+            detail.Child = inside;
             p.Children.Add(detail);
             RecShowNote(q, false);
+            SearchQuality(fl.Text);
+        }
+
+        // Cine only: the frame rate for any area and the memory that absorbs motion peaks, each with what it really does.
+        FrameworkElement RecCineOptions()
+        {
+            Grid g = new Grid { Margin = new Thickness(25, 14, 0, 0) };
+            g.ColumnDefinitions.Add(new ColumnDefinition());
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+            g.ColumnDefinitions.Add(new ColumnDefinition());
+            MacSegmented fs = new MacSegmented(new string[] { "30", "60" }, settings.CineFps == 30 ? 0 : 1);
+            MacSegmented ms = new MacSegmented(new string[] { "Normal", "Alta" }, settings.CinePeakMemory >= 1 ? 1 : 0);
+            g.Children.Add(RecCineColumn("Fotogramas por segundo", fs, out recCineFpsNote));
+            FrameworkElement mem = RecCineColumn("Memoria para picos de movimiento", ms, out recCineMemNote);
+            Grid.SetColumn(mem, 2);
+            g.Children.Add(mem);
+            RecCineNotes();
+            fs.Changed += delegate(int i)
+            {
+                settings.CineFps = i == 0 ? 30 : 60;
+                Changed();
+                RecCineNotes();
+                RecIn(recCineFpsNote);
+            };
+            ms.Changed += delegate(int i)
+            {
+                settings.CinePeakMemory = i;
+                Changed();
+                RecCineNotes();
+                RecIn(recCineMemNote);
+            };
+            return g;
+        }
+
+        FrameworkElement RecCineColumn(string title, FrameworkElement control, out TextBlock note)
+        {
+            Palette pal = Ds.Brushes;
+            StackPanel col = new StackPanel();
+            col.Children.Add(Label(title, Ds.Semibold, 12.5, pal.Label));
+            Access.Describe(control, title, null);
+            control.HorizontalAlignment = HorizontalAlignment.Left;
+            control.Margin = new Thickness(0, 8, 0, 0);
+            col.Children.Add(control);
+            note = Paragraph("", 12, pal.Label2);
+            note.Margin = new Thickness(0, 8, 0, 0);
+            col.Children.Add(note);
+            return col;
+        }
+
+        // The memory note is worked out for this PC: its main screen and the memory free right now.
+        void RecCineNotes()
+        {
+            if (recCineFpsNote == null || recCineMemNote == null) return;
+            int fps = settings.CineFps == 30 ? 30 : 60;
+            recCineFpsNote.Text = fps == 60
+                ? "Movimiento fluido. Si el \u00E1rea es demasiado grande para tu equipo, te preguntar\u00E1 antes de grabar."
+                : "La mitad de datos y de trabajo: m\u00E1s margen para \u00E1reas grandes o equipos justos. Lo r\u00E1pido se ve menos suave.";
+            int level = settings.CinePeakMemory >= 1 ? 1 : 0;
+            System.Drawing.Rectangle screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+            long frame = (long)screen.Width * screen.Height * 4, avail = Cine.AvailablePhysical();
+            double seconds = Cine.PeakSeconds(level, frame, avail, fps);
+            string peak = "hasta " + DiskBudget.Gb(Cine.PoolBudget(level, avail)) + " (unos " + Math.Max(1, (int)Math.Round(seconds)) + " s de picos a " +
+                          screen.Width + " \u00D7 " + screen.Height + ")";
+            recCineMemNote.Text = level == 0
+                ? "Normal: " + peak + ". Solo se usa la que hace falta; si se llena, la grabaci\u00F3n se detiene y conserva lo grabado."
+                : "Alta: " + peak + ". Para tomas que se detienen con mucho movimiento; con poca memoria libre el equipo puede ir m\u00E1s lento.";
         }
 
         // Nitidez, Fluidez and Tamano from 1 to 4; Standard follows its frame rate.
@@ -299,16 +379,19 @@ namespace Stackshot
             recNote.Inlines.Add(new System.Windows.Documents.Run(s.Substring(0, c + 1)) { FontWeight = FontWeights.SemiBold, Foreground = Ds.Brush(Ds.Brushes.Label) });
             recNote.Inlines.Add(new System.Windows.Documents.Run(s.Substring(c + 1)));
             recFps.Visibility = q == 0 ? Visibility.Visible : Visibility.Collapsed;
+            recCine.Visibility = q == 3 ? Visibility.Visible : Visibility.Collapsed;
+            if (q == 3) RecCineNotes();
             if (!animate) return;
             RecIn(recNote);
             if (q == 0) RecIn(recFps);
+            if (q == 3) RecIn(recCine);
         }
 
         // A quality to pick: icon, name, one line and three small bar meters. The chosen one gets the accent ring, a
         // tint and a check, and its bars light up one after another.
         sealed class RecCard
         {
-            public readonly Grid Root = new Grid();
+            public readonly Grid Root = new TapGrid { Role = Access.Radio, Radius = 14 };
             readonly SolidColorBrush fill;
             readonly Border ring;
             readonly ScaleTransform badge = new ScaleTransform(0, 0);
@@ -321,10 +404,11 @@ namespace Stackshot
                 Palette pal = Ds.Brushes;
                 this.levels = levels;
                 this.selected = selected;
+                AccessCard(Root, name, line, delegate { return this.selected; });
                 Root.Cursor = Cursors.Hand;
                 Root.Background = Brushes.Transparent;
                 fill = new SolidColorBrush(Fill());
-                Root.Children.Add(new Border { CornerRadius = new CornerRadius(14), Background = fill });
+                Root.Children.Add(new Border { CornerRadius = new CornerRadius(14), Background = fill, BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = HcPaint.Edge });
                 StackPanel col = new StackPanel { Margin = new Thickness(13, 13, 13, 14) };
                 col.Children.Add(new IconTile(icon, 30, c1, c2) { HorizontalAlignment = HorizontalAlignment.Left });
                 col.Children.Add(Label(name, Ds.Semibold, 14, pal.Label, new Thickness(0, 11, 0, 0)));
@@ -360,7 +444,7 @@ namespace Stackshot
                 Grid check = new Grid { Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 11, 11, 0),
                                         IsHitTestVisible = false, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = badge };
                 check.Children.Add(new System.Windows.Shapes.Ellipse { Fill = Ds.Brush(pal.Accent) });
-                check.Children.Add(new GlyphView("check", 13, Colors.White, 2.2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+                check.Children.Add(new GlyphView("check", 13, pal.OnAccent, 2.2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
                 Root.Children.Add(check);
                 badge.ScaleX = badge.ScaleY = selected ? 1 : 0;
                 Root.MouseEnter += delegate { hot = true; RecColor(fill, Fill(), 120, 0); };
@@ -370,7 +454,7 @@ namespace Stackshot
             Color Fill()
             {
                 Palette pal = Ds.Brushes;
-                if (selected) return Ds.WithAlpha(pal.Accent, (pal.Dark ? 0.16 : 0.08) + (hot ? 0.04 : 0));
+                if (selected) return pal.High ? pal.Window : Ds.WithAlpha(pal.Accent, (pal.Dark ? 0.16 : 0.08) + (hot ? 0.04 : 0));
                 return RecTile(hot);
             }
 
@@ -378,6 +462,7 @@ namespace Stackshot
             {
                 Palette pal = Ds.Brushes;
                 bool on = s < levels[m];
+                if (pal.High) return on ? (selected ? pal.Accent : pal.Label) : pal.Label3;
                 if (selected) return on ? pal.Accent : Ds.WithAlpha(pal.Accent, pal.Dark ? 0.24 : 0.18);
                 if (pal.Dark) return on ? Ds.Argb(0.5, 255, 255, 255) : Ds.Argb(0.1, 255, 255, 255);
                 return on ? Ds.Argb(0.38, 0, 0, 0) : Ds.Argb(0.08, 0, 0, 0);
@@ -444,9 +529,9 @@ namespace Stackshot
             tile.Children.Add(new Border { CornerRadius = new CornerRadius(14), Background = Ds.Brush(RecTile(false)) });
             Border glow = new Border
             {
-                CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), Opacity = on ? 1 : 0, IsHitTestVisible = false,
-                Background = new LinearGradientBrush(Ds.WithAlpha(tint, pal.Dark ? 0.15 : 0.10), Ds.WithAlpha(tint, pal.Dark ? 0.03 : 0.025), 90),
-                BorderBrush = Ds.Brush(Ds.WithAlpha(tint, pal.Dark ? 0.30 : 0.26))
+                CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(pal.High ? 2 : 1), Opacity = on ? 1 : 0, IsHitTestVisible = false,
+                Background = new LinearGradientBrush(Ds.WithAlpha(tint, pal.High ? 0 : pal.Dark ? 0.15 : 0.10), Ds.WithAlpha(tint, pal.High ? 0 : pal.Dark ? 0.03 : 0.025), 90),
+                BorderBrush = Ds.Brush(pal.High ? pal.Accent : Ds.WithAlpha(tint, pal.Dark ? 0.30 : 0.26))
             };
             tile.Children.Add(glow);
             StackPanel col = new StackPanel { Margin = new Thickness(13) };
@@ -473,15 +558,19 @@ namespace Stackshot
             d.Margin = new Thickness(0, 10, 0, 0);
             d.MinHeight = 2 * d.LineHeight;
             col.Children.Add(d);
+            Access.Describe(sw, title.Text, d.Text);
             TextBlock name;
             Border pill = RecPill(icon, out name);
+            AccessPill(pill, computer ? "Grabar el sonido de" : "Micr\u00F3fono que se graba");
             pill.Margin = new Thickness(0, 10, 0, 0);
             pill.Opacity = on ? 1 : 0.55;
             bool warn;
             RecSetText(name, RecSoundLabel(computer, out warn), warn);
             Press(pill, delegate { RecSoundMenu(pill, computer, name); });
             col.Children.Add(pill);
+            if (!computer) col.Children.Add(RecMicTest());
             tile.Children.Add(col);
+            SearchMark(tile, title.Text, d.Text, icon, W(computer ? Mac.Orange : Mac.Pink), W(Mac.Red));
             sw.Toggled += delegate(bool v)
             {
                 if (computer) settings.RecordSystemAudio = v;
@@ -497,6 +586,7 @@ namespace Stackshot
         string RecSoundLabel(bool computer, out bool warn)
         {
             warn = false;
+            if (indexing) return "";
             string cur = computer ? settings.SystemAudioDevice : settings.MicDevice;
             if (string.IsNullOrEmpty(cur))
             {
@@ -588,6 +678,7 @@ namespace Stackshot
                 form.Children.Add(t);
                 controls[i].HorizontalAlignment = i == 2 ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
                 controls[i].Margin = new Thickness(0, i > 0 ? 12 : 0, 0, 0);
+                Access.Describe(controls[i], names[i], null);
                 Grid.SetRow(controls[i], i);
                 Grid.SetColumn(controls[i], 1);
                 form.Children.Add(controls[i]);
@@ -826,11 +917,13 @@ namespace Stackshot
             StackPanel gp = RecPanel(row, 0, "gif", pal.Orange, "GIF", null, out sub);
             StackPanel big = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
             int gi = Nearest(RecGifFps, settings.GifFps);
+            if (!indexing) settings.GifFps = RecGifFps[gi];
             TextBlock num = Label(RecGifFps[gi].ToString(), Ds.Title, 30, pal.Label);
             big.Children.Add(num);
             big.Children.Add(Label("fotogramas por segundo", Ds.Regular, 12, pal.Label2, new Thickness(8, 12, 0, 0)));
             gp.Children.Add(big);
             MacSegmented gs = new MacSegmented(new string[] { "10", "15", "20", "25" }, gi);
+            Access.Describe(gs, "Fotogramas por segundo del GIF", null);
             gs.HorizontalAlignment = HorizontalAlignment.Left;
             gs.Margin = new Thickness(0, 10, 0, 0);
             gs.Changed += delegate(int i)
@@ -844,6 +937,7 @@ namespace Stackshot
             TextBlock gn = Paragraph("Los GIF pesan mucho: 15 suele ser el punto justo.", 12, pal.Label2);
             gn.Margin = new Thickness(0, 10, 0, 0);
             gp.Children.Add(gn);
+            SearchWidgetMore(gn.Text, ((TextBlock)big.Children[1]).Text);
 
             string ff = Recorder.FindFfmpeg(settings);
             StackPanel ep = RecPanel(row, 1, "gear", pal.Label2, "Motor de v\u00EDdeo", null, out sub);
@@ -858,6 +952,7 @@ namespace Stackshot
             TextBlock info = Paragraph(ff != null ? "FFmpeg graba y codifica tus v\u00EDdeos y GIF." : "Se descarga solo (unos 110 MB) la primera vez que grabes.", 12, pal.Label2);
             info.Margin = new Thickness(0, 8, 0, 0);
             ep.Children.Add(info);
+            SearchWidgetMore(info.Text, null);
             if (ff != null)
             {
                 TextBlock where = Label(ShortPath(ff), Ds.Regular, 11.5, pal.Label3, new Thickness(0, 4, 0, 0));
@@ -873,6 +968,47 @@ namespace Stackshot
                 get.Click += RecDownloadEngine;
                 ep.Children.Add(get);
             }
+        }
+
+        // Options window after choosing the area, and the countdown before recording starts.
+        void RecBefore()
+        {
+            Palette pal = Ds.Brushes;
+            Grid row = RecRow(1);
+            TextBlock sub;
+            StackPanel p = RecPanel(row, 0, "video", pal.Red, "Antes de grabar",
+                     "Al elegir el \u00E1rea aparecen las opciones de la toma (calidad, fotogramas, sonido y c\u00E1mara) con el bot\u00F3n Grabar, " +
+                     "y una cuenta atr\u00E1s te da tiempo para prepararte. La cuenta atr\u00E1s no sale en el v\u00EDdeo.", out sub);
+            Border tile = new Border { CornerRadius = new CornerRadius(12), Background = Ds.Brush(RecTile(false)), Padding = new Thickness(13, 11, 13, 11), Margin = new Thickness(0, 14, 0, 0) };
+            Grid inner = new Grid();
+            inner.ColumnDefinitions.Add(new ColumnDefinition());
+            inner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            inner.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            inner.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            TextBlock l1 = Label("Mostrar las opciones antes de grabar", Ds.Semibold, 13, pal.Label);
+            l1.VerticalAlignment = VerticalAlignment.Center;
+            inner.Children.Add(l1);
+            MacSwitch sw = new MacSwitch(settings.RecordSetup) { VerticalAlignment = VerticalAlignment.Center };
+            Access.Describe(sw, l1.Text, null);
+            sw.Toggled += delegate(bool v) { settings.RecordSetup = v; Changed(); };
+            Grid.SetColumn(sw, 1);
+            inner.Children.Add(sw);
+            TextBlock l2 = Label("Cuenta atr\u00E1s", Ds.Semibold, 13, pal.Label, new Thickness(0, 12, 0, 0));
+            l2.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetRow(l2, 1);
+            inner.Children.Add(l2);
+            int[] cds = RecordSetup.Countdowns;
+            MacSegmented cd = new MacSegmented(new string[] { "No", "3 s", "5 s", "10 s" }, Math.Max(0, Array.IndexOf(cds, Settings.Countdown(settings.RecordCountdown))));
+            cd.Margin = new Thickness(0, 12, 0, 0);
+            Access.Describe(cd, l2.Text, null);
+            cd.Changed += delegate(int i) { settings.RecordCountdown = cds[i]; Changed(); };
+            Grid.SetRow(cd, 1);
+            Grid.SetColumn(cd, 1);
+            inner.Children.Add(cd);
+            tile.Child = inner;
+            p.Children.Add(tile);
+            SearchMark(tile, l1.Text, null, null, Colors.Transparent, Colors.Transparent);
+            SearchMark(tile, l2.Text, null, null, Colors.Transparent, Colors.Transparent);
         }
 
         void RecAfter()
@@ -900,18 +1036,54 @@ namespace Stackshot
             Grid.SetColumn(words, 1);
             inner.Children.Add(words);
             MacSwitch sw = new MacSwitch(settings.CopyToClipboard) { VerticalAlignment = VerticalAlignment.Center };
+            Access.Describe(sw, "Copiar el archivo al terminar", wl.Text);
             sw.Toggled += delegate(bool v) { settings.CopyToClipboard = v; Changed(); };
             Grid.SetColumn(sw, 2);
             inner.Children.Add(sw);
             tile.Child = inner;
             p.Children.Add(tile);
+            SearchMark(tile, ((TextBlock)words.Children[0]).Text, wl.Text, "copy", W(Mac.Teal), W(Mac.Blue));
+
+            // Videos open in Stackshot's player (Cine masters always, whatever this says); off: in Windows' default app.
+            Border vtile = new Border { CornerRadius = new CornerRadius(12), Background = Ds.Brush(RecTile(false)), Padding = new Thickness(13, 11, 13, 11), Margin = new Thickness(0, 8, 0, 0) };
+            Grid vin = new Grid();
+            vin.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            vin.ColumnDefinitions.Add(new ColumnDefinition());
+            vin.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            vin.Children.Add(new IconTile("video", 28, Ds.Rgb(64, 156, 255), Ds.Rgb(10, 110, 230)) { VerticalAlignment = VerticalAlignment.Center });
+            StackPanel vwords = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(11, 0, 12, 0) };
+            vwords.Children.Add(Label("Abrir los v\u00EDdeos en Stackshot", Ds.Semibold, 13, pal.Label));
+            TextBlock vl = Paragraph("Reproductor propio, con cualquier formato, pistas de sonido, velocidad y fotograma a fotograma. Si lo apagas, se abren en la aplicaci\u00F3n de Windows.", 12, pal.Label2);
+            vl.Margin = new Thickness(0, 2, 0, 0);
+            vwords.Children.Add(vl);
+            Grid.SetColumn(vwords, 1);
+            vin.Children.Add(vwords);
+            MacSwitch vsw = new MacSwitch(settings.PlayerOpensVideos) { VerticalAlignment = VerticalAlignment.Center };
+            Access.Describe(vsw, "Abrir los v\u00EDdeos en Stackshot", vl.Text);
+            vsw.Toggled += delegate(bool v) { settings.PlayerOpensVideos = v; Changed(); };
+            Grid.SetColumn(vsw, 2);
+            vin.Children.Add(vsw);
+            vtile.Child = vin;
+            p.Children.Add(vtile);
+            SearchMark(vtile, ((TextBlock)vwords.Children[0]).Text, vl.Text, "video", Ds.Rgb(64, 156, 255), Ds.Rgb(10, 110, 230));
+
+            // The tray's open-a-video dialog from here too: any video or a Cine master, in the player at its real size.
+            StackPanel ok = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
+                                           Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Do = delegate { owner.OpenVideoDialog(); } };
+            TextBlock ot = Label("Abrir un v\u00EDdeo o un m\u00E1ster Cine\u2026", Ds.Medium, 12, pal.Link);
+            ok.Children.Add(ot);
+            ok.Children.Add(new GlyphView("right", 11, pal.Link, 1.6) { Margin = new Thickness(3, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            ok.MouseEnter += delegate { ot.TextDecorations = TextDecorations.Underline; };
+            ok.MouseLeave += delegate { ot.TextDecorations = null; };
+            ok.MouseLeftButtonUp += delegate { owner.OpenVideoDialog(); };
+            p.Children.Add(ok);
 
             // Videos and GIF use the same backdrop as captures when presented.
-            StackPanel lk = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
-                                             Cursor = Cursors.Hand, Background = Brushes.Transparent };
-            TextBlock lt = Label("Elegir el fondo de \u00ABPresentar\u00BB", Ds.Medium, 12, pal.Accent);
+            StackPanel lk = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
+                                           Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Do = delegate { SetPage("editor", true); } };
+            TextBlock lt = Label("Elegir el fondo de \u00ABPresentar\u00BB", Ds.Medium, 12, pal.Link);
             lk.Children.Add(lt);
-            lk.Children.Add(new GlyphView("right", 11, pal.Accent, 1.6) { Margin = new Thickness(3, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            lk.Children.Add(new GlyphView("right", 11, pal.Link, 1.6) { Margin = new Thickness(3, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center });
             lk.MouseEnter += delegate { lt.TextDecorations = TextDecorations.Underline; };
             lk.MouseLeave += delegate { lt.TextDecorations = null; };
             lk.MouseLeftButtonUp += delegate { SetPage("editor", true); };

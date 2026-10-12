@@ -16,10 +16,12 @@ namespace Stackshot
         public static readonly Guid Factory1 = new Guid("770aae78-f26f-4dba-a829-253c83d1b387");
         public static readonly Guid Output1 = new Guid("00cddea8-939b-4b83-a340-a685226666cc");
         public static readonly Guid Output5 = new Guid("80a07424-ab52-42eb-833c-0c42fd282d98");
+        public static readonly Guid Output6 = new Guid("068346e8-aaec-4b84-add7-137f513f77a1");
         public static readonly Guid Texture2D = new Guid("6f15aaf2-d208-4e89-9ab4-489535d34f9c");
         public static readonly Guid Surface1 = new Guid("4ae63092-6327-4c1b-80ae-bfe12ea32b86");
         public static readonly Guid VideoDevice = new Guid("10ec4d5b-975a-4689-b9e4-d0aac30fe333");
         public static readonly Guid VideoContext = new Guid("61f21c45-3c0e-4a74-9cea-67100d9ad5e4");
+        public static readonly Guid Multithread = new Guid("9b7e4e00-342c-4106-a19f-4f2704f689f0"); // ID3D10Multithread
 
         public const int WaitTimeout = unchecked((int)0x887A0027), AccessLost = unchecked((int)0x887A0026);
         public const int Bgra = 87, BgraSrgb = 91, Nv12 = 103;
@@ -36,6 +38,17 @@ namespace Stackshot
             public Native.RECT Coords;
             public int Attached, Rotation;
             public IntPtr Monitor;
+        }
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct OutputDesc1
+        {
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+            public Native.RECT Coords;
+            public int Attached, Rotation;
+            public IntPtr Monitor;
+            public uint BitsPerColor;
+            public int ColorSpace;
+            public float RedX, RedY, GreenX, GreenY, BlueX, BlueY, WhiteX, WhiteY, MinLuminance, MaxLuminance, MaxFullFrameLuminance;
         }
         [StructLayout(LayoutKind.Sequential)]
         public struct DuplDesc
@@ -82,6 +95,7 @@ namespace Stackshot
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int EnumFn(IntPtr self, uint index, out IntPtr item);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int OutputDescFn(IntPtr self, out OutputDesc desc);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int OutputDesc1Fn(IntPtr self, out OutputDesc1 desc);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int DuplicateFn(IntPtr self, IntPtr device, out IntPtr dupl);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int Duplicate1Fn(IntPtr self, IntPtr device, uint flags, uint count, int[] formats, out IntPtr dupl);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void DuplDescFn(IntPtr self, out DuplDesc desc);
@@ -92,6 +106,7 @@ namespace Stackshot
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void GetPtrFn(IntPtr self, out IntPtr result);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void CopyRegionFn(IntPtr self, IntPtr dst, uint dstSub, uint x, uint y, uint z, IntPtr src, uint srcSub, ref Box box);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void CopyFn(IntPtr self, IntPtr dst, IntPtr src);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int SetProtectedFn(IntPtr self, int on);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void UpdateFn(IntPtr self, IntPtr dst, uint sub, ref Box box, IntPtr data, uint rowPitch, uint depthPitch);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate int MapFn(IntPtr self, IntPtr res, uint sub, int type, uint flags, out Mapped map);
         [UnmanagedFunctionPointer(CallingConvention.StdCall)] public delegate void UnmapFn(IntPtr self, IntPtr res, uint sub);
@@ -149,6 +164,8 @@ namespace Stackshot
     sealed class ScreenSource : IDisposable
     {
         public const int Depth = 3;
+        const uint MapDoNotWait = 0x100000;                         // D3D11_MAP_FLAG_DO_NOT_WAIT
+        const int StillDrawing = unchecked((int)0x887A000A);        // DXGI_ERROR_WAS_STILL_DRAWING
         public readonly Rectangle Area;
         public readonly int Width, Height;
         public bool Nv12 { get; private set; }           // NV12 (BT.709, limited range) instead of BGRA
@@ -159,14 +176,21 @@ namespace Stackshot
         public int Pending { get { return submitted - read; } }
         public long Presents;                            // new images of the main monitor taken
         public long LastPresent;                         // QPC time of the main monitor's latest image
+        // What the source saw and lost, for recordings that must say so (read when the recording ends).
+        public long SourcePresents, Coalesced, Unused, Misses, Protected, LostEvents;
+        public double LostMs;
+        public bool GeometryChanged, Hdr;
         public bool Broken { get { return broken; } }
+        // Monitors the area touches through duplication (0 with GDI), and whether their refresh rates differ.
+        public int OutputCount { get { return gdiMode ? 0 : outputs.Count; } }
+        public bool MixedRefresh;
 
         // The last images, each with the time it was presented: one thread takes them as they come (Wait/Take) and
         // never waits for anything else, while the frame thread picks, for each video frame, the image that was on
         // screen at its moment (Pick). The D3D11 context is shared by both, behind `gpu`.
-        const int Versions = 6;
-        readonly IntPtr[] scenes = new IntPtr[Versions];
-        readonly long[] presentOf = new long[Versions];
+        readonly int Versions;            // images kept: how late the frame thread may run before an image is lost
+        readonly IntPtr[] scenes;
+        readonly long[] presentOf;
         int versions;
         readonly object gpu = new object();
         readonly Queue<long> newPresents = new Queue<long>();
@@ -176,8 +200,8 @@ namespace Stackshot
         {
             public IntPtr Out1, Dupl, Frame;
             public Rectangle Desktop, Part;
-            public bool Held, SystemMemory;
-            public long Present, RetryAt;
+            public bool Held, SystemMemory, Had;
+            public long Present, RetryAt, LostAt;
         }
         class Slot
         {
@@ -190,13 +214,16 @@ namespace Stackshot
         readonly Slot[] ring = new Slot[Depth];
         Output primary;
         IntPtr device, context, videoDevice, videoContext, vpEnum, vp;
-        int submitted, read;
+        int submitted, read, lastVersion = -1;
         volatile bool gdiMode;
-        bool warned;
+        bool warned, coversAll;
         readonly bool layered;
 
-        ScreenSource(Rectangle area, bool layered)
+        ScreenSource(Rectangle area, bool layered, int history)
         {
+            Versions = history;
+            scenes = new IntPtr[history];
+            presentOf = new long[history];
             Area = area;
             Width = area.Width;
             Height = area.Height;
@@ -208,7 +235,13 @@ namespace Stackshot
         // (the camera bubble).
         public static ScreenSource Open(Rectangle area, bool wantNv12, bool layered)
         {
-            ScreenSource s = new ScreenSource(area, layered);
+            return Open(area, wantNv12, layered, 6);
+        }
+
+        // history: images kept on the GPU (at least 6).
+        public static ScreenSource Open(Rectangle area, bool wantNv12, bool layered, int history)
+        {
+            ScreenSource s = new ScreenSource(area, layered, Math.Max(6, history));
             string why;
             try { why = s.InitGpu(wantNv12); }
             catch (Exception ex) { why = ex.Message; }
@@ -270,6 +303,16 @@ namespace Stackshot
                 int hr = Dx.D3D11CreateDevice(adapter, 0, IntPtr.Zero, 0x20 | 0x800, IntPtr.Zero, 0, 7, out device, out level, out context);
                 if (hr < 0) hr = Dx.D3D11CreateDevice(adapter, 0, IntPtr.Zero, 0x20, IntPtr.Zero, 0, 7, out device, out level, out context);
                 Dx.Check(hr, "D3D11CreateDevice");
+                // Duplication calls use the immediate context the frame thread copies with; unserialized, an image could
+                // carry the content of a later one (motion going backwards). They also run under `gpu`; this guards the rest.
+                IntPtr mt = Dx.Query(device, Dx.Multithread);
+                if (mt == IntPtr.Zero) mt = Dx.Query(context, Dx.Multithread);
+                if (mt != IntPtr.Zero)
+                {
+                    Dx.Fn<Dx.SetProtectedFn>(mt, 5)(mt, 1);
+                    Dx.Release(ref mt);
+                }
+                else ShotStack.Log("Grabaci\u00F3n: sin protecci\u00F3n multihilo de Direct3D");
             }
             finally
             {
@@ -282,9 +325,19 @@ namespace Stackshot
                 if (e != null) return e;
                 if (primary == null || o.Part.Width * o.Part.Height > primary.Part.Width * primary.Part.Height) primary = o;
             }
+            CheckHdr();
             Dx.DuplDesc dd;
             Dx.Fn<Dx.DuplDescFn>(primary.Dupl, 7)(primary.Dupl, out dd);
             if (dd.RefreshNum > 0 && dd.RefreshDen > 0) { RefreshNum = dd.RefreshNum; RefreshDen = dd.RefreshDen; }
+            foreach (Output o in outputs)
+            {
+                if (o == primary) continue;
+                Dx.DuplDesc od;
+                Dx.Fn<Dx.DuplDescFn>(o.Dupl, 7)(o.Dupl, out od);
+                if (od.RefreshNum > 0 && od.RefreshDen > 0 && Math.Abs(od.RefreshNum / (double)od.RefreshDen - RefreshNum / (double)RefreshDen) > 0.5) MixedRefresh = true;
+            }
+            // One monitor covering the whole area: each new image overwrites all of the previous one.
+            coversAll = outputs.Count == 1 && primary.Part == Area;
 
             for (int i = 0; i < Versions; i++) scenes[i] = Texture(Dx.Bgra, 0, 0x8, 0, 0); // DEFAULT, SHADER_RESOURCE
             if (wantNv12 && Width % 2 == 0 && Height % 2 == 0) Nv12 = InitConverter();
@@ -307,8 +360,39 @@ namespace Stackshot
             return null;
         }
 
+        // The desktop of any output the area touches is DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 when it runs in HDR.
+        void CheckHdr()
+        {
+            foreach (Output o in outputs)
+            {
+                IntPtr out6 = IntPtr.Zero;
+                try
+                {
+                    out6 = Dx.Query(o.Out1, Dx.Output6);
+                    Dx.OutputDesc1 d;
+                    if (out6 != IntPtr.Zero && Dx.Fn<Dx.OutputDesc1Fn>(out6, 27)(out6, out d) >= 0 && d.ColorSpace == 12) Hdr = true;
+                }
+                catch { }
+                finally { Dx.Release(ref out6); }
+            }
+        }
+
+        // The recorded area is a fixed rectangle of the desktop: a monitor that changes shape or position under it
+        // invalidates the recording.
+        void CheckGeometry(Output o)
+        {
+            try
+            {
+                Dx.OutputDesc d;
+                if (Dx.Fn<Dx.OutputDescFn>(o.Out1, 7)(o.Out1, out d) >= 0 &&
+                    Rectangle.FromLTRB(d.Coords.Left, d.Coords.Top, d.Coords.Right, d.Coords.Bottom) != o.Desktop) GeometryChanged = true;
+            }
+            catch { }
+        }
+
         string Duplicate(Output o)
         {
+            if (o.Had) CheckGeometry(o);
             IntPtr out5 = Dx.Query(o.Out1, Dx.Output5), dupl;
             int hr;
             // DuplicateOutput1 asking for 8-bit BGRA also works on HDR desktops (Windows converts).
@@ -321,10 +405,12 @@ namespace Stackshot
             if (hr < 0) return "DuplicateOutput 0x" + hr.ToString("X8");
             Dx.DuplDesc dd;
             Dx.Fn<Dx.DuplDescFn>(dupl, 7)(dupl, out dd);
+            if (o.Had && (dd.Width != o.Desktop.Width || dd.Height != o.Desktop.Height || dd.Rotation > 1)) GeometryChanged = true;
             if (dd.Rotation > 1) { Dx.Release(ref dupl); return "monitor girado"; }
             if (dd.Format != Dx.Bgra && dd.Format != Dx.BgraSrgb) { Dx.Release(ref dupl); return "formato " + dd.Format; }
             o.SystemMemory = dd.InSystemMemory != 0;
             o.Dupl = dupl;
+            o.Had = true;
             return null;
         }
 
@@ -418,29 +504,58 @@ namespace Stackshot
                 long now = Stopwatch.GetTimestamp();
                 if (now < o.RetryAt) { if (ms > 0) Thread.Sleep(Math.Min(ms, 50)); return false; }
                 o.RetryAt = now + Stopwatch.Frequency / 4;
-                if (Duplicate(o) != null) return false;
+                string failed;
+                lock (gpu) failed = Duplicate(o);
+                if (failed != null) return false;
+                if (o.LostAt != 0)
+                {
+                    LostMs += (Stopwatch.GetTimestamp() - o.LostAt) * 1000.0 / Stopwatch.Frequency;
+                    o.LostAt = 0;
+                }
             }
             Dx.FrameInfo info;
             IntPtr res;
-            int hr = Dx.Fn<Dx.AcquireFn>(o.Dupl, 8)(o.Dupl, (uint)ms, out info, out res);
-            if (hr == Dx.WaitTimeout) return false;
+            int hr;
+            bool mouseOnly = false;
+            // Never waits inside the lock: asks without a timeout and naps 1 ms between asks, so the frame thread can
+            // always copy and read.
+            long until = Stopwatch.GetTimestamp() + (long)(Math.Max(0, ms) * (Stopwatch.Frequency / 1000.0));
+            while (true)
+            {
+                lock (gpu)
+                {
+                    hr = Dx.Fn<Dx.AcquireFn>(o.Dupl, 8)(o.Dupl, 0, out info, out res);
+                    if (hr >= 0 && (info.LastPresentTime == 0 || info.AccumulatedFrames == 0))
+                    {
+                        // Only the mouse moved: the cursor is drawn separately.
+                        Dx.Release(ref res);
+                        Dx.Fn<Dx.CallFn>(o.Dupl, 14)(o.Dupl); // ReleaseFrame
+                        mouseOnly = true;
+                    }
+                }
+                if (hr != Dx.WaitTimeout || Stopwatch.GetTimestamp() >= until) break;
+                Thread.Sleep(1);
+            }
+            if (hr == Dx.WaitTimeout || mouseOnly) return false;
             if (hr < 0)
             {
                 if (!warned) { warned = true; ShotStack.Log("Grabaci\u00F3n: duplicaci\u00F3n interrumpida 0x" + hr.ToString("X8")); }
-                Dx.Release(ref o.Dupl);
+                lock (gpu) Dx.Release(ref o.Dupl);
                 o.RetryAt = 0;
-                return false;
-            }
-            if (info.LastPresentTime == 0 || info.AccumulatedFrames == 0)
-            {
-                // Only the mouse moved: the cursor is drawn separately.
-                Dx.Release(ref res);
-                Dx.Fn<Dx.CallFn>(o.Dupl, 14)(o.Dupl); // ReleaseFrame
+                LostEvents++;
+                o.LostAt = Stopwatch.GetTimestamp();
                 return false;
             }
             o.Frame = Dx.Query(res, Dx.Texture2D);
             Dx.Release(ref res);
-            if (o == primary) { Presents++; LastPresent = info.LastPresentTime; }
+            if (info.ProtectedContentMaskedOut != 0) Protected++;
+            if (o == primary)
+            {
+                Presents++;
+                LastPresent = info.LastPresentTime;
+                SourcePresents += info.AccumulatedFrames;
+                if (info.AccumulatedFrames > 1) Coalesced += info.AccumulatedFrames - 1;
+            }
             o.Present = info.LastPresentTime;
             o.Held = true;
             return true;
@@ -454,14 +569,29 @@ namespace Stackshot
             {
                 int next = versions % Versions;
                 IntPtr scene = scenes[next];
-                if (versions > 0) Dx.Fn<Dx.CopyFn>(context, 47)(context, scene, scenes[(versions - 1) % Versions]);
+                // The new image starts as the previous one plus what changed. When the single monitor's whole part
+                // is about to be copied from GPU memory, that full copy of the previous image would only be
+                // overwritten; system-memory surfaces can fail to map, so they keep it.
+                bool whole = coversAll && primary.Held && !primary.SystemMemory && primary.Frame != IntPtr.Zero;
+                if (versions > 0 && !whole) Dx.Fn<Dx.CopyFn>(context, 47)(context, scene, scenes[(versions - 1) % Versions]);
                 bool main = primary.Held;
-                long present = main ? primary.Present : Stopwatch.GetTimestamp();
+                long newest = 0;
+                foreach (Output o in outputs) if (o.Held && o.Present > newest) newest = o.Present;
+                long mainPresent = primary.Present;
+                long present = StampOf(newest, versions > 0 ? presentOf[(versions - 1) % Versions] : 0, Stopwatch.GetTimestamp());
                 Copy(scene);
                 presentOf[next] = present;
                 versions++;
-                if (main) lock (newPresents) { newPresents.Enqueue(present); if (newPresents.Count > 600) newPresents.Dequeue(); }
+                if (main) lock (newPresents) { newPresents.Enqueue(mainPresent); if (newPresents.Count > 600) newPresents.Dequeue(); }
             }
+        }
+
+        // When a new image was complete on screen: the newest present among the monitors that changed, never before the
+        // previous image. Stamping a secondary-only change "now" let the stamps go backwards, and Pick's newest-first
+        // search then showed that change early.
+        internal static long StampOf(long newestPresent, long previous, long now)
+        {
+            return Math.Max(newestPresent != 0 ? newestPresent : now, previous);
         }
 
         // Times of the main monitor's new images since the last call (for the frame thread's timing).
@@ -481,11 +611,14 @@ namespace Stackshot
             lock (gpu)
             {
                 int first = Math.Max(0, versions - Versions + 1), best = Math.Max(0, versions - 1);
+                bool found = false;
                 for (int v = versions - 1; v >= first; v--)
                 {
                     best = v;
-                    if (presentOf[v % Versions] <= at) break;
+                    if (presentOf[v % Versions] <= at) { found = true; break; }
                 }
+                // Every kept image is newer than that moment: the one on screen then was already overwritten.
+                if (!found && first > 0) Misses++;
                 return best;
             }
         }
@@ -533,8 +666,11 @@ namespace Stackshot
         void SubmitGdi(Slot sl)
         {
             IntPtr screen = Native.GetDC(IntPtr.Zero);
-            try { Native.BitBlt(sl.Gdi.Dc, 0, 0, Width, Height, screen, Area.X, Area.Y, Native.SRCCOPY | (layered ? Native.CAPTUREBLT : 0)); }
+            bool ok;
+            try { ok = Native.BitBlt(sl.Gdi.Dc, 0, 0, Width, Height, screen, Area.X, Area.Y, Native.SRCCOPY | (layered ? Native.CAPTUREBLT : 0)); }
             finally { Native.ReleaseDC(IntPtr.Zero, screen); }
+            // Refused (a secure desktop such as the lock screen): the slot would hold an old image, so it counts as unread.
+            if (!ok) return;
             Grabber.DrawCursor(sl.Gdi.Dc, Area.X, Area.Y);
             Native.GdiFlush();
             sl.Valid = true;
@@ -544,7 +680,13 @@ namespace Stackshot
         {
             if (broken || device == IntPtr.Zero) return;
             // The image may have been replaced meanwhile only if this thread fell far behind: then the oldest kept.
+            if (version < versions - Versions) Misses++;
             version = Math.Max(version, Math.Max(0, versions - Versions));
+            if (version > lastVersion)
+            {
+                if (lastVersion >= 0) Unused += version - lastVersion - 1;
+                lastVersion = version;
+            }
             if (!Nv12)
             {
                 Dx.Fn<Dx.CopyFn>(context, 47)(context, sl.Staging, scenes[version % Versions]); // CopyResource
@@ -589,11 +731,20 @@ namespace Stackshot
                 return true;
             }
             Dx.Mapped m;
-            lock (gpu)
+            // A copy the GPU has not finished must not be waited for inside the lock: that would hold up taking new
+            // images. Asks without waiting and naps outside the lock; after 50 ms it waits (a rare, very busy GPU).
+            long giveUp = Stopwatch.GetTimestamp() + Stopwatch.Frequency / 20;
+            for (int tries = 0; ; tries++)
             {
-                if (broken || device == IntPtr.Zero) return false;
-                int hr = Dx.Fn<Dx.MapFn>(context, 14)(context, sl.Staging, 0, 1, 0, out m); // D3D11_MAP_READ
-                if (hr < 0) { Lost("Map 0x" + hr.ToString("X8")); return false; }
+                lock (gpu)
+                {
+                    if (broken || device == IntPtr.Zero) return false;
+                    bool wait = Stopwatch.GetTimestamp() >= giveUp;
+                    int hr = Dx.Fn<Dx.MapFn>(context, 14)(context, sl.Staging, 0, 1, wait ? 0u : MapDoNotWait, out m); // D3D11_MAP_READ
+                    if (hr >= 0) break;
+                    if (hr != StillDrawing || wait) { Lost("Map 0x" + hr.ToString("X8")); return false; }
+                }
+                Thread.Sleep(tries < 3 ? 0 : 1);
             }
             // The copy runs outside the lock, so taking new images never waits for it.
             try
@@ -670,6 +821,7 @@ namespace Stackshot
         void Lost(string what)
         {
             ShotStack.Log("Grabaci\u00F3n: GPU perdida (" + what + ")");
+            LostEvents++;
             broken = true;
             foreach (Slot sl in ring) sl.Valid = false;
             if (Nv12) return;
@@ -710,6 +862,8 @@ namespace Stackshot
         public void Dispose()
         {
             if (patch != null) { patch.Dispose(); patch = null; }
+            foreach (Output o in outputs)
+                if (o.LostAt != 0) { LostMs += (Stopwatch.GetTimestamp() - o.LostAt) * 1000.0 / Stopwatch.Frequency; o.LostAt = 0; }
             ReleaseGpu();
             foreach (Slot sl in ring) if (sl.Gdi != null) { sl.Gdi.Dispose(); sl.Gdi = null; }
         }

@@ -338,6 +338,7 @@ namespace Stackshot
                     StringBuilder sb = new StringBuilder();
                     p.ErrorDataReceived += delegate(object o, DataReceivedEventArgs e) { if (e.Data != null) lock (sb) sb.AppendLine(e.Data); };
                     p.Start();
+                    ChildJob.Add(p);
                     p.BeginErrorReadLine();
                     if (!p.WaitForExit(ms)) { try { p.Kill(); } catch { } }
                     if (p.WaitForExit(1000)) p.WaitForExit();
@@ -636,6 +637,7 @@ namespace Stackshot
             };
             try { p.Start(); }
             catch (Exception ex) { p.Dispose(); why = ex.Message; return Outcome.Failed; }
+            ChildJob.Add(p);
             p.BeginErrorReadLine();
             lock (gate)
             {

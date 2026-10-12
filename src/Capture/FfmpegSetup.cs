@@ -96,7 +96,7 @@ namespace Stackshot
             head.Children.Add(new IconTile("video", 40, Ds.Rgb(255, 85, 100), Ds.Rgb(230, 40, 40)));
             head.Children.Add(Text("Grabar v\u00EDdeo y GIF", Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
             page.Children.Add(head);
-            TextBlock p = Text("Para grabar, Stackshot usa FFmpeg " + Version + ", un programa libre y gratuito. Se descarga una sola vez (unos 110 MB) " +
+            TextBlock p = Text("Para grabar y reproducir v\u00EDdeo, Stackshot usa FFmpeg " + Version + ", un programa libre y gratuito con su propia licencia (GPL). Se descarga una sola vez (unos 110 MB) " +
                                "desde GitHub, se comprueba que es el original y se guarda solo para tu usuario.", Ds.Regular, 13, pal.Label2, new Thickness(0, 16, 0, 0));
             p.TextWrapping = TextWrapping.Wrap;
             p.LineHeight = 19;
@@ -108,7 +108,7 @@ namespace Stackshot
             track.Child = fill;
             track.SizeChanged += delegate { ShowProgress(); };
             page.Children.Add(track);
-            status = Text(statusText, Ds.Regular, 12, failed ? pal.Red : pal.Label3, new Thickness(0, 8, 0, 0));
+            status = Text(statusText, Ds.Regular, 12, failed ? pal.Error : pal.Label3, new Thickness(0, 8, 0, 0));
             status.TextWrapping = TextWrapping.Wrap;
             page.Children.Add(status);
 
@@ -143,7 +143,7 @@ namespace Stackshot
             statusText = text;
             failed = error;
             status.Text = text;
-            status.Foreground = Ds.Brush(error ? Ds.Brushes.Red : Ds.Brushes.Label3);
+            status.Foreground = Ds.Brush(error ? Ds.Brushes.Error : Ds.Brushes.Label3);
         }
 
         void ShowProgress()
