@@ -29,6 +29,7 @@ namespace Stackshot
         string drawnFor;                          // size and theme the image layer in dib was rendered for
         Dib under;                                // image pixels under the close button while it is shown
         readonly Dib[] closeButton = new Dib[2];  // normal and hot
+        readonly int[] closeButtonFor = new int[2];  // the palette each was painted with (HighContrast.Generation)
         int buttonShown = -1;
         MI.BitmapSource shadowTile;
         string shadowKey;
@@ -57,8 +58,8 @@ namespace Stackshot
             // Fit within 70% of the screen, never upscale. Zooming in stops at 4x, or at 1.5 screens for large
             // captures (never below their real size): beyond that the window would only cost memory.
             Rectangle wa = scr.WorkingArea;
-            zoom = Math.Min(1f, Math.Min(wa.Width * 0.7f / img.Width, wa.Height * 0.7f / img.Height));
-            maxZoom = Math.Max(1f, Math.Min(4f, Math.Min(wa.Width * 1.5f / img.Width, wa.Height * 1.5f / img.Height)));
+            zoom = FitZoom(img.Size, wa.Size, out minZoom);
+            maxZoom = Math.Max(zoom, Math.Max(1f, Math.Min(4f, Math.Min(wa.Width * 1.5f / img.Width, wa.Height * 1.5f / img.Height))));
             body = Scaled();
             Point m = Control.MousePosition;
             int bx = Math.Max(wa.Left, Math.Min(wa.Right - body.Width, m.X - body.Width / 2));
@@ -90,15 +91,36 @@ namespace Stackshot
         protected override void OnPaintBackground(PaintEventArgs e) { }
         protected override void OnPaint(PaintEventArgs e) { }
 
-        Size Scaled()
+        Size Scaled() { return ScaledSize(img.Size, zoom); }
+
+        const int MinW = 40, MinH = 30;
+        readonly float minZoom;
+
+        // Fits within 70% of the work area without upscaling, and grows to the smallest usable window when that still
+        // fits on screen: the zoom is clamped, not each side, so a very tall or wide capture keeps its proportions.
+        // Its long side never exceeds the work area, even if the short one ends up thinner than MinW/MinH, so it can
+        // always be seen whole. minZoom: the floor for zooming out.
+        internal static float FitZoom(Size image, Size workArea, out float minZoom)
         {
-            return new Size(Math.Max(40, (int)Math.Round(img.Width * zoom)), Math.Max(30, (int)Math.Round(img.Height * zoom)));
+            int w = Math.Max(1, image.Width), h = Math.Max(1, image.Height);
+            float fit = Math.Min(1f, Math.Min(workArea.Width * 0.7f / w, workArea.Height * 0.7f / h));
+            float whole = Math.Min((float)Math.Max(1, workArea.Width) / w, (float)Math.Max(1, workArea.Height) / h);
+            float usable = Math.Min(whole, Math.Max((float)MinW / w, (float)MinH / h));
+            float zoom = Math.Max(fit, usable);
+            minZoom = Math.Max(usable, Math.Min(0.1f, zoom));
+            return zoom;
+        }
+
+        internal static Size ScaledSize(Size image, float zoom)
+        {
+            return new Size(Math.Max(1, (int)Math.Round(image.Width * zoom)), Math.Max(1, (int)Math.Round(image.Height * zoom)));
         }
 
         ContextMenuStrip BuildMenu()
         {
             ContextMenuStrip m = TrayMenu.Create();
             m.Items.Add(TrayMenu.Item("Copiar", "copy", delegate { ShotStack.CopyImage(img); }));
+            if (ShotStack.Running != null) m.Items.Add(TrayMenu.Item("Copiar el texto", "textscan", delegate { ShotStack.Running.CopyText(img, null); }));
             m.Items.Add(TrayMenu.Item("Guardar como\u2026", "save", delegate { SaveAs(); }));
             m.Items.Add(TrayMenu.Item("Tama\u00F1o real", "actualsize", delegate { SetZoom(1f, new Point(body.Width / 2, body.Height / 2)); }));
             m.Items.Add(TrayMenu.Separator());
@@ -115,7 +137,12 @@ namespace Stackshot
                 if (d.ShowDialog(this) == DialogResult.OK)
                 {
                     try { img.Save(d.FileName, ImageFormat.Png); }
-                    catch (Exception ex) { MessageBox.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+                    catch (Exception ex)
+                    {
+                        ShotStack.Log("Guardar como " + d.FileName + ": " + ex);
+                        MessageBox.Show(this, "No se pudo guardar la imagen.\n\n" + ShotStack.Explain(ex, d.FileName),
+                                        "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
             }
         }
@@ -123,7 +150,7 @@ namespace Stackshot
         // Zoom around the point under the cursor (body coordinates): resized, moved and repainted in one update.
         void SetZoom(float z, Point anchor)
         {
-            z = Math.Max(0.1f, Math.Min(maxZoom, z));
+            z = Math.Max(minZoom, Math.Min(maxZoom, z));
             if (z == zoom || !IsHandleCreated) return;
             float fx = anchor.X / (float)Math.Max(1, body.Width), fy = anchor.Y / (float)Math.Max(1, body.Height);
             Native.RECT wr;
@@ -162,7 +189,7 @@ namespace Stackshot
         {
             if (!IsHandleCreated || IsDisposed) return;
             int w = body.Width + 2 * Pad, h = body.Height + 2 * Pad;
-            string key = w + "x" + h + "|" + zoom + "|" + Ds.Dark;
+            string key = w + "x" + h + "|" + zoom + "|" + Ds.Dark + "|" + HighContrast.Generation;
             if (key != drawnFor)
             {
                 if (dib == null || dib.Width != w || dib.Height != h)
@@ -196,7 +223,7 @@ namespace Stackshot
                 pc.Pop();
             }
             dc.DrawDrawing(pic);
-            Ink.Hairline(dc, Ds.Dark ? Ds.Argb(0.16, 255, 255, 255) : Ds.Argb(0.14, 0, 0, 0), b, r);
+            Ink.Hairline(dc, Ds.Brushes.High ? Ds.Brushes.Hairline : Ds.Dark ? Ds.Argb(0.16, 255, 255, 255) : Ds.Argb(0.14, 0, 0, 0), b, r);
             dc.Pop();
         }
 
@@ -226,21 +253,23 @@ namespace Stackshot
         {
             int i = hot ? 1 : 0;
             Dib d = closeButton[i];
-            if (d != null && d.Width == size.Width && d.Height == size.Height) return d;
+            if (d != null && d.Width == size.Width && d.Height == size.Height && closeButtonFor[i] == HighContrast.Generation) return d;
             if (d != null) d.Dispose();
             d = new Dib(size.Width, size.Height, true);
             double cw = CloseRect().Width;
             MI.RenderTargetBitmap rtb = Ink.Render(size.Width, size.Height, delegate(M.DrawingContext dc)
             {
                 W.Point center = new W.Point(size.Width / 2.0, size.Height / 2.0);
-                dc.DrawEllipse(Ds.Brush(Ds.Argb(0.14, 0, 0, 0)), null, new W.Point(center.X, center.Y + 0.5), cw / 2.0 + 1, cw / 2.0 + 1);
-                dc.DrawEllipse(Ds.Brush(hot ? Ds.Argb(0.92, 58, 58, 62) : Palette.Hud), null, center, cw / 2.0, cw / 2.0);
+                bool high = Ds.Brushes.High;
+                if (!high) dc.DrawEllipse(Ds.Brush(Ds.Argb(0.14, 0, 0, 0)), null, new W.Point(center.X, center.Y + 0.5), cw / 2.0 + 1, cw / 2.0 + 1);
+                dc.DrawEllipse(Ds.Brush(hot ? (high ? Ds.Brushes.Accent : Ds.Argb(0.92, 58, 58, 62)) : Palette.Hud), null, center, cw / 2.0, cw / 2.0);
                 M.Pen ring = new M.Pen(Ds.Brush(Palette.HudLine), 1);
                 ring.Freeze();
                 dc.DrawEllipse(null, ring, center, cw / 2.0 - 0.5, cw / 2.0 - 0.5);
                 double gs = P(14);
-                Glyph.Draw(dc, "close", center.X - gs / 2, center.Y - gs / 2, gs, hot ? Palette.HudLabel : Ds.Argb(0.85, 255, 255, 255), Math.Max(1.4, 1.7 * s));
+                Glyph.Draw(dc, "close", center.X - gs / 2, center.Y - gs / 2, gs, high ? (hot ? Ds.Brushes.OnAccent : Palette.HudLabel) : hot ? Palette.HudLabel : Ds.Argb(0.85, 255, 255, 255), Math.Max(1.4, 1.7 * s));
             }, null);
+            closeButtonFor[i] = HighContrast.Generation;
             Native.GdiFlush();
             rtb.CopyPixels(new W.Int32Rect(0, 0, size.Width, size.Height), d.Bits, size.Width * 4 * size.Height, size.Width * 4);
             closeButton[i] = d;
@@ -268,6 +297,7 @@ namespace Stackshot
         // Shadow drawn as a nine-slice of one small pre-blurred tile, so zooming never re-blurs a large surface.
         void PaintShadow(M.DrawingContext dc, int w, int h, double r)
         {
+            if (Ds.Brushes.High) return;   // no shadows in a contrast theme
             int blur = P(16), off = P(5);
             int c = (int)Math.Ceiling(r) + blur + off + 2;
             int t = 2 * Pad + 2 * c;

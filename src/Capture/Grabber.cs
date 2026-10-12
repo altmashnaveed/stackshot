@@ -61,7 +61,8 @@ namespace Stackshot
                 if (Native.DwmGetInt(h, 14, out cloaked, 4) == 0 && cloaked != 0) return true; // DWMWA_CLOAKED: other virtual desktops, suspended apps
                 uint pid;
                 Native.GetWindowPid(h, out pid);
-                if (pid == me) return true;
+                uint affinity;
+                if (pid == me && Native.GetWindowDisplayAffinity(h, out affinity) && affinity != 0) return true; // own overlays hidden from captures; the player, editor and viewers are real windows
                 int ex = Native.GetWindowLong(h, -20); // GWL_EXSTYLE
                 if ((ex & 0x80) != 0 && (ex & 0x40000) == 0) return true; // WS_EX_TOOLWINDOW without WS_EX_APPWINDOW
                 if ((ex & 0x20) != 0) return true; // WS_EX_TRANSPARENT: click-through overlays

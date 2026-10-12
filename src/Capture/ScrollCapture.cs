@@ -437,13 +437,26 @@ namespace Stackshot
                 Native.ReleaseDC(IntPtr.Zero, screen);
             }
             Bitmap result = null;
+            bool tooBig = false;
             if (!cancelled && error == null && stitcher.Height > 0)
             {
                 try { result = stitcher.Compose(); }
-                catch (Exception ex) { error = ex.Message; }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                    // GDI+ reports a bitmap it can't allocate as an invalid parameter (ArgumentException).
+                    tooBig = ex is OutOfMemoryException || ex is ArgumentException;
+                }
             }
             if (error != null) ShotStack.Log("Captura con desplazamiento: " + error);
-            owner.Ui(delegate { Done(result); });
+            string problem = error == null || cancelled ? null : FailureText(tooBig);
+            owner.Ui(delegate { Done(result, problem); });
+        }
+
+        internal static string FailureText(bool tooBig)
+        {
+            return tooBig ? "No se pudo componer la imagen: es demasiado grande para la memoria disponible. Prueba con un \u00E1rea m\u00E1s estrecha o m\u00E1s corta."
+                          : "No se pudo terminar la captura. Vuelve a intentarlo.";
         }
 
         void Grab(IntPtr mem, IntPtr screen, IntPtr bits, int[] dst)
@@ -459,7 +472,7 @@ namespace Stackshot
             return true;
         }
 
-        void Done(Bitmap result)
+        void Done(Bitmap result, string problem)
         {
             ended = true;
             ui.Stop();
@@ -467,6 +480,7 @@ namespace Stackshot
             if (bar != null) bar.Close();
             if (edges != null) foreach (ScrollEdge e in edges) e.Close();
             ScrollCapture.Ended(this);
+            if (problem != null) owner.Notify("Captura con desplazamiento", problem);
             if (result == null) return;
             ShotStack.Log("Captura con desplazamiento: " + result.Width + "x" + result.Height);
             owner.SaveCapture(result, "Desplazamiento");
@@ -569,35 +583,37 @@ namespace Stackshot
         {
             if (shadow == null)
                 shadow = Ink.Shadow(w, h, new System.Windows.Rect(Pad, Pad + P(5), body.Width, body.Height), P(14), P(16), Ds.Argb(0.45, 0, 0, 0));
-            dc.DrawImage(shadow, new System.Windows.Rect(0, 0, w, h));
+            if (!Ds.Brushes.High) dc.DrawImage(shadow, new System.Windows.Rect(0, 0, w, h));
             dc.PushTransform(new System.Windows.Media.TranslateTransform(Pad, Pad));
             System.Windows.Rect b = new System.Windows.Rect(0, 0, body.Width, body.Height);
-            Ink.Round(dc, Ds.Argb(0.93, 30, 30, 32), b, P(14));
+            Ink.Round(dc, Palette.HudBack(Ds.Argb(0.93, 30, 30, 32)), b, P(14));
             Ink.Hairline(dc, Palette.HudLine, b, P(14));
             double cy = body.Height / 2.0;
             shownHeight = session.Height;
             shownState = State();
-            System.Windows.Media.Color white = Palette.HudLabel, dim = Palette.HudLabel2, accent = Ds.Rgb(10, 132, 255);
+            System.Windows.Media.Color white = Palette.HudLabel, dim = Palette.HudLabel2, accent = Palette.HudFill(Ds.Rgb(10, 132, 255));
 
             // Badge: accent tile with a down arrow, breathing while Auto scrolls.
-            double a = session.Auto ? 0.6 + 0.4 * Math.Cos(pulse * Math.PI * 2) : 1;
+            double a = session.Auto && !Ds.Brushes.High ? 0.6 + 0.4 * Math.Cos(pulse * Math.PI * 2) : 1;
             System.Windows.Rect ic = new System.Windows.Rect(P(12), cy - P(14), P(28), P(28));
             Ink.Round(dc, Ds.WithAlpha(accent, a), ic, P(8));
             double gs = P(16);
-            Glyph.Draw(dc, "down", ic.X + (ic.Width - gs) / 2, cy - gs / 2 + P(1), gs, white, Math.Max(1.6, 2 * s));
+            Glyph.Draw(dc, "down", ic.X + (ic.Width - gs) / 2, cy - gs / 2 + P(1), gs, Palette.OnHudFill(white), Math.Max(1.6, 2 * s));
 
             int tx = P(50), tw = AutoRect().X - tx - P(8);
             string hs = shownHeight > 0 ? shownHeight.ToString("N0", Es) + " px" : "Preparando\u2026";
             System.Windows.Media.FormattedText ht = Line(hs, Ds.Semibold, P(14), white, tw);
             dc.DrawText(ht, new System.Windows.Point(tx, Math.Round(cy - ht.Height + P(2))));
-            System.Windows.Media.Color sc = session.Losing || session.Full ? Ds.Rgb(255, 105, 97) : dim;
+            System.Windows.Media.Color sc = session.Losing || session.Full ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
             System.Windows.Media.FormattedText st = Line(shownState, Ds.Regular, P(11.5f), sc, tw);
             dc.DrawText(st, new System.Windows.Point(tx, Math.Round(cy + P(1))));
             if (!saving)
             {
                 System.Windows.Rect ar = R(AutoRect());
-                Ink.Round(dc, session.Auto ? Ds.Argb(0.22, 10, 132, 255) : hot == 0 ? Palette.HudHover : Ds.Argb(0.10, 255, 255, 255), ar, ar.Height / 2);
-                if (session.Auto)
+                System.Windows.Media.Color autoInk = session.Auto ? Ds.Rgb(120, 180, 255) : white, doneInk = white;
+                if (Ds.Brushes.High) autoInk = HcPaint.Button(dc, ar, ar.Height / 2, session.Auto ? ButtonKind.Primary : ButtonKind.Secondary, true, hot == 0 ? 1 : 0, 0, 1);
+                else Ink.Round(dc, session.Auto ? Ds.Argb(0.22, 10, 132, 255) : hot == 0 ? Palette.HudHover : Ds.Argb(0.10, 255, 255, 255), ar, ar.Height / 2);
+                if (session.Auto && !Ds.Brushes.High)
                 {
                     System.Windows.Media.Pen pen = new System.Windows.Media.Pen(Ds.Brush(Ds.WithAlpha(accent, 0.9)), 1);
                     pen.Freeze();
@@ -605,11 +621,13 @@ namespace Stackshot
                     ai.Inflate(-0.5, -0.5);
                     dc.DrawRoundedRectangle(null, pen, ai, ai.Height / 2, ai.Height / 2);
                 }
-                Ink.Center(dc, Ink.Px(session.Auto ? "Pausa" : "Auto", Ds.Semibold, P(13), session.Auto ? Ds.Rgb(120, 180, 255) : white), ar);
+                Ink.Center(dc, Ink.Px(session.Auto ? "Pausa" : "Auto", Ds.Semibold, P(13), autoInk), ar);
 
+                // Never lighter than the accent, so the white label keeps 4.5:1.
                 System.Windows.Rect dr = R(DoneRect());
-                Ink.Round(dc, hot == 1 ? Ds.Rgb(64, 156, 255) : accent, dr, dr.Height / 2);
-                Ink.Center(dc, Ink.Px("Listo", Ds.Semibold, P(13), white), dr);
+                if (Ds.Brushes.High) doneInk = HcPaint.Button(dc, dr, dr.Height / 2, ButtonKind.Primary, true, hot == 1 ? 1 : 0, 0, 1);
+                else Ink.Round(dc, hot == 1 ? Ds.Brushes.AccentDeep : Ds.Brushes.Accent, dr, dr.Height / 2);
+                Ink.Center(dc, Ink.Px("Listo", Ds.Semibold, P(13), doneInk), dr);
 
                 System.Windows.Rect cr = R(CancelRect());
                 if (hot == 2) dc.DrawEllipse(Ds.Brush(Palette.HudHover), null, new System.Windows.Point(cr.X + cr.Width / 2, cy), cr.Width / 2, cr.Width / 2);

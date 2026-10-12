@@ -18,7 +18,7 @@ namespace Stackshot
     // nothing can be left behind however fast the mouse moves.
     public class RegionPicker : Form
     {
-        public enum Mode { Image, Video, Gif, Scroll }
+        public enum Mode { Image, Video, Gif, Scroll, Text }
 
         // A monitor in client coordinates and its scale.
         class Mon { public Rectangle R; public float Scale; }
@@ -109,8 +109,8 @@ namespace Stackshot
             return Pick(mode, false, out frozen, out frozenAt, out window, out chosen);
         }
 
-        // allInOne: adjust the area afterwards and choose image, video, GIF or scrolling (returned in chosen). The
-        // frozen image only covers the result, and only when an image was chosen; otherwise it is a 1 px placeholder.
+        // allInOne: adjust the area afterwards and choose image, video, GIF, scrolling or text (returned in chosen). The
+        // frozen image only covers the result, and only when an image or text was chosen; otherwise it is a 1 px placeholder.
         public static Rectangle Pick(Mode mode, bool allInOne, out Bitmap frozen, out Rectangle frozenAt, out IntPtr window, out Mode chosen)
         {
             Rectangle virtualScreen = SystemInformation.VirtualScreen;
@@ -618,6 +618,7 @@ namespace Stackshot
             AddBar("video", "V\u00EDdeo", Mode.Video, false, false);
             AddBar("gif", "GIF", Mode.Gif, false, false);
             AddBar("scroll", "Desplazar", Mode.Scroll, false, false);
+            AddBar("textscan", "Texto", Mode.Text, false, false);
             AddBar("close", null, Mode.Image, false, true);
             barScale = 0;
         }
@@ -664,7 +665,7 @@ namespace Stackshot
             Rectangle r = barRect;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             float radius = r.Height / 2f;
-            for (int i = 6; i >= 1; i--)
+            for (int i = Ds.Brushes.High ? 0 : 6; i >= 1; i--)
             {
                 RectangleF sh = r;
                 sh.Inflate(i * S, i * S);
@@ -673,7 +674,7 @@ namespace Stackshot
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(9 * (7 - i) / 3, 0, 0, 0))) g.FillPath(b, p);
             }
             using (GraphicsPath p = Theme.Round(r, radius))
-            using (SolidBrush bg = new SolidBrush(Ds.Gdi(Ds.Argb(0.94, 30, 30, 32)))) g.FillPath(bg, p);
+            using (SolidBrush bg = new SolidBrush(Ds.Gdi(Palette.HudBack(Ds.Argb(0.94, 30, 30, 32))))) g.FillPath(bg, p);
             RectangleF hl = r;
             hl.Inflate(-0.5f, -0.5f);
             using (GraphicsPath p = Theme.Round(hl, radius - 0.5f))
@@ -684,12 +685,13 @@ namespace Stackshot
             {
                 BarItem b = bar[i];
                 bool hot = i == barHot, press = hot && i == barDown;
-                Color fill = b.Primary ? (press ? Color.FromArgb(0, 104, 214) : hot ? Color.FromArgb(48, 150, 255) : Color.FromArgb(10, 132, 255))
-                           : hot ? Color.FromArgb(press ? 70 : 46, 255, 255, 255) : Color.Empty;
+                // The main button never lighter than the accent, so its white label keeps 4.5:1.
+                Color fill = b.Primary ? Ds.Gdi(Ds.Brushes.Deeper(Ds.Brushes.Accent, press ? 0.80 : hot ? 0.90 : 1))
+                           : hot ? Ds.Gdi(Palette.HudWash(Ds.Argb((press ? 70 : 46) / 255.0, 255, 255, 255))) : Color.Empty;
                 if (fill != Color.Empty)
                     using (GraphicsPath p = Theme.Round(b.R, b.R.Height / 2f))
                     using (SolidBrush br = new SolidBrush(fill)) g.FillPath(br, p);
-                System.Windows.Media.Color ink = b.Close && !hot ? Palette.HudLabel2 : Palette.HudLabel;
+                System.Windows.Media.Color ink = b.Primary ? Palette.OnHudFill(Palette.HudLabel) : b.Close && !hot ? Palette.HudLabel2 : Palette.HudLabel;
                 if (b.Close)
                 {
                     g.DrawImage(Ink.GlyphBitmap("close", gi, ink, stroke), b.R.X + (b.R.Width - gi) / 2, b.R.Y + (b.R.Height - gi) / 2, gi, gi);
@@ -698,7 +700,7 @@ namespace Stackshot
                 int ix = b.R.X + Pz(12);
                 g.DrawImage(Ink.GlyphBitmap(b.Icon, gi, ink, stroke), ix, b.R.Y + (b.R.Height - gi) / 2, gi, gi);
                 Rectangle tr = new Rectangle(ix + gi + Pz(6), b.R.Y, b.R.Right - ix - gi - Pz(6), b.R.Height);
-                TextKit.Draw(g, b.Label, barFont, tr, Color.White, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                TextKit.Draw(g, b.Label, barFont, tr, Ds.Gdi(ink), TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
             }
         }
 
@@ -740,9 +742,10 @@ namespace Stackshot
                         ? (allInOne ? "Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Despu\u00E9s eliges qu\u00E9 hacer  \u00B7  Esc: cancelar"
                                     : "Arrastra para capturar un \u00E1rea  \u00B7  Clic: ventana o pantalla entera  \u00B7  Esc: cancelar")
                         : mode == Mode.Video ? "Grabar v\u00EDdeo  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
+                        : mode == Mode.Text ? "Copiar texto  \u00B7  Arrastra sobre el texto o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Gif ? "Grabar GIF  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : "Captura con desplazamiento  \u00B7  Arrastra el \u00E1rea que se va a desplazar  \u00B7  Esc: cancelar";
-            string icon = mode == Mode.Image ? "area" : mode == Mode.Video ? "video" : mode == Mode.Gif ? "gif" : "scroll";
+            string icon = mode == Mode.Image ? "area" : mode == Mode.Video ? "video" : mode == Mode.Gif ? "gif" : mode == Mode.Text ? "textscan" : "scroll";
             string[] parts = text.Split(new string[] { "  \u00B7  " }, StringSplitOptions.None);
             Rectangle client = new Rectangle(0, 0, bright.Width, bright.Height);
             foreach (Mon mon in mons)
@@ -805,7 +808,7 @@ namespace Stackshot
             int gi = (int)Math.Round(16 * s), gap = (int)Math.Round(8 * s), sep = (int)Math.Round(22 * s);
             int padL = (int)Math.Round(14 * s), h = pill.Height;
             float radius = h / 2f;
-            for (int i = 8; i >= 1; i--)
+            for (int i = Ds.Brushes.High ? 0 : 8; i >= 1; i--)
             {
                 RectangleF sh = pill;
                 sh.Inflate(i * s, i * s);
@@ -830,12 +833,12 @@ namespace Stackshot
                 if (i > 0)
                 {
                     float d = Math.Max(2f, 3f * s);
-                    using (SolidBrush dot = new SolidBrush(Ds.Gdi(Ds.Argb(0.3, 255, 255, 255))))
+                    using (SolidBrush dot = new SolidBrush(Ds.Gdi(Palette.HudFaint(Ds.Argb(0.3, 255, 255, 255)))))
                         g.FillEllipse(dot, x + (sep - d) / 2f, cy - d / 2f, d, d);
                     x += sep;
                 }
                 Rectangle tr = new Rectangle(x, pill.Y, widths[i] + 2, h);
-                TextKit.Draw(g, parts[i], i == 0 ? bold : reg, tr, i == 0 ? Color.White : dim, HintFlags | TextFormatFlags.VerticalCenter);
+                TextKit.Draw(g, parts[i], i == 0 ? bold : reg, tr, i == 0 ? Ds.Gdi(Palette.HudLabel) : dim, HintFlags | TextFormatFlags.VerticalCenter);
                 x += widths[i];
             }
         }
@@ -1097,7 +1100,7 @@ namespace Stackshot
         {
             if (r.Width < 1 || r.Height < 1) { Cancel(); return; }
             Rectangle local = Rectangle.Intersect(r, new Rectangle(0, 0, bright.Width, bright.Height));
-            if (chosen == Mode.Image && local.Width > 0 && local.Height > 0)
+            if ((chosen == Mode.Image || chosen == Mode.Text) && local.Width > 0 && local.Height > 0)
             {
                 crop = Crop(bright, local);
                 cropAt = local;
