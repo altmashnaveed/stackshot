@@ -162,7 +162,9 @@ namespace Stackshot
             if (startFile != null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(startFile); });
             if (!Test)
             {
-                if (startFile != null) sync.BeginInvoke((Action)delegate { if (!exiting) { RescueOrphans(); Sweep(); } });
+                // The document is read on another thread and shown from a later message: the cleanup waits a few
+                // seconds instead, so nothing on this thread stands between the file and the screen.
+                if (startFile != null) After(4000, delegate { RescueOrphans(); Sweep(); });
                 else
                 {
                     RescueOrphans();
@@ -173,6 +175,8 @@ namespace Stackshot
             Backdrop.Prewarm();
             if (startPage != null) sync.BeginInvoke((Action)delegate { ShowHome(startPage, false); });
             else if ((justInstalled && startFile == null) || showHome) sync.BeginInvoke((Action)delegate { ShowHome("home", true); });
+            // Installed by opening a document: the document first, the main window right after.
+            else if (justInstalled) After(2500, delegate { ShowHome("home", true); });
             else
             {
                 // Build the main window quietly a little after startup, so the first time it opens it is instant.
@@ -201,11 +205,20 @@ namespace Stackshot
                 };
                 warm.Start();
             }
-            sync.BeginInvoke((Action)MascotChanged);
+            if (startFile != null) After(1500, MascotChanged);
+            else sync.BeginInvoke((Action)MascotChanged);
             // What other copies asked for while this one was starting (startFile itself was already sent).
             if (startFile == null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(null); });
             Updater.Start(this);
             StartWellness();
+        }
+
+        // Runs once on this thread after ms, unless Stackshot is closing by then.
+        void After(int ms, Action act)
+        {
+            Timer t = new Timer { Interval = ms };
+            t.Tick += delegate { t.Dispose(); if (!exiting) act(); };
+            t.Start();
         }
 
         System.Threading.EventWaitHandle showEvent, openEvent;
