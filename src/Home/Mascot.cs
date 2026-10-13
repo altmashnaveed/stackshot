@@ -218,14 +218,30 @@ namespace Stackshot
         }
 
         public int Activity { get { return act; } }
-        public double ActivityMs { get { return actTNow; } }
+        // Time since the current activity began (0 with none): right after it starts too, before the next Step.
+        public double ActivityMs { get { return act == MascotProps.None ? 0 : Math.Max(0, Clock() - actStart); } }
+
+        // Each activity gets a number when it starts; once it is over, Completed says whether it ran to its end
+        // (true) or something cut it short: a click, a drag, being woken, another activity.
+        int actSerial, endedSerial;
+        bool endedWhole;
+        public int ActivitySerial { get { return actSerial; } }
+        public bool Completed(int serial) { return endedSerial == serial && endedWhole; }
+
+        void Stop(bool whole)
+        {
+            if (act != MascotProps.None) { endedSerial = actSerial; endedWhole = whole; }
+            act = MascotProps.None;
+        }
 
         // Idle activity with props (coffee, juggling, handheld console, stretching, reading, photos).
         public void StartAct(int kind)
         {
             now = Clock();
             if (mood != Mood.Idle || Dangling || Busy) return;
+            Stop(false);
             act = kind;
+            actSerial++;
             actStart = now;
             actUntil = now + MascotProps.Duration(kind);
             if (kind == MascotProps.Stretch) SetMood(Mood.Yawn, 1900);
@@ -235,7 +251,7 @@ namespace Stackshot
         void Wake()
         {
             now = Clock();
-            act = MascotProps.None;
+            Stop(false);
             lastSeen = now;
             forcedSleep = false;
             pendingSleep = 0;
@@ -372,7 +388,9 @@ namespace Stackshot
 
         void ForceAct(int kind)
         {
+            Stop(false);
             act = kind;
+            actSerial++;
             actStart = now;
             actUntil = now + MascotProps.Duration(kind);
             if (kind == MascotProps.Stretch) SetMood(Mood.Yawn, 1900);
@@ -392,7 +410,7 @@ namespace Stackshot
                     return;
                 }
                 Wake();
-                act = MascotProps.None;
+                Stop(false);
                 SetMood(Mood.Yawn, 1500);
                 pendingSleep = now + 1500;
                 if (Talks) Say(MascotTalk.ForCmd(Look.Personality, cmd), 1800);
@@ -405,7 +423,7 @@ namespace Stackshot
         // Starts a command (not Sleep) from a clean slate.
         void Run(int cmd, bool asked)
         {
-            act = MascotProps.None;
+            Stop(false);
             mood = Mood.Idle;
             pendingHappy = false;
             danceUntil = waveUntil = sweepUntil = bowUntil = bubblesUntil = 0;
@@ -479,7 +497,7 @@ namespace Stackshot
                 if (!AloneFree || now - lastSeen < (Energy == 2 ? 600 : 1500)) nextFidget = now + 1200;
                 else { nextFidget = now + (7000 + rnd.NextDouble() * 9000) * FidgetScale; Fidget(); }
             }
-            if (act != MascotProps.None && (now > actUntil || Busy || Dangling || (mood != Mood.Idle && mood != Mood.Yawn))) act = MascotProps.None;
+            if (act != MascotProps.None && (now > actUntil || Busy || Dangling || (mood != Mood.Idle && mood != Mood.Yawn))) Stop(now > actUntil);
             actTNow = now - actStart;
             actKNow = act == MascotProps.None ? 0 : Math.Max(0, Math.Min(1, Math.Min(actTNow / 350.0, (actUntil - now) / 350.0)));
             stretch = act == MascotProps.Stretch ? MascotProps.StretchAmt(actTNow) * actKNow : 0;

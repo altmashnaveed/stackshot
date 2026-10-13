@@ -79,7 +79,7 @@ namespace Stackshot
         RectangleF menuRect;
         // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
         int menuWell = -1, session = -1, sessionReps;
-        double sessionAt;
+        int sessionSerial;
         bool sessionStretch;
 
         public PetWindow(ShotStack owner, Settings settings)
@@ -500,15 +500,16 @@ namespace Stackshot
             if (settings.MascotTalks) m.Say(MascotTalk.Hello(settings) + " Haz clic en m\u00ED.", 4200);
         }
 
+        // Neither a new look nor a capture interrupts a break in progress.
         public void LookChanged()
         {
             m.Look = MascotLook.From(settings);
-            m.Celebrate(null);
+            if (session < 0) m.Celebrate(null);
         }
 
         public void Celebrate(string text)
         {
-            if (state == State.Drag) return;
+            if (state == State.Drag || session >= 0) return;
             CloseMenu();
             m.Celebrate(settings.MascotTalks ? text ?? MascotTalk.Celebrate(settings) : null);
         }
@@ -579,13 +580,26 @@ namespace Stackshot
         {
             CloseMenu();
             session = kind;
-            sessionAt = Anim.Now;
             sessionReps = 0;
             sessionStretch = kind == WellKind.Move && owner.MoveIsStretch;
             m.Guided = true;
-            m.Perform(SessionCmd());
-            m.Bubble = null;
+            StartRep();
             nextIdea = double.MaxValue;
+        }
+
+        // One run of the activity (the back stretch is three), with its line in the bubble from the first frame.
+        void StartRep()
+        {
+            m.Perform(SessionCmd());
+            sessionSerial = m.ActivitySerial;
+            m.Say(SessionLine(0), 1500);
+        }
+
+        // Cut short from outside (hidden by a full-screen app, the screen locked): it doesn't count.
+        void StopSession()
+        {
+            if (session < 0) return;
+            m.WakeUp();
         }
 
         int SessionCmd()
@@ -602,22 +616,26 @@ namespace Stackshot
         // What the bubble says while you do it; the break ends with the activity (or when something interrupts it).
         void SessionTick(double now)
         {
-            int prop = MascotCmd.PropOf(SessionCmd());
-            if (m.Activity != prop)
+            if (m.Activity != MascotCmd.PropOf(SessionCmd()) || m.ActivitySerial != sessionSerial)
             {
-                // The back stretch is three short stretches.
-                if (sessionStretch && sessionReps < 2 && now - sessionAt > 1500 && state == State.Idle && !m.Dangling) { sessionReps++; m.Perform(MascotCmd.Stretch); return; }
-                double done = sessionStretch ? (sessionReps + 1) / 3.0 : (now - sessionAt) / MascotProps.Duration(prop);
+                // The mascot knows whether it got to the end or something cut it short (a click, a drag, being woken).
+                bool whole = m.Completed(sessionSerial);
+                if (whole && sessionStretch && sessionReps < 2 && state == State.Idle && !m.Dangling) { sessionReps++; StartRep(); return; }
                 int k = session;
                 session = -1;
                 m.Guided = false;
                 nextIdea = now + 6000;
-                if (done >= 0.6) Finish(k, false);
+                if (whole) Finish(k, false);
                 else { owner.WellLater(k, 600000); m.Bubble = null; }
                 return;
             }
-            double t = m.ActivityMs;
-            string line = null;
+            // Said again every frame, so a line that lasts longer than the bubble never blinks.
+            m.Say(SessionLine(m.ActivityMs), 1500);
+        }
+
+        string SessionLine(double t)
+        {
+            string line;
             switch (session)
             {
                 case WellKind.Water: line = t < 2500 ? "\u00A1Un vaso de agua! Bebe conmigo." : "Sorbo a sorbo\u2026"; break;
@@ -638,16 +656,19 @@ namespace Stackshot
                     break;
                 }
             }
-            if (m.Bubble != line) m.Say(line, 1500);
+            return line;
         }
 
-        // A break done (with the mascot, or on your own): counted for today, and a little celebration.
+        // A break done (with the mascot, or on your own): counted for today, a little celebration, and the news if
+        // the friendship went up a level with it.
         void Finish(int kind, bool alone)
         {
-            int today = owner.WellDone(kind);
+            string levelUp;
+            int today = owner.WellDone(kind, out levelUp);
             if (alone) m.Perform(MascotCmd.Cheer);
             m.Celebrate(null);
-            m.Say(MascotTalk.WellDone(settings, kind, today), 4200);
+            if (settings.MascotTalks || levelUp != null)
+                m.Say(settings.MascotTalks ? MascotTalk.WellDone(settings, kind, today) + (levelUp != null ? " " + levelUp : "") : levelUp, 4600);
         }
 
         // The desktop mascot stays out even with the main window open: it is switched on from there, and hiding it
@@ -661,7 +682,7 @@ namespace Stackshot
         {
             bool want = !blocked;
             if (want && !Visible) { Show(); m.PopIn(); }
-            else if (!want && Visible) { CloseMenu(); Hide(); }
+            else if (!want && Visible) { CloseMenu(); StopSession(); Hide(); }
             if (want && !timer.Enabled) timer.Start();
         }
 
@@ -732,7 +753,7 @@ namespace Stackshot
                 if (MascotRate.AwayNap(IdleMs(), settings.MascotSleepIdle, atRest, asleepForAway)) { asleepForAway = true; m.SleepNow(); }
             }
             if (MascotRate.ScreenOff) MascotScreen.Check();
-            if (!Visible || MascotRate.ScreenOff) { SetFast(false); SetInterval(MascotRate.Hidden); return; }
+            if (!Visible || MascotRate.ScreenOff) { StopSession(); SetFast(false); SetInterval(MascotRate.Hidden); return; }
 
             Point mouse = Control.MousePosition;
             bool near = Math.Abs(mouse.X - (bx + D / 2.0)) < 360 * s && Math.Abs(mouse.Y - (by + D / 2.0)) < 300 * s;

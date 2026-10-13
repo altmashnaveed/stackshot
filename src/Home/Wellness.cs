@@ -128,7 +128,10 @@ namespace Stackshot
         }
 
         // ---- In a call: some app (Teams, Zoom, a browser) is using the microphone or the camera right now. Windows keeps
-        // that per app in the privacy store; LastUsedTimeStop is 0 while it is in use. Only read, a few keys every 30 s.
+        // that per app in the privacy store; LastUsedTimeStop is 0 while it is in use. Only read, off the UI thread,
+        // every 30 s. Use that began more than 4 hours ago doesn't count: an app that keeps the microphone open all day
+        // (noise suppression, push-to-talk) or an entry left behind by a crash would silence the reminders for good.
+        const long CallMaxTicks = 4 * TimeSpan.TicksPerHour;
 
         public static bool InCall()
         {
@@ -159,7 +162,9 @@ namespace Stackshot
                 {
                     if (k == null) continue;
                     object start = k.GetValue("LastUsedTimeStart"), stop = k.GetValue("LastUsedTimeStop");
-                    if (start is long && (long)start != 0 && stop is long && (long)stop == 0) return true;
+                    if (!(start is long) || (long)start <= 0 || !(stop is long) || (long)stop != 0) continue;
+                    long age = DateTime.UtcNow.ToFileTimeUtc() - (long)start;
+                    if (age >= 0 && age < CallMaxTicks) return true;
                 }
             }
             return false;

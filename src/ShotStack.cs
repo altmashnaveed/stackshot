@@ -332,11 +332,18 @@ namespace Stackshot
         // One point per capture; reaching a new level is celebrated.
         void AddLove()
         {
+            string up = LoveUp();
+            if (pet != null) pet.Celebrate(up);
+        }
+
+        // One friendship point, saved; what it says when that reaches a new level, or null.
+        string LoveUp()
+        {
             int before = MascotParts.Level(settings.MascotLove);
             settings.MascotLove++;
             settings.Save();
             int after = MascotParts.Level(settings.MascotLove);
-            if (pet != null) pet.Celebrate(after > before ? MascotTalk.LevelUp(settings, after) : null);
+            return after > before ? MascotTalk.LevelUp(settings, after) : null;
         }
 
         TrayPanel panel;
