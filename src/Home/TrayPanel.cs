@@ -60,6 +60,9 @@ namespace Stackshot
         ShadowTile softShadow, tightShadow;
         string shadowKey;
         Dib dib;
+        // Reused while the highlight moves: a new one per frame piles up native memory, which WPF answers with full
+        // garbage collections in the middle of the animation.
+        MI.RenderTargetBitmap band;
         W.Rect drawnHi = W.Rect.Empty;
         bool stripDirty, stripShown;
 
@@ -612,12 +615,16 @@ namespace Stackshot
             int x = (int)Math.Floor(dirty.X), y = (int)Math.Floor(dirty.Y);
             int bw = Math.Min(w - x, (int)Math.Ceiling(dirty.Right) - x), bh = Math.Min(h - y, (int)Math.Ceiling(dirty.Bottom) - y);
             if (bw <= 0 || bh <= 0) return;
-            MI.RenderTargetBitmap band = Ink.Render(bw, bh, delegate(M.DrawingContext dc)
+            // Full width and a height rounded up, so the bands of one animation share a buffer; only bw x bh is copied.
+            int rh = Math.Min(h, (bh + 31) / 32 * 32);
+            if (band == null || band.PixelWidth != w || band.PixelHeight != rh) band = new MI.RenderTargetBitmap(w, rh, 96, 96, M.PixelFormats.Pbgra32);
+            else band.Clear();
+            band.Render(Ink.Painted(delegate(M.DrawingContext dc)
             {
                 dc.PushTransform(new M.TranslateTransform(-x, -y));
                 Compose(dc, w, h);
                 dc.Pop();
-            }, null);
+            }, null));
             Native.GdiFlush();
             int offset = (y * w + x) * 4;
             band.CopyPixels(new W.Int32Rect(0, 0, bw, bh), IntPtr.Add(dib.Bits, offset), w * 4 * h - offset, w * 4);
@@ -1189,6 +1196,7 @@ namespace Stackshot
             base.OnFormClosed(e);
             thumbs.Clear();
             baseLayer = selLayer = null;
+            band = null;
             softShadow = tightShadow = null;
             if (dib != null) { dib.Dispose(); dib = null; }
         }
