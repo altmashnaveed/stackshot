@@ -6,16 +6,16 @@
 
 Press <kbd>Print Screen</kbd>, select, and you are done. Every capture sits in a floating thumbnail that you can copy, annotate or drag wherever you want.
 
-[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-2.2_MB-4F7BFF?style=for-the-badge)](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.exe) [![Watch the film](https://img.shields.io/badge/Watch_the_film-1%3A38-1C1C20?style=for-the-badge)](docs/video/stackshot-en.mp4)
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-2.2_MB-4F7BFF?style=for-the-badge)](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.exe) [![Watch the film](https://img.shields.io/badge/Watch_the_film-1%3A38-1C1C20?style=for-the-badge)](https://stackshot.rubenitx.me/#video-en)
 
 Free and open source · 2.2 MB · No admin rights<br>
 For Windows 10 and 11 · Version 2.1.0 · Also as an [MSI package](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.msi)
 
 [![Latest release](https://img.shields.io/github/v/release/rubenitx/stackshot?color=4F7BFF)](https://github.com/rubenitx/stackshot/releases/latest) [![Downloads](https://img.shields.io/github/downloads/rubenitx/stackshot/total?color=8B5CF6)](https://github.com/rubenitx/stackshot/releases) [![Build](https://github.com/rubenitx/stackshot/actions/workflows/build.yml/badge.svg)](https://github.com/rubenitx/stackshot/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-14B8E6)](LICENSE)
 
-[Español](README.es.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [IT policies](docs/it-policies.md)
+[Website](https://stackshot.rubenitx.me) · [Español](README.es.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [IT policies](docs/it-policies.md)
 
-<a href="docs/video/stackshot-en.mp4"><img src="docs/video/poster-en.png" alt="Stackshot, the film. Click to watch." width="100%"></a>
+<a href="https://stackshot.rubenitx.me/#video-en"><img src="docs/video/poster-en.png" alt="Stackshot, the film. Click to watch." width="100%"></a>
 
 </div>
 
