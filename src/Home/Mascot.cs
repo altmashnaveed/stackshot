@@ -848,6 +848,7 @@ namespace Stackshot
                     g.Clip = old;
                     old.Dispose();
                 }
+                if (Look.Kind == MascotParts.KindKero) MascotParts.KeroFang(g, mx, my, w, h);
                 return;
             }
             if (visor) { if (!talking) return; float w = D * 0.08f, h = D * 0.045f * (float)(0.5 + 0.5 * Math.Abs(Math.Sin(now / 110.0)));

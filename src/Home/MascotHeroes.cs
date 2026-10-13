@@ -135,7 +135,7 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(230, 250, 255), -0.03f * D, y + 0.05f * D, 0.06f * D, 0.06f * D);
                     return true;
             }
-            return ReindeerOutfit(g, l, D, geo);
+            return ReindeerOutfit(g, l, D, y, geo);
         }
 
         static bool HeroFace(Graphics g, MascotLook l, float D, Geo geo)

@@ -29,6 +29,7 @@ namespace Stackshot
             else if (l.Outfit == OutfitBaldHero) Cape(g, Color.FromArgb(252, 252, 255), Color.FromArgb(206, 210, 224), geo, D, p.Now);
             else if (l.Outfit == OutfitBat) Cape(g, Color.FromArgb(44, 44, 56), Color.FromArgb(12, 12, 18), geo, D, p.Now);
             else if (l.Outfit == OutfitSteel) Cape(g, Color.FromArgb(235, 50, 50), Color.FromArgb(150, 20, 24), geo, D, p.Now);
+            else if (l.Outfit == OutfitKamina) KaminaBack(g, geo, D, p.Now);
             switch (l.Kind)
             {
                 case 0:

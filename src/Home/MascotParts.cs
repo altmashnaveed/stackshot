@@ -56,7 +56,7 @@ namespace Stackshot
 
     public static partial class MascotParts
     {
-        public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno" };
+        public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado" };
 
         public static readonly Color[,] Colors =
         {
@@ -83,10 +83,11 @@ namespace Stackshot
             { Color.FromArgb(236, 234, 228), Color.FromArgb(172, 166, 160) },
             { Color.FromArgb(236, 150, 118), Color.FromArgb(196, 98, 70) },
             { Color.FromArgb(78, 80, 92), Color.FromArgb(22, 24, 30) },
-            { Color.FromArgb(196, 128, 82), Color.FromArgb(120, 68, 38) }
+            { Color.FromArgb(196, 128, 82), Color.FromArgb(120, 68, 38) },
+            { Color.FromArgb(255, 222, 100), Color.FromArgb(238, 164, 40) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
-                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate" };
+                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as" };
 
@@ -96,16 +97,16 @@ namespace Stackshot
                                                      "Corona", "Aureola", "Boina", "Gorro de chef", "Flores", "Pelo rubio", "Pelo casta\u00F1o", "Pelo de punta", "Pelo blanco", "Pelo granate", "Capucha de oso", "Banda ninja", "Sombrero de paja", "Pelo negro", "Ninja rubio", "Casco de marine", "Casco de caballero", "Casco de astronauta", "Chispa",
                                                      "Pelo de punta oscuro", "Pelo magenta", "Ninja de pelo oscuro", "Pelo verde", "Pelo de llamas", "Melena negra",
                                                      "Ninja de pelo plateado", "Capucha de murci\u00E9lago", "Casco rel\u00E1mpago", "Pelo con rizo", "Casco de armadura",
-                                                     "Sombrero de doctor" };
+                                                     "Sombrero de doctor", "Pelo azul salvaje" };
         public static readonly string[] OutfitNames = { "Nada", "Bufanda", "Pajarita", "Corbata", "Capa de vampiro", "Capa de h\u00E9roe",
                                                         "Cascabel", "Cadena de oro", "Capa verde", "Abrigo rojo", "Chaleco ninja", "Kimono de lucha", "Haori a cuadros", "Mochila", "Chaleco rojo", "Camiseta roja", "Botones de consola", "Panza del bosque", "Ch\u00E1ndal naranja",
                                                         "Hombrera", "Armadura verde", "Traje espacial", "Chaqueta verde", "Camiseta morada", "Traje de buf\u00F3n",
                                                         "Cuello alto azul", "Faja verde", "Armadura blanca", "Traje amarillo", "Kimono rosa", "Chaleco verde",
                                                         "Traje ar\u00E1cnido", "Traje de murci\u00E9lago", "Traje rel\u00E1mpago", "Traje de acero", "Armadura roja",
-                                                        "Pantal\u00F3n corto" };
+                                                        "Pantal\u00F3n corto", "Capa roja y tatuajes" };
         public static readonly string[] FaceNames = { "Nada", "Gafas de sol", "Gafas pixel", "Gafas redondas", "Mon\u00F3culo", "Antifaz",
                                                       "Parche pirata", "Bigote", "Venda", "Cejas gordas", "Mofletes rojos", "Marcas de bigote", "Tatuaje y barba", "Barba de mago", "Terminal",
-                                                      "Estrella y l\u00E1grima", "Bozal de bamb\u00FA", "M\u00E1scara ninja", "M\u00E1scara ar\u00E1cnida", "Nariz azul" };
+                                                      "Estrella y l\u00E1grima", "Bozal de bamb\u00FA", "M\u00E1scara ninja", "M\u00E1scara ar\u00E1cnida", "Nariz azul", "Gafas triangulares" };
         public static readonly string[] Personalities = { "Alegre", "Tranquilo", "Gamberro" };
 
         // ---- Friendship: one point per capture. A few items unlock along the way, like companions that grow with you.
@@ -193,6 +194,7 @@ namespace Stackshot
                 case 6: // dog
                 case 7: // chibi
                 case 12: // reindeer
+                case 13: // winged lion
                     g.HeadW = 0.70f; g.Top = -0.31f; g.FaceY = -0.05f; g.EyeGap = 0.125f; g.NeckY = 0.12f; g.NeckW = 0.60f;
                     g.Bottom = 0.31f; g.HandX = 0.33f; g.HandY = 0.21f; g.HatW = 0.58f;
                     break;

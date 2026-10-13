@@ -161,21 +161,21 @@ namespace Stackshot
 
         static bool ReindeerHat(Graphics g, int hat, float u)
         {
-            if (hat != HatDoctor) return false;
+            if (hat != HatDoctor) return KaminaHat(g, hat, u);
             DoctorHat(g, u);
             return true;
         }
 
-        static bool ReindeerOutfit(Graphics g, MascotLook l, float D, Geo geo)
+        static bool ReindeerOutfit(Graphics g, MascotLook l, float D, float y, Geo geo)
         {
-            if (l.Outfit != OutfitShorts) return false;
+            if (l.Outfit != OutfitShorts) return KaminaOutfitPiece(g, l, D, y, geo);
             Shorts(g, D, geo);
             return true;
         }
 
         static bool ReindeerFace(Graphics g, MascotLook l, float D, Geo geo)
         {
-            if (l.Face != FaceBlueNose) return false;
+            if (l.Face != FaceBlueNose) return KaminaFace(g, l, D, geo);
             BlueNose(g, geo, D);
             return true;
         }

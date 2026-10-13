@@ -30,6 +30,9 @@ namespace Stackshot
                 case KindReindeer:
                     ReindeerBack(g, D, c1, c2, p);
                     break;
+                case KindKero:
+                    KeroBack(g, D, c1, c2, p);
+                    break;
                 case KindFrog:
                     foreach (int s in new int[] { -1, 1 })
                     {
