@@ -57,6 +57,18 @@ namespace Stackshot
             }
             finally { CloseHandle(snap); }
         }
+
+        [StructLayout(LayoutKind.Sequential)] struct LASTINPUTINFO { public int cbSize; public uint dwTime; }
+        [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
+
+        // Milliseconds since the last keyboard or mouse input in the session (0 if unknown).
+        public static int IdleMs()
+        {
+            LASTINPUTINFO li = new LASTINPUTINFO();
+            li.cbSize = Marshal.SizeOf(typeof(LASTINPUTINFO));
+            if (!GetLastInputInfo(ref li)) return 0;
+            return unchecked(Environment.TickCount - (int)li.dwTime);
+        }
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
         [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
         [DllImport("winmm.dll")] public static extern uint timeBeginPeriod(uint ms);

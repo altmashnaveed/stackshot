@@ -761,18 +761,9 @@ namespace Stackshot
         }
 
         // ---- Moments
-
-        [StructLayout(LayoutKind.Sequential)] struct LASTINPUTINFO { public int cbSize; public uint dwTime; }
-        [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
         [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
 
-        static int IdleMs()
-        {
-            LASTINPUTINFO li = new LASTINPUTINFO();
-            li.cbSize = Marshal.SizeOf(typeof(LASTINPUTINFO));
-            if (!GetLastInputInfo(ref li)) return 0;
-            return unchecked(Environment.TickCount - (int)li.dwTime);
-        }
+        static int IdleMs() { return Native.IdleMs(); }
 
         // 1 away or locked, 2 an app is full screen, 3 a full-screen game, 4 presenting, 7 a full-screen Store app; 0 if unknown.
         static int Presence()

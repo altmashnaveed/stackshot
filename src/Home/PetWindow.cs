@@ -28,9 +28,6 @@ namespace Stackshot
             public RectangleF R;
             public float TextW, DetailW, HeaderH;   // measured once, at the first paint
         }
-
-        [StructLayout(LayoutKind.Sequential)] struct LASTINPUTINFO { public int cbSize; public uint dwTime; }
-        [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
         [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
         [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
         [DllImport("dwmapi.dll")] static extern int DwmFlush();
@@ -663,13 +660,7 @@ namespace Stackshot
             if (want && !timer.Enabled) timer.Start();
         }
 
-        static int IdleMs()
-        {
-            LASTINPUTINFO li = new LASTINPUTINFO();
-            li.cbSize = Marshal.SizeOf(typeof(LASTINPUTINFO));
-            if (!GetLastInputInfo(ref li)) return 0;
-            return unchecked(Environment.TickCount - (int)li.dwTime);
-        }
+        static int IdleMs() { return Native.IdleMs(); }
 
         // Full-screen apps, games and presentations: hide until they end.
         bool FullScreenBusy()
