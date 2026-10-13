@@ -25,8 +25,8 @@ Until `Program.ReportUrl` is set, the form opens a new GitHub issue in the brows
 ## What it accepts
 
 `POST /report` with a JSON body (`kind`, `title`, `what`, `steps`, `version`, `windows`, `screens`, `log`), at most
-40 KB, from a client whose User-Agent starts with `Stackshot/`. Three reports a minute per address. Text is cut to
-fixed lengths, control characters are removed and `@mentions` are defused. Issues get the labels `desde la app` and
+150 KB, from a client whose User-Agent starts with `Stackshot/`. Three reports a minute per address. Text is cut to
+fixed lengths (the log keeps its end), control characters are removed and `@mentions`, issue references (`#123`, `owner/repo#123`) and GitHub links are defused, so a report can't ping anyone or touch other projects. Issues get the labels `desde la app` and
 `bug` or `enhancement`.
 
 ## Revoking

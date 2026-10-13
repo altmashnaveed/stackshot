@@ -5,6 +5,8 @@
 //   -> 201 { ok: true, number, url }   or   4xx/5xx { ok: false, error }
 
 const LIMITS = { title: 120, what: 6000, steps: 4000, version: 32, windows: 64, screens: 64, log: 24000 };
+// Fields cut from the start keep their end instead: the newest log lines are where the problem is.
+const KEEP_END = { log: true };
 
 export default {
   async fetch(request, env) {
@@ -20,12 +22,13 @@ export default {
       if (!success) return json(429, { ok: false, error: "too many" });
     }
 
+    // JSON escaping (\uXXXX for accents, doubled backslashes in paths) can triple the text; the fields are cut below.
     const raw = await request.text();
-    if (raw.length > 40000) return json(413, { ok: false, error: "too large" });
+    if (raw.length > 150000) return json(413, { ok: false, error: "too large" });
     let r;
     try { r = JSON.parse(raw); } catch { return json(400, { ok: false, error: "json" }); }
     const f = {};
-    for (const k of Object.keys(LIMITS)) f[k] = clean(r[k], LIMITS[k]);
+    for (const k of Object.keys(LIMITS)) f[k] = clean(r[k], LIMITS[k], KEEP_END[k]);
     const kind = r.kind === "idea" ? "idea" : "bug";
     if (f.title.length < 4 || f.what.length < 10) return json(400, { ok: false, error: "empty" });
 
@@ -66,13 +69,17 @@ function createIssue(env, title, body, labels) {
   });
 }
 
-// Plain text only: control characters out, @mentions and #references defused so a report can't ping anyone.
-function clean(v, max) {
+// Plain text only: control characters out; @mentions, #123 / owner/repo#123 / GH-123 references and links to GitHub
+// defused, so a report can't ping anyone or leave a cross-reference on another project's issues.
+function clean(v, max, keepEnd) {
   if (typeof v !== "string") return "";
-  return v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-          .replace(/@(?=\w)/g, "@​")
-          .trim()
-          .slice(0, max);
+  const s = v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+             .replace(/@(?=\w)/g, "@​")
+             .replace(/#(?=\d)/g, "#​")
+             .replace(/\bGH-(?=\d)/gi, "GH​-")
+             .replace(/github\.com/gi, "github​.com")
+             .trim();
+  return s.length <= max ? s : keepEnd ? s.slice(-max) : s.slice(0, max);
 }
 
 function quote(s) { return s.split("\n").map(l => "> " + l).join("\n"); }
