@@ -161,8 +161,8 @@ namespace Stackshot
             -0.66f, 0.44f,  -0.9f, 0.14f,  -0.6f, 0.1f,  -0.84f, -0.3f,  -0.42f, -0.08f,  -0.54f, -0.64f,  -0.2f, -0.16f,
             -0.14f, -0.86f,  0.04f, -0.18f,  0.3f, -0.78f,  0.3f, -0.12f,  0.7f, -0.5f,  0.52f, 0.04f,  0.92f, -0.04f,
             0.64f, 0.2f,  0.66f, 0.44f,
-            // Hairline back to the left, with a few strands falling over the forehead.
-            0.5f, 0.2f,  0.34f, 0.32f,  0.2f, 0.14f,  0.04f, 0.27f,  -0.12f, 0.12f,  -0.32f, 0.3f,  -0.48f, 0.16f
+            // Hairline back to the left, high on the forehead (the shades' points show under it), with a few short strands.
+            0.5f, 0.1f,  0.34f, 0.19f,  0.2f, 0.06f,  0.04f, 0.16f,  -0.12f, 0.04f,  -0.32f, 0.17f,  -0.48f, 0.07f
         };
 
         static void KaminaHair(Graphics g, float u)
@@ -199,10 +199,11 @@ namespace Stackshot
             {
                 using (GraphicsPath lens = new GraphicsPath())
                 {
-                    PointF a = P(s * 0.035f * D, fy - 0.05f * D), b = P(s * (gap + 0.165f * D), fy - 0.105f * D);
-                    PointF c = P(s * (gap + 0.025f * D), fy + 0.052f * D), d = P(s * 0.05f * D, fy + 0.022f * D);
+                    // Wide enough to cover the eye wherever it looks (the eyes are hidden behind them anyway).
+                    PointF a = P(s * 0.03f * D, fy - 0.055f * D), b = P(s * (gap + 0.17f * D), fy - 0.11f * D);
+                    PointF c = P(s * (gap + 0.035f * D), fy + 0.062f * D), d = P(s * 0.045f * D, fy + 0.03f * D);
                     lens.AddLine(a, b);
-                    lens.AddBezier(b, P(s * (gap + 0.13f * D), fy - 0.02f * D), P(s * (gap + 0.08f * D), fy + 0.04f * D), c);
+                    lens.AddBezier(b, P(s * (gap + 0.14f * D), fy - 0.02f * D), P(s * (gap + 0.09f * D), fy + 0.05f * D), c);
                     lens.AddLine(c, d);
                     lens.CloseFigure();
                     RectangleF r = new RectangleF(Math.Min(a.X, b.X), b.Y, Math.Abs(b.X - a.X), c.Y - b.Y);
@@ -215,8 +216,11 @@ namespace Stackshot
                     Stroke(g, lens, frame, D * 0.012f);
                 }
             }
-            Line(g, frame, D * 0.014f, -0.04f * D, fy - 0.048f * D, 0.04f * D, fy - 0.048f * D);
+            Line(g, frame, D * 0.014f, -0.04f * D, fy - 0.052f * D, 0.04f * D, fy - 0.052f * D);
         }
+
+        // Opaque shades: the eyes behind them aren't drawn, and the shades turn with the face (see Mascot.Paint).
+        public static bool CoversEyes(MascotLook l) { return l.Face == FaceKaminaShades; }
 
         // ---- Kamina's outfit (clipped to the body): bare chest, blue flame tattoos on the shoulders, the open cape
         // falling down both sides and light baggy trousers with a dark belt.

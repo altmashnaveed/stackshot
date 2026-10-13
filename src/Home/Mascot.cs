@@ -703,7 +703,15 @@ namespace Stackshot
             MascotParts.PaintDetails(g, Look, D, c2, pose);
             if (Look.Kind == 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
             MascotParts.PaintOutfit(g, Look, D, now);
-            MascotParts.PaintFaceAccessory(g, Look, D);
+            if (MascotParts.CoversEyes(Look))
+            {
+                // Opaque shades turn with the face, as far as the mouth does.
+                GraphicsState fs = g.Save();
+                g.TranslateTransform((float)(lookX * D * 0.03), (float)(lookY * D * 0.02));
+                MascotParts.PaintFaceAccessory(g, Look, D);
+                g.Restore(fs);
+            }
+            else MascotParts.PaintFaceAccessory(g, Look, D);
             MascotParts.PaintAccessory(g, Look, D, now, false);
             MascotParts.PaintHat(g, Look, Look.EffectiveHat(DateTime.Now), D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
@@ -733,7 +741,8 @@ namespace Stackshot
                 foreach (int s in new int[] { -1, 1 })
                     MascotParts.Glow(g, s * (gap + D * 0.075f), fy + D * (visor ? 0.11f : 0.075f), D * 0.13f, D * 0.07f, Color.FromArgb(255, 110, 150), a);
             }
-            for (int i = 0; i < 2; i++)
+            // Behind opaque shades the eyes don't show (they would peek out of them when looking around).
+            for (int i = visor || !MascotParts.CoversEyes(Look) ? 0 : 2; i < 2; i++)
             {
                 float x = (i == 0 ? -gap : gap) + ex, y = ey;
                 Mood m = mood;
