@@ -347,7 +347,7 @@ namespace Stackshot
             loadingFor = Rectangle.Empty;
         }
 
-        // Close top-left, Pin (or Open for videos) top-right, Edit bottom-left; Copy and Save in the middle.
+        // Close top-left, Pin (or Open for videos) top-right, Edit and copy text (T) bottom-left; Copy and Save in the middle.
         void BuildButtons()
         {
             btns.Clear();
@@ -357,11 +357,11 @@ namespace Stackshot
             if (IsMedia) Corner(new Rectangle(W - m - cs, m, cs, cs), "play!", "Abrir", OpenFile);
             else Corner(new Rectangle(W - m - cs, m, cs, cs), "pin", "Fijar en pantalla", Pin);
             Corner(new Rectangle(m, H - m - cs, cs, cs), "edit", "Editar", Edit);
+            if (!IsMedia) Corner(new Rectangle(m + cs + P(6), H - m - cs, cs, cs), "text", "Copiar texto", CopyText);
             if (SavedPath != null) Corner(new Rectangle(W - m - cs, H - m - cs, cs, cs), "folder", "Mostrar en la carpeta", ShowInFolder);
 
             List<Btn> pills = new List<Btn>();
             pills.Add(Pill("Copiar", Copy));
-            if (!IsMedia) pills.Add(Pill("Texto", CopyText));
             pills.Add(SavedPath == null ? Pill("Guardar", Keep) : Pill("Abrir", IsMedia ? (Action)OpenFile : (Action)Edit));
             int ph = P(28), gap = P(8), total = 0;
             foreach (Btn b in pills) { b.R.Width = Measure(b.Label) + P(26); total += b.R.Width; }

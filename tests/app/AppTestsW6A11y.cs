@@ -846,7 +846,7 @@ namespace Stackshot.Tests
                 AccessibleObject a = c.AccessibilityObject;
                 Check(a.Name == "Captura Captura 1.png" && a.Role == System.Windows.Forms.AccessibleRole.Grouping, "card: " + a.Role + " '" + a.Name + "'");
                 List<AccessibleObject> parts = Parts(a);
-                string[] want = { "Cerrar", "Fijar en pantalla", "Editar", "Copiar", "Texto", "Guardar" };
+                string[] want = { "Cerrar", "Fijar en pantalla", "Editar", "Copiar texto", "Copiar", "Guardar" };
                 foreach (string n in want) Check(PartNamed(parts, n).Role == System.Windows.Forms.AccessibleRole.PushButton, n + " is not a button");
                 Check(parts.Count == want.Length, "parts: " + Listed(parts));
                 // Each button runs its own action (replaced here: the real ones copy, pin or open the editor).
