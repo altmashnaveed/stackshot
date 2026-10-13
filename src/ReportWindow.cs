@@ -20,6 +20,8 @@ namespace Stackshot
     public class ReportWindow : Sheet
     {
         static ReportWindow open;
+        // Within what the relay accepts (tools/report-relay/worker.js LIMITS), so a report is never refused for size.
+        const int MaxTitle = 120, MaxWhat = 6000, MaxSteps = 4000, MaxLog = 20000;
         static bool Relay { get { return !string.IsNullOrEmpty(Program.ReportUrl); } }
         static DateTime lastSent = DateTime.MinValue;
 
@@ -99,15 +101,15 @@ namespace Stackshot
             page.Children.Add(seg);
 
             page.Children.Add(Caption("T\u00EDtulo", pal));
-            titleBox = Field(title, 120, false, 0, "T\u00EDtulo");
+            titleBox = Field(title, MaxTitle, false, 0, "T\u00EDtulo");
             page.Children.Add(Frame(titleBox));
             page.Children.Add(Caption(kind == 0 ? "\u00BFQu\u00E9 ha pasado?" : "\u00BFQu\u00E9 te gustar\u00EDa?", pal));
-            whatBox = Field(what, 6000, true, 110, "Descripci\u00F3n");
+            whatBox = Field(what, MaxWhat, true, 110, "Descripci\u00F3n");
             page.Children.Add(Frame(whatBox));
             if (kind == 0)
             {
                 page.Children.Add(Caption("\u00BFC\u00F3mo se repite? (opcional)", pal));
-                stepsBox = Field(steps, 4000, true, 70, "Pasos para repetirlo");
+                stepsBox = Field(steps, MaxSteps, true, 70, "Pasos para repetirlo");
                 page.Children.Add(Frame(stepsBox));
             }
             else stepsBox = null;
@@ -131,7 +133,8 @@ namespace Stackshot
             page.Children.Add(logRow);
             if (showLog)
             {
-                TextBox preview = Field(Machine() + "\n\n--- Registro (solo con el interruptor encendido) ---\n" + LogTail(), 100000, true, 140, "Lo que se env\u00EDa");
+                if (cachedLog == null) cachedLog = LogTail();
+                TextBox preview = Field(Machine() + "\n\n--- Registro (solo con el interruptor encendido) ---\n" + cachedLog, 100000, true, 140, "Lo que se env\u00EDa");
                 preview.IsReadOnly = true;
                 preview.FontFamily = new FontFamily("Cascadia Mono, Consolas");
                 preview.FontSize = 11;
@@ -139,7 +142,7 @@ namespace Stackshot
                 f.Margin = new Thickness(0, 8, 0, 0);
                 page.Children.Add(f);
             }
-            page.Children.Add(Para("Siempre se a\u00F1ade: " + Machine().Replace("\n", " \u00B7 ") + ". Las rutas con tu nombre de usuario, los correos y el nombre del equipo se quitan del registro.",
+            page.Children.Add(Para("Siempre se a\u00F1ade: " + Machine().Replace("\n", " \u00B7 ") + ". Del registro se quitan tu usuario, el nombre del equipo, correos, DNI y NIE, cuentas, tarjetas y tel\u00E9fonos.",
                                    pal.Label3, new Thickness(0, 10, 0, 0)));
 
             statusLabel = Text(status, Ds.Regular, 12, failed ? pal.Error : pal.Label3, new Thickness(0, 14, 0, 0));
@@ -200,7 +203,7 @@ namespace Stackshot
         void Send()
         {
             Keep();
-            if (sending || title.Trim().Length < 4 || what.Trim().Length < 10) return;
+            if (sent || sending || title.Trim().Length < 4 || what.Trim().Length < 10) return;
             if (string.IsNullOrEmpty(Program.ReportUrl)) { OpenInBrowser(); return; }
             if ((DateTime.Now - lastSent).TotalSeconds < 60) { SetStatus("Espera un minuto antes de enviar otro reporte.", true); return; }
             Dictionary<string, object> body = Payload();
@@ -215,6 +218,8 @@ namespace Stackshot
                 try
                 {
                     ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+                    // The log is read and cleaned here, off the window's thread (or reused if the preview already did).
+                    if (body.ContainsKey("log")) body["log"] = cachedLog ?? LogTail();
                     byte[] data = Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(body));
                     HttpWebRequest req = (HttpWebRequest)WebRequest.Create(Program.ReportUrl);
                     req.Method = "POST";
@@ -249,6 +254,7 @@ namespace Stackshot
                     Dispatcher.BeginInvoke(new Action(delegate
                     {
                         sending = false;
+                        Keep();   // what was typed while it was being sent stays
                         if (error != null)
                         {
                             ShotStack.Log("Reporte: " + error);
@@ -280,7 +286,7 @@ namespace Stackshot
             d["version"] = Installer.MyVersion.ToString(3);
             d["windows"] = WindowsVersion();
             d["screens"] = Screens();
-            d["log"] = withLog ? LogTail() : "";
+            if (withLog) d["log"] = "";   // filled in on the sending thread
             return d;
         }
 
@@ -294,12 +300,18 @@ namespace Stackshot
             if (withLog)
             {
                 // A browser address has room for the end of the log only.
-                string log = LogTail();
+                string log = cachedLog ?? LogTail();
                 if (log.Length > 2500) log = log.Substring(log.Length - 2500);
                 b.Append("\n\n<details><summary>Registro</summary>\n\n~~~text\n").Append(log.Replace("~~~", "~ ~ ~")).Append("\n~~~\n</details>");
             }
-            string url = Program.RepoUrl + "/issues/new?title=" + Uri.EscapeDataString(title.Trim()) + "&body=" + Uri.EscapeDataString(b.ToString());
-            if (url.Length > 7000) url = url.Substring(0, 7000);
+            // Browsers and GitHub cut long addresses: the text is shortened before escaping, never mid-escape.
+            string body = b.ToString(), head = Program.RepoUrl + "/issues/new?title=" + Uri.EscapeDataString(title.Trim()) + "&body=";
+            string url = head + Uri.EscapeDataString(body);
+            while (url.Length > 7000 && body.Length > 200)
+            {
+                body = body.Substring(0, body.Length * 4 / 5) + "\u2026";
+                url = head + Uri.EscapeDataString(body);
+            }
             try { Process.Start(url); } catch (Exception ex) { ShotStack.Log("Reporte en el navegador: " + ex.Message); }
         }
 
@@ -314,9 +326,13 @@ namespace Stackshot
 
         // ---- What the report carries about the computer
 
-        static string Machine()
+        // Worked out once per window (the form rebuilds on every change).
+        string machine;
+        volatile string cachedLog;
+        string Machine()
         {
-            return "Stackshot " + Installer.MyVersion.ToString(3) + "\nWindows " + WindowsVersion() + "\n" + Screens();
+            if (machine == null) machine = "Stackshot " + Installer.MyVersion.ToString(3) + "\nWindows " + WindowsVersion() + "\n" + Screens();
+            return machine;
         }
 
         static string WindowsVersion()
@@ -338,31 +354,40 @@ namespace Stackshot
         static string LogTail()
         {
             string text;
+            bool mid;
             try
             {
                 using (FileStream f = new FileStream(Settings.LogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                 using (StreamReader r = new StreamReader(f, Encoding.UTF8))
                 {
-                    if (f.Length > 64000) f.Seek(-64000, SeekOrigin.End);
+                    mid = f.Length > 64000;
+                    if (mid) f.Seek(-64000, SeekOrigin.End);
                     text = r.ReadToEnd();
                 }
             }
             catch { return "(sin registro)"; }
             string[] lines = text.Replace("\r", "").Split('\n');
-            int from = Math.Max(1, lines.Length - 150);
+            // Read from the middle of the file, the first line is a partial one.
+            int from = Math.Max(mid ? 1 : 0, lines.Length - 150);
             StringBuilder b = new StringBuilder();
             for (int i = from; i < lines.Length; i++) if (lines[i].Length > 0) b.Append(lines[i]).Append('\n');
-            return Scrub(b.ToString());
+            string s = Scrub(b.ToString());
+            // The relay keeps 20,000 characters: the newest ones, where the problem is.
+            return s.Length > MaxLog ? s.Substring(s.Length - MaxLog) : s;
         }
 
         internal static string Scrub(string s)
         {
             string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (!string.IsNullOrEmpty(profile)) s = Regex.Replace(s, Regex.Escape(profile), "%USERPROFILE%", RegexOptions.IgnoreCase);
+            // Any other profile folder, also in its short 8.3 form (C:\Users\NOMBRE~1, as in TEMP).
+            s = Regex.Replace(s, @"(?i)(\b[A-Z]:\\Users\\)[^\\/\r\n""'<>|:*?]+", "$1<usuario>");
             s = Regex.Replace(s, @"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "<correo>");
             foreach (string name in new string[] { Environment.UserName, Environment.MachineName, Environment.UserDomainName })
                 if (!string.IsNullOrEmpty(name) && name.Length >= 3) s = Regex.Replace(s, @"\b" + Regex.Escape(name) + @"\b", "<oculto>", RegexOptions.IgnoreCase);
-            return s;
+            // DNI, NIE, Social Security numbers, IBAN, cards and phone numbers: the same finder as the editor's
+            // "Datos sensibles" (if it fails, nothing of the log goes).
+            return Sensitive.Scrub(s);
         }
 
         // ---- Pieces
