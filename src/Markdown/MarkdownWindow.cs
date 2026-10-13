@@ -49,6 +49,8 @@ namespace Stackshot
         // XML: the parsed tree (for the text it was parsed from), the tree on screen, the search box and the last error.
         bool xml;
         XmlModel model;
+        XmlModel prepared;                     // the model whose escaped XML and fault the parse already worked out
+        string preparedCode, preparedText;
         string parsedText, xmlError, selPath;
         int errLine, errCol;
         XmlTreeView tree;
@@ -805,6 +807,19 @@ namespace Stackshot
                 XmlModel m = null; string err = null; int l = 0, c = 0;
                 try { XmlDoc.Parse(snap, delegate { return System.Threading.Volatile.Read(ref parseToken) != my; }, out m, out err, out l, out c); }
                 catch (Exception ex) { ShotStack.Log("XML leer: " + ex.Message); err = "No he podido leer el XML: " + ex.Message; }
+                // Escaped XML and the SOAP fault are worked out here too: on a big document they are whole-tree passes.
+                bool ready = false;
+                string fc = null, ft = null;
+                if (m != null && System.Threading.Volatile.Read(ref parseToken) == my)
+                {
+                    try
+                    {
+                        XmlDoc.ExpandInner(m);
+                        if (!XmlDoc.Fault(m, out fc, out ft)) fc = ft = null;
+                        ready = true;
+                    }
+                    catch (Exception ex) { ShotStack.Log("XML preparar: " + ex.Message); }
+                }
                 try
                 {
                     Dispatcher.BeginInvoke(new Action(delegate
@@ -813,6 +828,7 @@ namespace Stackshot
                         parsing = false;
                         if (Current() != snap) { StartParse(); return; }
                         parsedText = snap; model = m; xmlError = err; errLine = l; errCol = c;
+                        prepared = ready ? m : null; preparedCode = fc; preparedText = ft;
                         if (model != null) selPath = null;
                         Action d = parseDone;
                         parseDone = null;
@@ -859,8 +875,12 @@ namespace Stackshot
             {
                 treeFor = model;
                 // XML escaped inside a field opens as a branch, and a SOAP fault gets a banner on top.
-                XmlDoc.ExpandInner(model);
-                if (!XmlDoc.Fault(model, out faultCode, out faultText)) faultCode = faultText = null;
+                if (model == prepared) { faultCode = preparedCode; faultText = preparedText; }
+                else
+                {
+                    XmlDoc.ExpandInner(model);
+                    if (!XmlDoc.Fault(model, out faultCode, out faultText)) faultCode = faultText = null;
+                }
                 ShowBanner(banner);
                 tree.Load(model);
                 if (query.Length > 0) tree.Filter(query);
@@ -1031,7 +1051,7 @@ namespace Stackshot
             status = null;
             xml = isXml;
             editor = null;
-            parsedText = null; model = null; selPath = null; query = ""; search = null;
+            parsedText = null; model = null; prepared = null; selPath = null; query = ""; search = null;
             hits = new List<Hit>(); hitIndex = -1; hitsFor = null;
             parseToken++; formatToken++; parsing = false; formatting = false; autoEdit = false; parseDone = null;
             banner = 0;
@@ -1109,7 +1129,7 @@ namespace Stackshot
             token++;
             Cursor = null;
             text = null; name = null; savedText = null; approvedText = null; file = null; editing = false; status = null; editor = null;
-            xml = false; model = null; parsedText = null; selPath = null; query = ""; search = null;
+            xml = false; model = null; prepared = null; parsedText = null; selPath = null; query = ""; search = null;
             parseToken++; formatToken++; parsing = false; formatting = false; autoEdit = false; parseDone = null;
             findOpen = false; banner = 0; dirtyShown = false; unsaved = false; faultCode = faultText = null;
             Unwatch();
