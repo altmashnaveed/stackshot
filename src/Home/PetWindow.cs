@@ -1182,7 +1182,8 @@ namespace Stackshot
                     h += ch.HeaderH;
                 }
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
-            menuRect = new RectangleF(x, y, w, h);
+            // On whole pixels, so its text, border and separators are sharp at any scale (125 %, 150 %...).
+            menuRect = new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Round(w), (float)Math.Ceiling(h));
             return menuRect;
         }
 
@@ -1198,11 +1199,15 @@ namespace Stackshot
             double t = (now - menuAt) / 1000.0, a = Math.Min(1, t / 0.1), p = 1 - Math.Exp(-t * 20);
             float tailX = Math.Max(x + 22 * s, Math.Min(x + w - 22 * s, MidX));
             GraphicsState st = g.Save();
-            float oy = y + h + arrow;
-            g.TranslateTransform(tailX, oy);
-            float sc = (float)(0.95 + 0.05 * Math.Min(1, p));
-            g.ScaleTransform(sc, sc);
-            g.TranslateTransform(-tailX, -oy);
+            // Scaled only while it settles: once there (about 0.3 s), it is drawn at exactly its size, with no
+            // transform left over that would soften the text.
+            if (p < 0.995)
+            {
+                float oy = y + h + arrow, sc = (float)(0.95 + 0.05 * p);
+                g.TranslateTransform(tailX, oy);
+                g.ScaleTransform(sc, sc);
+                g.TranslateTransform(-tailX, -oy);
+            }
 
             Color bg = pal.High ? Ds.Gdi(pal.Window) : dark ? Color.FromArgb(44, 44, 47) : Color.FromArgb(250, 250, 251);
             Color border = pal.High ? Ds.Gdi(pal.Hairline) : dark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
@@ -1241,19 +1246,22 @@ namespace Stackshot
                 {
                     c.R = RectangleF.Empty;
                     using (SolidBrush ink = new SolidBrush(Fade(label, a)))
-                        g.DrawString(c.Text, item, ink, new RectangleF(x + pad + 10 * s, ry + 6 * s, w - pad * 2 - 20 * s, c.HeaderH - 8 * s));
+                        g.DrawString(c.Text, item, ink, new RectangleF((float)Math.Round(x + pad + 10 * s), (float)Math.Round(ry + 6 * s), w - pad * 2 - 20 * s, c.HeaderH - 8 * s));
                     ry += c.HeaderH;
-                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, ry - 2 * s, x + w - 10 * s, ry - 2 * s);
+                    float hy = (float)Math.Round(ry - 2 * s);
+                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, hy, x + w - 10 * s, hy);
                     continue;
                 }
                 if (c.Sep)
                 {
-                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, ry + sepH / 2, x + w - 10 * s, ry + sepH / 2);
+                    float sy = (float)Math.Round(ry + sepH / 2);
+                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, sy, x + w - 10 * s, sy);
                     c.R = RectangleF.Empty;
                     ry += sepH;
                     continue;
                 }
-                c.R = new RectangleF(x + pad, ry, w - pad * 2, rowH);
+                // Rows on whole pixels too: 9 px separators at 125 % would leave the rows below on half pixels.
+                c.R = new RectangleF((float)Math.Round(x + pad), (float)Math.Round(ry), (float)Math.Round(w - pad * 2), (float)Math.Round(rowH));
                 bool hot = i == menuHot;
                 if (hot)
                     using (GraphicsPath hp = Theme.Round(c.R, 6 * s)) MascotParts.FillSolid(g, hp, Fade(Ds.Gdi(pal.Accent), a));
@@ -1267,7 +1275,7 @@ namespace Stackshot
                     sf.Trimming = StringTrimming.EllipsisCharacter;
                     // The label never runs under the shortcut: a very long one ends in "…".
                     float labelW = c.R.Width - 36 * s - (c.Detail != null ? c.DetailW + 16 * s : 0);
-                    g.DrawString(c.Text, item, ink, new RectangleF(c.R.X + 33 * s, c.R.Y, Math.Max(10 * s, labelW), c.R.Height), sf);
+                    g.DrawString(c.Text, item, ink, new RectangleF((float)Math.Round(c.R.X + 33 * s), c.R.Y, Math.Max(10 * s, labelW), c.R.Height), sf);
                     sf.Trimming = StringTrimming.None;
                     if (c.Detail != null)
                     {
