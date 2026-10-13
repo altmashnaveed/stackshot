@@ -102,9 +102,10 @@ namespace Stackshot
             return format != null && !format.StartsWith("Can", StringComparison.Ordinal) && (askedAfterMs > 1000 || readerInFront);
         }
 
-        // The window that has the clipboard open belongs to the foreground app, or to its parent or child process
-        // (WebView2 apps such as Teams read from a child process). Clipboard history and other tools run elsewhere.
-        static bool ReaderInFront()
+        // The window that has the clipboard open belongs to the foreground app, or to a helper process it started
+        // (WebView2 apps such as Teams read from one). Never when the shell is in front: everything Explorer started
+        // would count. Clipboard history and other tools run elsewhere.
+        bool ReaderInFront()
         {
             try
             {
@@ -114,10 +115,30 @@ namespace Stackshot
                 Native.GetWindowPid(reader, out a);
                 Native.GetWindowPid(front, out b);
                 if (a == 0 || b == 0 || a == OwnPid) return false;
-                if (a == b) return true;
-                return Native.ParentPid(a) == b || Native.ParentPid(b) == a;
+                // A reader asks for several formats in a row: the answer for this pair is worked out once per copy.
+                if (a == askedReader && b == askedFront) return askedAnswer;
+                askedReader = a;
+                askedFront = b;
+                askedAnswer = Related(front, a, b);
+                return askedAnswer;
             }
             catch { return false; }
+        }
+
+        uint askedReader, askedFront;
+        bool askedAnswer;
+
+        static bool Related(IntPtr front, uint a, uint b)
+        {
+            System.Text.StringBuilder cls = new System.Text.StringBuilder(32);
+            Native.GetClassName(front, cls, 32);
+            string c = cls.ToString();
+            if (c == "Progman" || c == "WorkerW" || c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd" || c == "CabinetWClass") return false;
+            if (a == b) return true;
+            uint parent;
+            string frontExe;
+            return Native.ParentAndName(a, b, out parent, out frontExe) && parent == b &&
+                   !string.Equals(frontExe, "explorer.exe", StringComparison.OrdinalIgnoreCase);
         }
 
         static readonly uint OwnPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;

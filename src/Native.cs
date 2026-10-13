@@ -42,18 +42,25 @@ namespace Stackshot
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32NextW(IntPtr snap, ref PROCESSENTRY32 e);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
 
-        // Parent process id from the process list (no handle to the process is opened); 0 if not found.
-        public static uint ParentPid(uint pid)
+        // From one pass over the process list (no handle to any process is opened): the parent of child and the
+        // program name of other. False if either is missing.
+        public static bool ParentAndName(uint child, uint other, out uint parent, out string otherExe)
         {
+            parent = 0;
+            otherExe = null;
             IntPtr snap = CreateToolhelp32Snapshot(0x2, 0); // TH32CS_SNAPPROCESS
-            if (snap == IntPtr.Zero || snap == new IntPtr(-1)) return 0;
+            if (snap == IntPtr.Zero || snap == new IntPtr(-1)) return false;
             try
             {
                 PROCESSENTRY32 e = new PROCESSENTRY32();
                 e.dwSize = Marshal.SizeOf(typeof(PROCESSENTRY32));
-                for (bool ok = Process32FirstW(snap, ref e); ok; ok = Process32NextW(snap, ref e))
-                    if ((uint)e.th32ProcessID == pid) return (uint)e.th32ParentProcessID;
-                return 0;
+                bool seenChild = false;
+                for (bool ok = Process32FirstW(snap, ref e); ok && (!seenChild || otherExe == null); ok = Process32NextW(snap, ref e))
+                {
+                    if ((uint)e.th32ProcessID == child) { parent = (uint)e.th32ParentProcessID; seenChild = true; }
+                    if ((uint)e.th32ProcessID == other) otherExe = e.szExeFile;
+                }
+                return seenChild && otherExe != null;
             }
             finally { CloseHandle(snap); }
         }
