@@ -304,8 +304,9 @@ namespace Stackshot
 
         static readonly string[] ActionShortest = { "\u00C1rea", "Repetir", "Pantalla", "Ventana", "Desplazar", "Texto", "V\u00EDdeo", "GIF", "Markdown" };
 
-        // The capture modes in one capsule. A blue pill rests on the main mode and glides to the one under the mouse; the
-        // labels turn white exactly where it passes. It only draws while the pill or its entrance moves.
+        // The capture modes in one capsule. A blue pill stays on the main mode (or Vídeo while recording); the mode under
+        // the mouse or the keyboard gets a soft tint that fades in and out in place, so moving across the bar never sends
+        // the blue chasing the pointer. It only draws while a tint, a press or the entrance changes.
         sealed class HomeModeBar : Grid
         {
             const double Tall = 50, Pad = 5, Icon = 18, Gap = 6, Inset = 9, IntroMs = 620;
@@ -324,9 +325,9 @@ namespace Stackshot
             readonly FormattedText[] ink, white;
             readonly Brush fill;
             readonly Pen glow;
-            int target;
-            bool springing;
-            double vx, vw;
+            readonly double[] tint;       // 0-1 per mode: how much of the hover tint it shows now
+            int hover = -1;
+            bool fading;
             TimeSpan last;
 
             public HomeModeBar(HomeWindow home)
@@ -359,7 +360,7 @@ namespace Stackshot
                 Height = Tall;
                 int video = Array.IndexOf(HomeModeIndex, Array.IndexOf(Settings.Actions, "video"));
                 rest = Recorder.Recording && video >= 0 ? video : 0;
-                target = rest;
+                tint = new double[count];
                 SetValue(PillXProperty, xs[rest]);
                 SetValue(PillWProperty, ws[rest]);
                 fill = new LinearGradientBrush(pal.Accent, pal.AccentDeep, 90);   // white labels keep 4.5:1 on all of it
@@ -379,7 +380,7 @@ namespace Stackshot
                     c.MouseEnter += delegate { Go(k); };
                     // From the keyboard the pill follows the focus, as it follows the mouse.
                     c.GotKeyboardFocus += delegate { Go(k); };
-                    c.LostKeyboardFocus += delegate { if (!c.IsMouseOver) Go(rest); };
+                    c.LostKeyboardFocus += delegate { if (!c.IsMouseOver) Go(-1); };
                     c.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e)
                     {
                         c.CaptureMouse();
@@ -396,55 +397,68 @@ namespace Stackshot
                         if (inside) home.RunAction(action);
                     };
                     // Capture taken away mid-press (another window, Alt+Tab): the pill must not stay pressed in.
-                    c.LostMouseCapture += delegate { if ((double)GetValue(PushProperty) != 0) HomeGlide(this, PushProperty, 0, 200, null); };
+                    c.LostMouseCapture += delegate
+                    {
+                        if ((double)GetValue(PushProperty) != 0) HomeGlide(this, PushProperty, 0, 200, null);
+                        // Released outside the bar: the leave was missed while the mouse was captured.
+                        if (!cells.IsMouseOver) Go(-1);
+                    };
                     cells.Children.Add(c);
                 }
-                cells.MouseLeave += delegate { if (Mouse.Captured == null) Go(rest); };
+                cells.MouseLeave += delegate { if (Mouse.Captured == null) Go(-1); };
                 Children.Add(cells);
             }
 
+            // The mode under the mouse or the keyboard (-1: none). Tints fade toward it in place.
             void Go(int i)
             {
-                if (i == target) return;
-                target = i;
-                if (springing) return;
-                springing = true;
+                if (i == hover) return;
+                hover = i;
+                if (fading) return;
+                if (!ToastQuiet.AnimationsOn())
+                {
+                    for (int k = 0; k < count; k++) tint[k] = k == hover ? 1 : 0;
+                    InvalidateVisual();
+                    return;
+                }
+                fading = true;
                 last = TimeSpan.Zero;
                 CompositionTarget.Rendering += Step;
             }
 
-            // Short spring (about 120 ms); the render hook is attached only while the pill moves.
+            // Eases every tint toward its target: in about 110 ms, out a little slower. The render hook is attached
+            // only while something is still fading.
             void Step(object o, EventArgs e)
             {
                 TimeSpan now = ((RenderingEventArgs)e).RenderingTime;
                 double dt = last == TimeSpan.Zero ? 1.0 / 60 : Math.Min(0.05, (now - last).TotalSeconds);
                 last = now;
                 if (dt <= 0) return;
-                double px = (double)GetValue(PillXProperty), pw = (double)GetValue(PillWProperty);
-                Stackshot.Anim.Spring(ref px, ref vx, xs[target], 2400, 0.9, dt);
-                Stackshot.Anim.Spring(ref pw, ref vw, ws[target], 2400, 0.9, dt);
-                if (Math.Abs(px - xs[target]) < 0.1 && Math.Abs(pw - ws[target]) < 0.1 && Math.Abs(vx) < 1 && Math.Abs(vw) < 1)
+                bool moving = false;
+                for (int k = 0; k < count; k++)
                 {
-                    px = xs[target]; pw = ws[target]; vx = vw = 0;
-                    StopSpring();
+                    double to = k == hover ? 1 : 0, rate = to > tint[k] ? 0.045 : 0.075;
+                    tint[k] += (to - tint[k]) * (1 - Math.Exp(-dt / rate));
+                    if (Math.Abs(to - tint[k]) < 0.01) tint[k] = to;
+                    else moving = true;
                 }
-                SetValue(PillXProperty, px);
-                SetValue(PillWProperty, pw);
+                InvalidateVisual();
+                if (!moving) StopFade();
             }
 
-            void StopSpring()
+            void StopFade()
             {
-                if (!springing) return;
-                springing = false;
+                if (!fading) return;
+                fading = false;
                 CompositionTarget.Rendering -= Step;
             }
 
             // Labels rise in one after another, then the pill pops onto the resting mode.
             public void PlayIntro(double delay)
             {
-                target = rest;
-                StopSpring();
-                vx = vw = 0;
+                StopFade();
+                hover = -1;
+                for (int k = 0; k < count; k++) tint[k] = 0;
                 BeginAnimation(PillXProperty, null);
                 BeginAnimation(PillWProperty, null);
                 SetValue(PillXProperty, xs[rest]);
@@ -465,8 +479,21 @@ namespace Stackshot
 
                 double t = (double)GetValue(IntroProperty) * IntroMs, push = (double)GetValue(PushProperty);
                 double pt = Clamp01((t - 150) / 380), show = Clamp01(pt * 2.4), grow = 0.55 + 0.45 * Stackshot.Ease.OutBack(pt);
+
+                // Soft tints under the mouse (pressed: a bit deeper and pressed in), drawn where each mode is.
+                for (int k = 0; k < count; k++)
+                {
+                    if (k == rest || tint[k] <= 0.01) continue;
+                    double p = k == hover ? push : 0;
+                    Rect cell = new Rect(xs[k], Pad, ws[k], h - 2 * Pad);
+                    cell.Inflate(-p * 1.5, -p * 1.5);
+                    double cr = cell.Height / 2;
+                    if (pal.High) dc.DrawRoundedRectangle(null, new Pen(Ds.Brush(pal.Accent), 1.5), Ink.Inset(cell, 0.75), cr - 0.75, cr - 0.75);
+                    else dc.DrawRoundedRectangle(Ds.Brush(Ds.WithAlpha(pal.Accent, tint[k] * ((pal.Dark ? 0.24 : 0.12) + 0.08 * p))), null, cell, cr, cr);
+                }
+
                 Rect pill = new Rect((double)GetValue(PillXProperty), Pad, (double)GetValue(PillWProperty), h - 2 * Pad);
-                pill.Inflate(-push * 1.5, -push * 1.5);
+                if (hover == rest) pill.Inflate(-push * 1.5, -push * 1.5);
                 if (grow < 0.999 || grow > 1.001)
                 {
                     Point c = new Point(pill.X + pill.Width / 2, pill.Y + pill.Height / 2);
@@ -481,7 +508,9 @@ namespace Stackshot
                     sh.Offset(0, 1.5);
                     if (!pal.High) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(pal.Dark ? 0.40 : 0.22, 4, 40, 110)), null, sh, r, r);
                     dc.DrawRoundedRectangle(fill, null, pill, r, r);
-                    if (push > 0) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(0.12 * push, 0, 0, 0)), null, pill, r, r);
+                    // Under the mouse it only lights up a little; pressed, it darkens.
+                    if (!pal.High && tint[rest] > 0.01) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(0.10 * tint[rest], 255, 255, 255)), null, pill, r, r);
+                    if (push > 0 && hover == rest) dc.DrawRoundedRectangle(Ds.Brush(Ds.Argb(0.12 * push, 0, 0, 0)), null, pill, r, r);
                     if (!pal.High) dc.DrawRoundedRectangle(null, glow, Ink.Inset(pill, 0.5), r - 0.5, r - 0.5);
                     dc.Pop();
                 }
