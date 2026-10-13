@@ -231,30 +231,89 @@ namespace Stackshot
             sidebar.Children.Add(line);
         }
 
+        // One row per section, built with the sidebar (and again on a theme change); moving between sections only changes
+        // how the rows look, so the list never flickers and the mouse keeps its hover.
+        sealed class NavRow
+        {
+            public string Id;
+            public TapBorder Box;
+            public SolidColorBrush Fill;
+            public TextBlock Name;
+            public Border Bar;
+            public bool On, Hot, Shown;
+        }
+
+        readonly List<NavRow> navRows = new List<NavRow>();
+
         void RefreshNav()
         {
             navList.Children.Clear();
+            navRows.Clear();
             for (int i = 0; i < PageIds.Length; i++) navList.Children.Add(NavItem(i));
+            UpdateNav(false);
         }
 
         FrameworkElement NavItem(int i)
         {
-            string id = PageIds[i];
-            bool on = page == id || (id == "mascot" && page == "mascotset");
-            Border b = new TapBorder { Height = 32, CornerRadius = new CornerRadius(7), Margin = new Thickness(0, 0, 0, 2), Cursor = Cursors.Hand, BorderThickness = HcPaint.Edge,
-                                       Label = PageNames[i], Role = Access.TabItem, On = delegate { return on; }, Do = delegate { if (page != id) SetPage(id, true); else SearchHide(); } };
-            b.Background = on ? Ds.Brush(Ds.Brushes.Accent) : Brushes.Transparent;
-            StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            NavRow r = new NavRow { Id = PageIds[i], Fill = new SolidColorBrush(Colors.Transparent) };
+            string id = r.Id;
+            TapBorder b = new TapBorder { Height = 32, CornerRadius = new CornerRadius(7), Margin = new Thickness(0, 0, 0, 2), Cursor = Cursors.Hand, BorderThickness = HcPaint.Edge,
+                                          Background = r.Fill, Label = PageNames[i], Role = Access.TabItem, On = delegate { return r.On; },
+                                          Do = delegate { if (page != id) SetPage(id, true); else SearchHide(); } };
+            Grid g = new Grid();
+            // A small accent bar at the left edge of the section you are in.
+            r.Bar = new Border { Width = 3, Height = 16, CornerRadius = new CornerRadius(1.5), Background = Ds.Brush(Ds.Brushes.Accent), HorizontalAlignment = HorizontalAlignment.Left,
+                                 VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(3, 0, 0, 0), Opacity = 0, IsHitTestVisible = false };
+            g.Children.Add(r.Bar);
+            StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
             row.Children.Add(new IconTile(PageIcons[i], 20, W(PageColors[i]), W(Darker(PageColors[i]))));
-            row.Children.Add(Label(PageNames[i], on ? Ds.Medium : Ds.Regular, 13, on ? Ds.Brushes.OnAccent : Ds.Brushes.Label, new Thickness(9, 0, 0, 0)));
-            b.Child = row;
-            if (!on)
-            {
-                b.MouseEnter += delegate { b.Background = Ds.Brush(Ds.Brushes.Control); HcPaint.Outline(b, true); };
-                b.MouseLeave += delegate { b.Background = Brushes.Transparent; HcPaint.Outline(b, false); };
-            }
+            r.Name = Label(PageNames[i], Ds.Regular, 13, Ds.Brushes.Label, new Thickness(9, 0, 0, 0));
+            row.Children.Add(r.Name);
+            g.Children.Add(row);
+            b.Child = g;
+            r.Box = b;
+            b.MouseEnter += delegate { r.Hot = true; PaintNav(r, true); HcPaint.Outline(b, !r.On); };
+            b.MouseLeave += delegate { r.Hot = false; PaintNav(r, true); HcPaint.Outline(b, false); };
             b.MouseLeftButtonUp += delegate { if (page != id) SetPage(id, true); else SearchHide(); };
+            navRows.Add(r);
             return b;
+        }
+
+        // The section you are in: a soft accent tint and the bar, faded in place. Going quickly through the sections no
+        // longer sends a block of colour jumping up and down the list. Contrast themes keep the solid highlight.
+        void UpdateNav(bool animate)
+        {
+            foreach (NavRow r in navRows)
+            {
+                bool on = page == r.Id || (r.Id == "mascot" && page == "mascotset");
+                if (on == r.On && r.Shown) continue;
+                r.On = on;
+                r.Shown = true;
+                PaintNav(r, animate);
+            }
+        }
+
+        void PaintNav(NavRow r, bool animate)
+        {
+            Palette pal = Ds.Brushes;
+            Color fill = r.On ? (pal.High ? pal.Accent : Ds.WithAlpha(pal.Accent, pal.Dark ? 0.26 : 0.14))
+                              : r.Hot ? pal.Control : Colors.Transparent;
+            r.Name.FontWeight = r.On ? Ds.Medium.Weight : Ds.Regular.Weight;
+            r.Name.Foreground = Ds.Brush(r.On && pal.High ? pal.OnAccent : pal.Label);
+            double bar = r.On && !pal.High ? 1 : 0;
+            if (!animate || pal.High || !ToastQuiet.AnimationsOn())
+            {
+                r.Fill.BeginAnimation(SolidColorBrush.ColorProperty, null);
+                r.Fill.Color = fill;
+                r.Bar.BeginAnimation(OpacityProperty, null);
+                r.Bar.Opacity = bar;
+                return;
+            }
+            // Short, gentle fades: quicker under the mouse, a little slower for the selection.
+            TimeSpan t = TimeSpan.FromMilliseconds(r.Hot && !r.On ? 110 : 180);
+            QuadraticEase ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            r.Fill.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(fill, t) { EasingFunction = ease });
+            r.Bar.BeginAnimation(OpacityProperty, new DoubleAnimation(bar, t) { EasingFunction = ease });
         }
 
         void BuildPane()
@@ -401,7 +460,8 @@ namespace Stackshot
             int pi = Array.IndexOf(PageIds, page == "mascotset" ? "mascot" : page);
             toolbarTitle.Text = page == "mascotset" ? "Ajustes de la mascota" : PageNames[Math.Max(0, pi)];
             BuildToolbar();
-            RefreshNav();
+            if (navRows.Count == 0) RefreshNav();
+            else UpdateNav(IsVisible);
             pageHost.Children.Clear();
             bubbleAvoid.Clear();
             body = new StackPanel { Margin = new Thickness(40, 0, 40, 40), MaxWidth = 660, HorizontalAlignment = HorizontalAlignment.Stretch };
