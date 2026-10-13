@@ -156,7 +156,7 @@ namespace Stackshot
         {
             Rectangle wa = target.WorkingArea;
             Rectangle area = new Rectangle(wa.Left + 520, wa.Top + 200, 820, 460);
-            Session s = new Session(null, new Settings(), "ffmpeg.exe", area, false);
+            Session s = new Session(null, new Settings(), "ffmpeg.exe", area, false, 60);
             typeof(Session).GetField("clock", NP).GetValue(s).GetType().GetMethod("Start").Invoke(typeof(Session).GetField("clock", NP).GetValue(s), null);
             edges = FrameEdge.Around(area);
             bar = new RecordBar(s, area);
@@ -330,11 +330,13 @@ namespace Stackshot
             }
         }
 
-        static Bitmap Desktop(Size size)
+        // scale > 1 draws the same layout at a higher resolution (the film renders at 4K).
+        static Bitmap Desktop(Size size, float scale = 1)
         {
-            Bitmap b = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
+            Bitmap b = new Bitmap((int)(size.Width * scale), (int)(size.Height * scale), PixelFormat.Format32bppArgb);
             using (Graphics g = Graphics.FromImage(b))
             {
+                g.ScaleTransform(scale, scale);
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 using (LinearGradientBrush bg = new LinearGradientBrush(new Point(0, 0), new Point(size.Width, size.Height), Color.FromArgb(40, 24, 96), Color.FromArgb(10, 90, 130)))
