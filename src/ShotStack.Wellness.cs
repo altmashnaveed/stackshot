@@ -31,21 +31,27 @@ namespace Stackshot
         {
             if (exiting || !settings.WellOn) return;
             double now = Anim.Now;
-            // Whether a call is on is read off this thread every 30 s, so it is ready when a reminder is due.
-            if (now - callCheckedAt > 30000 && !callChecking)
-            {
-                callCheckedAt = now;
-                callChecking = true;
-                System.Threading.ThreadPool.QueueUserWorkItem(delegate { try { inCall = Wellness.InCall(); } finally { callChecking = false; } });
-            }
-            wellness.Tick(now, IdleMs());
+            int idle = IdleMs();
+            wellness.Tick(now, idle);
             int kind = wellness.Due(now, Wellness.MinutesOf(settings));
             // Nobody at the computer right now (lunch with the screen on): it waits until you're back.
-            if (kind < 0 || IdleMs() >= Wellness.ActiveIdleMs) return;
+            if (kind < 0 || idle >= Wellness.ActiveIdleMs) return;
             // With the mascot on the desktop it always asks itself, once it is free (not walking, dragged or in a menu).
             bool toPet = pet != null;
             if (toPet ? !pet.CanRemind : !settings.WellToasts) return;
-            if (WellQuiet()) return;
+            // Whether a call is on is only read when a reminder is due, off this thread: the answer is used from the
+            // next check (20 s later) and is good for 30 s. Nothing is read while no break is due.
+            if (now - callCheckedAt > 30000)
+            {
+                if (!callChecking)
+                {
+                    callCheckedAt = now;
+                    callChecking = true;
+                    System.Threading.ThreadPool.QueueUserWorkItem(delegate { try { inCall = Wellness.InCall(); } finally { callChecking = false; } });
+                }
+                return;
+            }
+            if (callChecking || WellQuiet()) return;
             string text = MascotTalk.Remind(settings, kind, Wellness.MinutesOf(settings)[kind]);
             wellness.Shown(now);
             // Answered or not, it comes back in a while; an answer replaces this.
