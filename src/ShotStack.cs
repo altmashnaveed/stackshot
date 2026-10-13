@@ -1586,7 +1586,13 @@ namespace Stackshot
             // An atomic save (File.Replace) renames the old file away and puts the new one under the same name: the
             // capture is still there, only its content changed.
             if (File.Exists(e.OldFullPath)) { c.ReloadAsync(Relayout); return; }
-            if (File.Exists(e.FullPath)) { c.FilePath = e.FullPath; c.ReloadAsync(Relayout); }
+            if (File.Exists(e.FullPath))
+            {
+                TrackedData td = clip;
+                if (td != null && string.Equals(td.FilePath, e.OldFullPath, StringComparison.OrdinalIgnoreCase)) td.FilePath = e.FullPath;
+                c.FilePath = e.FullPath;
+                c.ReloadAsync(Relayout);
+            }
             else Remove(c);
         }
 

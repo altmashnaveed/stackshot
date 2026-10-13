@@ -27,6 +27,36 @@ namespace Stackshot
         [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
         [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
         [DllImport("ole32.dll")] public static extern int OleFlushClipboard();
+        [DllImport("user32.dll")] public static extern IntPtr GetOpenClipboardWindow();
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        struct PROCESSENTRY32
+        {
+            public int dwSize, cntUsage, th32ProcessID;
+            public IntPtr th32DefaultHeapID;
+            public int th32ModuleID, cntThreads, th32ParentProcessID, pcPriClassBase, dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
+        }
+        [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32FirstW(IntPtr snap, ref PROCESSENTRY32 e);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32NextW(IntPtr snap, ref PROCESSENTRY32 e);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+
+        // Parent process id from the process list (no handle to the process is opened); 0 if not found.
+        public static uint ParentPid(uint pid)
+        {
+            IntPtr snap = CreateToolhelp32Snapshot(0x2, 0); // TH32CS_SNAPPROCESS
+            if (snap == IntPtr.Zero || snap == new IntPtr(-1)) return 0;
+            try
+            {
+                PROCESSENTRY32 e = new PROCESSENTRY32();
+                e.dwSize = Marshal.SizeOf(typeof(PROCESSENTRY32));
+                for (bool ok = Process32FirstW(snap, ref e); ok; ok = Process32NextW(snap, ref e))
+                    if ((uint)e.th32ProcessID == pid) return (uint)e.th32ParentProcessID;
+                return 0;
+            }
+            finally { CloseHandle(snap); }
+        }
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
         [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
         [DllImport("winmm.dll")] public static extern uint timeBeginPeriod(uint ms);

@@ -10,7 +10,8 @@ namespace Stackshot
 {
     public class TrackedData : DataObject
     {
-        public readonly string FilePath;
+        // Follows a rename of the capture, so a paste still finds its card.
+        public string FilePath { get; internal set; }
         readonly DateTime since = DateTime.Now;
         readonly Action<TrackedData> onUsed;
         readonly Bitmap image;
@@ -74,9 +75,11 @@ namespace Stackshot
             // When the request arrived, not when the PNG was ready: a clipboard manager that reads every new copy at once
             // and waits for a large PNG is not a paste.
             double askedAfter = (DateTime.Now - since).TotalMilliseconds;
+            // Asked before waiting: the app reading must still have the clipboard open.
+            bool front = !used && askedAfter <= 1000 && format != null && !format.StartsWith("Can", StringComparison.Ordinal) && ReaderInFront();
             if (format == "PNG") lock (pngLock) { while (!pngReady) System.Threading.Monitor.Wait(pngLock, 10000); }
             object o = base.GetData(format, autoConvert);
-            if (!used && o != null && CountsAsPaste(format, askedAfter))
+            if (!used && o != null && CountsAsPaste(format, askedAfter, front))
             {
                 used = true;
                 if (onUsed != null) onUsed(this);
@@ -88,8 +91,36 @@ namespace Stackshot
         // Windows asking about history and cloud sync.
         internal static bool CountsAsPaste(string format, double askedAfterMs)
         {
-            return format != null && !format.StartsWith("Can", StringComparison.Ordinal) && askedAfterMs > 1000;
+            return CountsAsPaste(format, askedAfterMs, false);
         }
+
+        // readerInFront: the app reading is the one the user is in, so even an instant Ctrl+V right after the capture
+        // counts. Missing it matters: browsers and Electron apps read through the Win32 clipboard, which keeps the first
+        // copy it gets, so a missed paste never comes back.
+        internal static bool CountsAsPaste(string format, double askedAfterMs, bool readerInFront)
+        {
+            return format != null && !format.StartsWith("Can", StringComparison.Ordinal) && (askedAfterMs > 1000 || readerInFront);
+        }
+
+        // The window that has the clipboard open belongs to the foreground app, or to its parent or child process
+        // (WebView2 apps such as Teams read from a child process). Clipboard history and other tools run elsewhere.
+        static bool ReaderInFront()
+        {
+            try
+            {
+                IntPtr reader = Native.GetOpenClipboardWindow(), front = Native.GetForegroundWindow();
+                if (reader == IntPtr.Zero || front == IntPtr.Zero) return false;
+                uint a, b;
+                Native.GetWindowPid(reader, out a);
+                Native.GetWindowPid(front, out b);
+                if (a == 0 || b == 0 || a == OwnPid) return false;
+                if (a == b) return true;
+                return Native.ParentPid(a) == b || Native.ParentPid(b) == a;
+            }
+            catch { return false; }
+        }
+
+        static readonly uint OwnPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
 
         // Tests make the PNG slow to prepare.
         internal static int TestPngDelayMs { get; set; }
