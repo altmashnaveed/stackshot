@@ -40,6 +40,7 @@ namespace Stackshot
         public double Pull;            // 0..1: stretched along its way (dragged or thrown)
         public bool Busy;              // walking, falling or showing a menu: no idle activities
         public bool Talks;             // may comment on what it is doing
+        public bool Guided;            // doing a healthy break with the user: the mouse passing by doesn't interrupt it
 
         readonly Random rnd = new Random();
         readonly List<Particle> parts = new List<Particle>();
@@ -177,7 +178,7 @@ namespace Stackshot
         {
             if (on == hovering) return;
             hovering = on;
-            if (on) { Wake(); antennaV += 260; earLV -= 200; earRV += 200; }
+            if (on) { if (!Guided) Wake(); antennaV += 260; earLV -= 200; earRV += 200; }
         }
 
         public void Hop(double strength)
@@ -217,6 +218,7 @@ namespace Stackshot
         }
 
         public int Activity { get { return act; } }
+        public double ActivityMs { get { return actTNow; } }
 
         // Idle activity with props (coffee, juggling, handheld console, stretching, reading, photos).
         public void StartAct(int kind)
@@ -355,8 +357,7 @@ namespace Stackshot
 
         void SayFor(int cmd)
         {
-            int prop = cmd == MascotCmd.Coffee ? MascotProps.Coffee : cmd == MascotCmd.Juggle ? MascotProps.Juggle : cmd == MascotCmd.Console ? MascotProps.Console :
-                       cmd == MascotCmd.Stretch ? MascotProps.Stretch : cmd == MascotCmd.Read ? MascotProps.Read : cmd == MascotCmd.Photo ? MascotProps.Photo : 0;
+            int prop = MascotCmd.PropOf(cmd);
             string line = prop != 0 ? MascotTalk.ForAct(Look.Personality, prop) : MascotTalk.ForCmd(Look.Personality, cmd);
             if (line != null) Say(line, 3000);
         }
@@ -425,6 +426,10 @@ namespace Stackshot
                 case MascotCmd.Console: ForceAct(MascotProps.Console); break;
                 case MascotCmd.Photo: ForceAct(MascotProps.Photo); break;
                 case MascotCmd.Stretch: ForceAct(MascotProps.Stretch); break;
+                case MascotCmd.Water: ForceAct(MascotProps.Water); break;
+                case MascotCmd.EyeRest: ForceAct(MascotProps.EyeRest); break;
+                case MascotCmd.Legs: ForceAct(MascotProps.Legs); break;
+                case MascotCmd.Breathe: ForceAct(MascotProps.Breathe); break;
                 case MascotCmd.Dance: danceUntil = now + 3600; SetMood(Mood.Happy, 3600); break;
                 case MascotCmd.Jump: hopsLeft = 3; nextHop = now; SetMood(Mood.Happy, 1900); break;
                 case MascotCmd.Twirl: Twirl(); break;
@@ -496,7 +501,11 @@ namespace Stackshot
                 case MascotProps.Console: tx = 0; ty = 1; break;
                 case MascotProps.Read: tx = ((now / 900.0) % 1) * 1.2 - 0.6; ty = 0.9; break;
                 case MascotProps.Stretch: tx = 0; ty = -0.5; break;
-                case MascotProps.Coffee: ty = Math.Max(ty, 0.2); break;
+                case MascotProps.Coffee:
+                case MascotProps.Water: ty = Math.Max(ty, 0.2); break;
+                case MascotProps.EyeRest: tx = -0.95 + Math.Sin(now / 2600.0) * 0.12; ty = -0.4; break;
+                case MascotProps.Legs: tx = 0; ty = 0; break;
+                case MascotProps.Breathe: tx = 0; ty = MascotProps.Inhaling(actTNow) ? -0.35 : 0.25; break;
             }
             if (mood == Mood.Sleep || mood == Mood.Dizzy) { tx = 0; ty = 0.3; }
             double follow = 1 - Math.Exp(-dt / 0.07);
@@ -526,8 +535,10 @@ namespace Stackshot
             Anim.Spring(ref antenna, ref antennaV, -tilt * 1.6, 60, 0.12, dt);
             Anim.Spring(ref earL, ref earLV, -tilt * 0.8 + (mood == Mood.Sleep ? 18 : 0), 70, 0.18, dt);
             Anim.Spring(ref earR, ref earRV, tilt * 0.8 + (mood == Mood.Sleep ? 18 : 0), 70, 0.18, dt);
-            Anim.Spring(ref squashX, ref squashXV, 1, 380, 0.28, dt);
-            Anim.Spring(ref squashY, ref squashYV, 1, 380, 0.28, dt);
+            // Squats pull the springs down and back up in time with the exercise.
+            double squat = act == MascotProps.Legs ? MascotProps.SquatAmt(actTNow) * actKNow : 0;
+            Anim.Spring(ref squashX, ref squashXV, 1 + 0.07 * squat, 380, 0.28, dt);
+            Anim.Spring(ref squashY, ref squashYV, 1 - 0.13 * squat, 380, 0.28, dt);
             Anim.Spring(ref jump, ref jumpV, 0, 120, 0.4, dt);
             if (mood == Mood.Dizzy) spin += spinV * dt;
             else
@@ -629,6 +640,7 @@ namespace Stackshot
             float jy = (float)(jump * D * 0.1);
             float cx = box.X + D / 2, cy = box.Y + D * 0.46f + bob + jy;
             float scale = (float)Math.Max(0.01, appear);
+            if (act == MascotProps.Breathe) scale *= (float)(1 + 0.07 * MascotProps.BreathAmt(actTNow) * actKNow);
             float breathe = (float)(mood == Mood.Sleep ? Math.Sin(now / 900.0) * 0.02 : Math.Sin(now / 1300.0) * 0.007);
 
             if (ShowShadow)

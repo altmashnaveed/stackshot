@@ -87,6 +87,12 @@ namespace Stackshot
         public int MascotChatter = 1;       // how talkative: 0 little, 1 normal, 2 a lot
         public int MascotAlone = 15;        // what it does alone, MascotCmd.Alone* bits
         public bool MascotSleepIdle = true; // dozes off when ignored
+        // Healthy breaks: minutes at the computer between reminders (0 off), notices when the mascot isn't on the desktop,
+        // and today's count of each one (WellDay, then water, eyes, move, breathe).
+        public bool WellOn = true;
+        public int WellWater = 60, WellEyes = 30, WellMove = 60, WellBreathe = 0;
+        public bool WellToasts = false;
+        public string WellDay = "", WellDone = "";
         // Updates.
         public bool CheckUpdates = true;
         public string LastUpdateCheck = "";
@@ -238,6 +244,14 @@ namespace Stackshot
                         case "mascotchatter": s.MascotChatter = Int(v, s.MascotChatter, 0, 2); break;
                         case "mascotalone": s.MascotAlone = Int(v, s.MascotAlone, 0, 15); break;
                         case "mascotsleepidle": s.MascotSleepIdle = Bool(v, s.MascotSleepIdle); break;
+                        case "wellon": s.WellOn = Bool(v, s.WellOn); break;
+                        case "wellwater": s.WellWater = WellMinutes(v, s.WellWater); break;
+                        case "welleyes": s.WellEyes = WellMinutes(v, s.WellEyes); break;
+                        case "wellmove": s.WellMove = WellMinutes(v, s.WellMove); break;
+                        case "wellbreathe": s.WellBreathe = WellMinutes(v, s.WellBreathe); break;
+                        case "welltoasts": s.WellToasts = Bool(v, s.WellToasts); break;
+                        case "wellday": s.WellDay = Cut(v, 10); break;
+                        case "welldone": s.WellDone = Cut(v, 40); break;
                         case "checkupdates": s.CheckUpdates = Bool(v, s.CheckUpdates); break;
                         case "lastupdatecheck": s.LastUpdateCheck = v; break;
                         case "autoupdate": s.AutoUpdate = Bool(v, s.AutoUpdate); break;
@@ -408,6 +422,15 @@ namespace Stackshot
             b.AppendLine("MascotChatter = " + MascotChatter);
             b.AppendLine("MascotAlone = " + MascotAlone);
             b.AppendLine("MascotSleepIdle = " + (MascotSleepIdle ? "1" : "0"));
+            b.AppendLine("# Pausas saludables: minutos delante del ordenador entre avisos (0 = no)");
+            b.AppendLine("WellOn = " + (WellOn ? "1" : "0"));
+            b.AppendLine("WellWater = " + WellWater);
+            b.AppendLine("WellEyes = " + WellEyes);
+            b.AppendLine("WellMove = " + WellMove);
+            b.AppendLine("WellBreathe = " + WellBreathe);
+            b.AppendLine("WellToasts = " + (WellToasts ? "1" : "0"));
+            b.AppendLine("WellDay = " + OneLine(WellDay));
+            b.AppendLine("WellDone = " + OneLine(WellDone));
             b.AppendLine("CheckUpdates = " + (CheckUpdates ? "1" : "0"));
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("AutoUpdate = " + (AutoUpdate ? "1" : "0"));
@@ -515,6 +538,13 @@ namespace Stackshot
             if (v == "1" || v == "true" || v == "si" || v == "yes") return true;
             if (v == "0" || v == "false" || v == "no") return false;
             return def;
+        }
+
+        // One of the intervals the settings page offers; anything else keeps the default.
+        static int WellMinutes(string v, int def)
+        {
+            int m = Int(v, -1, -1, 100000);
+            return Array.IndexOf(WellKind.Minutes, m) >= 0 ? m : def;
         }
 
         static int Int(string v, int def, int min, int max)

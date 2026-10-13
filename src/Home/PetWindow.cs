@@ -24,9 +24,9 @@ namespace Stackshot
         {
             public string Icon, Text, Detail;
             public Action Do;
-            public bool Sep;
+            public bool Sep, Header;       // Header: a line of text at the top, not clickable
             public RectangleF R;
-            public float TextW, DetailW;   // measured once, at the first paint
+            public float TextW, DetailW, HeaderH;   // measured once, at the first paint
         }
 
         [StructLayout(LayoutKind.Sequential)] struct LASTINPUTINFO { public int cbSize; public uint dwTime; }
@@ -79,6 +79,10 @@ namespace Stackshot
         double menuAt, menuSeen, nextTalk;
         int menuHot = -1;
         RectangleF menuRect;
+        // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
+        int menuWell = -1, session = -1, sessionReps;
+        double sessionAt;
+        bool sessionStretch;
 
         public PetWindow(ShotStack owner, Settings settings)
         {
@@ -207,7 +211,7 @@ namespace Stackshot
                 s = ns;
                 D = (int)Math.Round(84 * s);
                 W = (int)Math.Round(340 * s);
-                H = (int)Math.Round(D * 1.02 + 360 * s);
+                H = (int)Math.Round(D * 1.02 + 400 * s);
                 if (dib != null) dib.Dispose();
                 dib = new Dib(W, H, true);
             }
@@ -511,6 +515,139 @@ namespace Stackshot
             m.Celebrate(settings.MascotTalks ? text ?? MascotTalk.Celebrate(settings) : null);
         }
 
+        // ---- Healthy breaks. The owner decides when (Wellness); here the mascot asks, and does the break with you.
+
+        // Free to bring up a reminder now: on screen, standing still, no menu, nothing being dragged or done.
+        public bool CanRemind
+        {
+            get { return Visible && !blocked && !leaving && state == State.Idle && menu == null && session < 0 && !down && clicks == 0; }
+        }
+
+        public void Remind(int kind, string text)
+        {
+            m.WakeUp();
+            m.Bubble = null;
+            bubble = null;
+            m.Perform(MascotCmd.Wave);
+            m.Bubble = null;
+            menu = new List<Choice>();
+            Header(text);
+            string go = kind == WellKind.Water ? "Bebo un vaso contigo" : kind == WellKind.Eyes ? "Empezar (20 s)" :
+                        kind == WellKind.Move ? (owner.MoveIsStretch ? "Estirarnos juntos" : "Hacer 8 sentadillas") : "Respirar 1 minuto";
+            int k = kind;
+            Add(WellKind.Glyphs[kind], go, null, delegate { StartSession(k); });
+            Add("check", "Ya lo he hecho", null, delegate { Finish(k, true); });
+            Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { owner.WellLater(k, 600000); if (settings.MascotTalks) m.Say(MascotTalk.WellLater(settings), 2600); });
+            Add("close", "Hoy no", null, delegate { owner.WellLater(k, -1); });
+            menuAt = menuSeen = Anim.Now;
+            menuHot = -1;
+            menuWell = kind;
+            nextIdea = Anim.Now + 8000;
+        }
+
+        // From its menu: every break, any time, with today's count on top.
+        void OpenBreaks()
+        {
+            m.WakeUp();
+            m.Hop(0.6);
+            menu = new List<Choice>();
+            Header(Wellness.Summary(settings));
+            for (int i = 0; i < WellKind.Count; i++)
+            {
+                int k = i;
+                string text = k == WellKind.Water ? "Bebe agua conmigo" : k == WellKind.Eyes ? "Descansa la vista (20 s)" :
+                              k == WellKind.Move ? (owner.MoveIsStretch ? "Estira la espalda" : "Estira las piernas") : "Respira conmigo (1 min)";
+                Add(WellKind.Glyphs[k], text, null, delegate { StartSession(k); });
+            }
+            AddSep();
+            Add("gear", "Ajustar los avisos", null, delegate { owner.ShowHome("mascotset", false); });
+            menuAt = menuSeen = Anim.Now;
+            menuHot = -1;
+        }
+
+        void Header(string text)
+        {
+            Choice c = new Choice();
+            c.Header = true;
+            c.Text = text;
+            menu.Add(c);
+        }
+
+        void StartSession(int kind)
+        {
+            CloseMenu();
+            session = kind;
+            sessionAt = Anim.Now;
+            sessionReps = 0;
+            sessionStretch = kind == WellKind.Move && owner.MoveIsStretch;
+            m.Guided = true;
+            m.Perform(SessionCmd());
+            m.Bubble = null;
+            nextIdea = double.MaxValue;
+        }
+
+        int SessionCmd()
+        {
+            switch (session)
+            {
+                case WellKind.Water: return MascotCmd.Water;
+                case WellKind.Eyes: return MascotCmd.EyeRest;
+                case WellKind.Move: return sessionStretch ? MascotCmd.Stretch : MascotCmd.Legs;
+                default: return MascotCmd.Breathe;
+            }
+        }
+
+        // What the bubble says while you do it; the break ends with the activity (or when something interrupts it).
+        void SessionTick(double now)
+        {
+            int prop = MascotCmd.PropOf(SessionCmd());
+            if (m.Activity != prop)
+            {
+                // The back stretch is three short stretches.
+                if (sessionStretch && sessionReps < 2 && now - sessionAt > 1500 && state == State.Idle && !m.Dangling) { sessionReps++; m.Perform(MascotCmd.Stretch); return; }
+                double done = sessionStretch ? (sessionReps + 1) / 3.0 : (now - sessionAt) / MascotProps.Duration(prop);
+                int k = session;
+                session = -1;
+                m.Guided = false;
+                nextIdea = now + 6000;
+                if (done >= 0.6) Finish(k, false);
+                else { owner.WellLater(k, 600000); m.Bubble = null; }
+                return;
+            }
+            double t = m.ActivityMs;
+            string line = null;
+            switch (session)
+            {
+                case WellKind.Water: line = t < 2500 ? "\u00A1Un vaso de agua! Bebe conmigo." : "Sorbo a sorbo\u2026"; break;
+                case WellKind.Eyes:
+                {
+                    int left = (int)Math.Ceiling(Math.Max(0, 20000 - t) / 1000);
+                    line = left > 0 ? "Mira algo lejano, a m\u00E1s de 6 metros\u2026 " + left : "\u00A1Listo!";
+                    break;
+                }
+                case WellKind.Move:
+                    line = sessionStretch ? "Brazos arriba y estira la espalda\u2026 " + (sessionReps + 1) + " de 3"
+                                          : "Sentadilla " + Math.Min(8, (int)(Math.Max(0, t - 200) / MascotProps.SquatMs) + 1) + " de 8";
+                    break;
+                default:
+                {
+                    int n = Math.Min(6, (int)(Math.Max(0, t - 200) / MascotProps.BreathMs) + 1);
+                    line = (MascotProps.Inhaling(t) ? "Inspira despacio por la nariz\u2026 " : "Suelta el aire poco a poco\u2026 ") + n + " de 6";
+                    break;
+                }
+            }
+            if (m.Bubble != line) m.Say(line, 1500);
+        }
+
+        // A break done (with the mascot, or on your own): counted for today, and a little celebration.
+        void Finish(int kind, bool alone)
+        {
+            int today = owner.WellDone(kind);
+            if (alone) m.Perform(MascotCmd.Cheer);
+            m.Celebrate(null);
+            m.Say(MascotTalk.WellDone(settings, kind, today), 4200);
+        }
+
         // The desktop mascot stays out even with the main window open: it is switched on from there, and hiding it
         // then made it look broken.
         public void SetHomeShown(bool shown)
@@ -595,7 +732,7 @@ namespace Stackshot
                         Native.SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // TOPMOST, NOSIZE | NOMOVE | NOACTIVATE
                 }
                 // Naps while the user is away (if it may doze off at all), only once it stands still.
-                bool atRest = state == State.Idle && menu == null && !leaving && slide == 0 && clicks == 0 && !down;
+                bool atRest = state == State.Idle && menu == null && !leaving && slide == 0 && clicks == 0 && !down && session < 0;
                 if (MascotRate.AwayNap(IdleMs(), settings.MascotSleepIdle, atRest, asleepForAway)) { asleepForAway = true; m.SleepNow(); }
             }
             if (MascotRate.ScreenOff) MascotScreen.Check();
@@ -614,7 +751,8 @@ namespace Stackshot
                 // Close the bubble when the user clicks somewhere else or ignores it for a while.
                 bool inside = menuRect.Contains(mouse.X - wx, mouse.Y - wy) || new RectangleF((float)bx, (float)by, D, D).Contains(mouse);
                 if (inside) menuSeen = now;
-                if ((Control.MouseButtons != MouseButtons.None && !inside) || now - menuSeen > 9000) CloseMenu();
+                // A reminder stays a minute (it is answered later anyway if nobody does); the quick menu, 9 s.
+                if ((Control.MouseButtons != MouseButtons.None && !inside) || now - menuSeen > (menuWell >= 0 ? 60000 : 9000)) CloseMenu();
             }
 
             FollowPerch();
@@ -719,7 +857,8 @@ namespace Stackshot
                     }
                     else slide = 0;
                     if (leaving) { WalkOff(); break; }
-                    if (menu == null && !m.Sleeping && now > nextIdea) Idea(now);
+                    if (session >= 0) SessionTick(now);
+                    else if (menu == null && !m.Sleeping && now > nextIdea) Idea(now);
                     if (m.Sleeping && !asleepForAway && now > nextIdea + 120000) { m.WakeUp(); Idea(now); }
                     break;
             }
@@ -932,10 +1071,11 @@ namespace Stackshot
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
             Add("play", "Ponte a jugar", null, delegate { m.Perform(MascotCmd.Play); });
+            Add("drop", "Una pausa conmigo", null, OpenBreaks);
             Add("sparkle", "Haz un truco", null, delegate
             {
-                int trick = rnd.Next(MascotCmd.Count + 1);
-                if (trick == MascotCmd.Count) m.Poke(settings.MascotTalks ? MascotTalk.Pokes(settings) : null);
+                int trick = rnd.Next(MascotCmd.Tricks + 1);
+                if (trick == MascotCmd.Tricks) m.Poke(settings.MascotTalks ? MascotTalk.Pokes(settings) : null);
                 else m.Perform(trick == MascotCmd.Sleep ? MascotCmd.Dance : trick);
             });
             Add("bot", m.Sleeping ? "Despierta" : "Echa una siesta", null, delegate { if (m.Sleeping) { m.WakeUp(); m.Hop(1.2); } else { m.SleepNow(); state = State.Idle; } });
@@ -967,6 +1107,7 @@ namespace Stackshot
         {
             menu = null;
             menuHot = -1;
+            menuWell = -1;
         }
 
         static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }
@@ -978,8 +1119,10 @@ namespace Stackshot
             Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
             float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, w = 238 * s, arrow = 7 * s;
             float h = pad * 2;
+            bool header = false;
             foreach (Choice ch in menu)
             {
+                if (ch.Header) { header = true; continue; }
                 h += ch.Sep ? sepH : rowH;
                 if (ch.Sep) continue;
                 // Wide enough for every label and its shortcut side by side, within the window.
@@ -987,7 +1130,15 @@ namespace Stackshot
                 if (ch.Detail != null && ch.DetailW == 0) ch.DetailW = g.MeasureString(ch.Detail, small).Width;
                 w = Math.Max(w, (float)Math.Ceiling(33 * s + ch.TextW + (ch.Detail != null ? 16 * s + ch.DetailW : 0) + 12 * s + pad * 2));
             }
+            if (header) w = Math.Max(w, 270 * s);
             w = Math.Min(w, W - 36 * s);   // its margins and the arrow's room stay inside the window
+            // Header text wraps to the width; measured once.
+            foreach (Choice ch in menu)
+                if (ch.Header)
+                {
+                    if (ch.HeaderH == 0) ch.HeaderH = (float)Math.Ceiling(g.MeasureString(ch.Text, item, (int)(w - pad * 2 - 20 * s)).Height + 14 * s);
+                    h += ch.HeaderH;
+                }
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
             menuRect = new RectangleF(x, y, w, h);
 
@@ -1034,6 +1185,15 @@ namespace Stackshot
             for (int i = 0; i < menu.Count; i++)
             {
                 Choice c = menu[i];
+                if (c.Header)
+                {
+                    c.R = RectangleF.Empty;
+                    using (SolidBrush ink = new SolidBrush(Fade(label, a)))
+                        g.DrawString(c.Text, item, ink, new RectangleF(x + pad + 10 * s, ry + 6 * s, w - pad * 2 - 20 * s, c.HeaderH - 8 * s));
+                    ry += c.HeaderH;
+                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, ry - 2 * s, x + w - 10 * s, ry - 2 * s);
+                    continue;
+                }
                 if (c.Sep)
                 {
                     using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, ry + sepH / 2, x + w - 10 * s, ry + sepH / 2);

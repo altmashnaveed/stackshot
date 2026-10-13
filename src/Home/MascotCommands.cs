@@ -9,8 +9,11 @@ namespace Stackshot
     public static class MascotCmd
     {
         public const int Play = 0, Juggle = 1, Dance = 2, Sleep = 3, Jump = 4, Twirl = 5, Wave = 6, Flip = 7, Bow = 8, Cheer = 9, Love = 10,
-                         Bubbles = 11, Coffee = 12, Read = 13, Console = 14, Photo = 15, Stretch = 16;
-        public const int Count = 17;
+                         Bubbles = 11, Coffee = 12, Read = 13, Console = 14, Photo = 15, Stretch = 16,
+                         Water = 17, EyeRest = 18, Legs = 19, Breathe = 20;
+        public const int Count = 21;
+        // The playful ones ("Haz un truco" picks among them); the healthy breaks come after.
+        public const int Tricks = 17;
 
         // What it may do on its own (settings bits).
         public const int AloneSmall = 1, AloneDance = 2, AloneProps = 4, AloneLook = 8, AloneAll = 15;
@@ -18,30 +21,53 @@ namespace Stackshot
         public static readonly string[] Names =
         {
             "Ponte a jugar", "Haz malabares", "Baila", "Duerme", "Salta", "Gira", "Saluda", "Voltereta", "Reverencia", "Anima",
-            "Dame cari\u00F1o", "Haz burbujas", "Tom\u00E1te un caf\u00E9", "Lee un rato", "Juega a la consola", "Haz una foto", "Est\u00EDrate"
+            "Dame cari\u00F1o", "Haz burbujas", "Tom\u00E1te un caf\u00E9", "Lee un rato", "Juega a la consola", "Haz una foto", "Est\u00EDrate",
+            "Bebe agua", "Descansa la vista", "Estira las piernas", "Respira conmigo"
         };
 
         public static readonly string[] Short =
         {
-            "Jugar", "Malabares", "Baila", "Duerme", "Salta", "Gira", "Saluda", "Voltereta", "Reverencia", "Anima", "Cari\u00F1o", "Burbujas", "Caf\u00E9", "Leer", "Consola", "Foto", "Estirar"
+            "Jugar", "Malabares", "Baila", "Duerme", "Salta", "Gira", "Saluda", "Voltereta", "Reverencia", "Anima", "Cari\u00F1o", "Burbujas", "Caf\u00E9", "Leer", "Consola", "Foto", "Estirar",
+            "Agua", "Vista", "Piernas", "Respirar"
         };
 
         public static readonly string[] Hints =
         {
             "Elige un juego al azar", "Tres bolas en el aire", "Mueve el esqueleto", "Bosteza y se echa a dormir", "Tres saltos seguidos", "Una pirueta completa",
             "Te saluda con la mano", "Un salto mortal hacia atr\u00E1s", "Una reverencia muy educada", "Confeti para celebrarlo", "Se llena de corazones",
-            "Soplan pompas de jab\u00F3n", "Una pausa con aroma", "Un cap\u00EDtulo tranquilo", "Una partidita r\u00E1pida", "Sonr\u00EDe, que sale el p\u00E1jaro", "Un buen estir\u00F3n"
+            "Soplan pompas de jab\u00F3n", "Una pausa con aroma", "Un cap\u00EDtulo tranquilo", "Una partidita r\u00E1pida", "Sonr\u00EDe, que sale el p\u00E1jaro", "Un buen estir\u00F3n",
+            "Un vaso de agua, sorbo a sorbo", "Mira a lo lejos 20 segundos", "Ocho sentadillas contigo", "Seis respiraciones lentas"
         };
 
         public static readonly string[] Glyphs =
         {
-            "play", "sparkle", "note", "moon", "hop", "update", "heart", "redo", "bow", "sparkle", "heart", "bubble", "coffee", "book", "gamepad", "camera", "stretch"
+            "play", "sparkle", "note", "moon", "hop", "update", "heart", "redo", "bow", "sparkle", "heart", "bubble", "coffee", "book", "gamepad", "camera", "stretch",
+            "drop", "eye", "walk", "wind"
         };
+
+        // The prop a command uses, or 0.
+        public static int PropOf(int cmd)
+        {
+            switch (cmd)
+            {
+                case Coffee: return MascotProps.Coffee;
+                case Juggle: return MascotProps.Juggle;
+                case Console: return MascotProps.Console;
+                case Stretch: return MascotProps.Stretch;
+                case Read: return MascotProps.Read;
+                case Photo: return MascotProps.Photo;
+                case Water: return MascotProps.Water;
+                case EyeRest: return MascotProps.EyeRest;
+                case Legs: return MascotProps.Legs;
+                case Breathe: return MascotProps.Breathe;
+                default: return 0;
+            }
+        }
 
         // The chips on Home and the mascot page.
         public static readonly int[] Quick = { Play, Juggle, Dance, Sleep, Jump };
 
-        public static bool IsProp(int cmd) { return cmd == Coffee || cmd == Read || cmd == Console || cmd == Photo || cmd == Stretch || cmd == Juggle; }
+        public static bool IsProp(int cmd) { return PropOf(cmd) != 0; }
     }
 
     public static partial class MascotParts

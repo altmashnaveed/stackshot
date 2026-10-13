@@ -11,7 +11,11 @@ namespace Stackshot
     public static class MascotProps
     {
         public const int None = 0, Coffee = 1, Juggle = 2, Console = 3, Stretch = 4, Read = 5, Photo = 6;
-        public const int Count = 6;
+        // Healthy breaks: a glass of water, looking far away (20 s), squats and a slow breathing exercise (6 breaths).
+        public const int Water = 7, EyeRest = 8, Legs = 9, Breathe = 10;
+        public const int Count = 10;
+
+        public const double SquatMs = 1700, BreathMs = 10000;
 
         public static double Duration(int act)
         {
@@ -22,9 +26,30 @@ namespace Stackshot
                 case Console: return 9000;
                 case Stretch: return 3600;
                 case Read: return 9500;
+                case Water: return 7000;
+                case EyeRest: return 20600;
+                case Legs: return SquatMs * 8 + 400;
+                case Breathe: return BreathMs * 6 + 400;
                 default: return 6200;
             }
         }
+
+        // 0..1: how far down a squat is.
+        public static double SquatAmt(double t)
+        {
+            double p = (Math.Max(0, t - 200) % SquatMs) / SquatMs;
+            double s = Math.Sin(p * Math.PI);
+            return s * s;
+        }
+
+        // 0..1 over one breath: in for 4 s, out for 6 s.
+        public static double BreathAmt(double t)
+        {
+            double u = Math.Max(0, t - 200) % BreathMs;
+            return u < 4000 ? 0.5 - 0.5 * Math.Cos(u / 4000 * Math.PI) : 0.5 + 0.5 * Math.Cos((u - 4000) / 6000 * Math.PI);
+        }
+
+        public static bool Inhaling(double t) { return (Math.Max(0, t - 200) % BreathMs) < 4000; }
 
         // 0..1 bump over a stretch.
         public static double StretchAmt(double t)
@@ -92,8 +117,110 @@ namespace Stackshot
                 case Stretch: PaintStretch(g, t, c1, c2); break;
                 case Read: PaintRead(g, t, c1, c2); break;
                 case Photo: PaintPhoto(g, t, c1, c2); break;
+                case Water: PaintWater(g, t, k, c1, c2, faceY); break;
+                case EyeRest: PaintEyeRest(g, t, c1, c2, faceY); break;
+                case Legs: PaintLegs(g, t, c1, c2); break;
+                case Breathe: PaintBreathe(g, t, k, c1, c2); break;
             }
             g.Restore(st);
+        }
+
+        static readonly Color GlassEdge = Color.FromArgb(200, 225, 240, 255), Water1 = Color.FromArgb(200, 120, 200, 255), Water2 = Color.FromArgb(220, 40, 130, 230);
+
+        // A glass of water raised to the mouth in three sips; the level goes down with each one.
+        static void PaintWater(Graphics g, double t, double k, Color c1, Color c2, float faceY)
+        {
+            double cyc = (t % 2300) / 2300.0;
+            float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
+            float mouthY = faceY + 0.085f, toX = 0.12f, toY = mouthY + 0.05f;
+            float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
+            float level = (float)(0.85 - 0.6 * Math.Min(1, t / Duration(Water)));
+            Hand(g, c1, c2, -0.3f, 0.22f);
+            GraphicsState st = g.Save();
+            g.TranslateTransform(cx, cy);
+            g.RotateTransform(-22 * lift);
+            g.ScaleTransform(1.35f, 1.35f);
+            PointF[] glass = { new PointF(-0.048f, -0.07f), new PointF(0.048f, -0.07f), new PointF(0.038f, 0.07f), new PointF(-0.038f, 0.07f) };
+            using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 230, 245, 255))) g.FillPolygon(b, glass);
+            // Water up to the level, staying level while the glass tilts a little.
+            using (GraphicsPath gp = new GraphicsPath())
+            {
+                gp.AddPolygon(glass);
+                Region old = g.Clip;
+                g.SetClip(gp, CombineMode.Intersect);
+                float top = 0.07f - 0.14f * level;
+                g.RotateTransform(22 * lift);
+                RectangleF w = new RectangleF(-0.12f, top, 0.24f, 0.2f);
+                using (LinearGradientBrush br = new LinearGradientBrush(RectangleF.Inflate(w, 0.01f, 0.01f), Water1, Water2, 90f)) g.FillRectangle(br, w);
+                Seg(g, Color.FromArgb(160, 255, 255, 255), 0.006f, -0.1f, top, 0.1f, top);
+                g.RotateTransform(-22 * lift);
+                g.Clip = old;
+                old.Dispose();
+            }
+            using (Pen p = new Pen(GlassEdge, 0.007f)) { p.LineJoin = LineJoin.Round; g.DrawPolygon(p, glass); }
+            Seg(g, Color.FromArgb(150, 255, 255, 255), 0.008f, -0.03f, -0.05f, -0.024f, 0.04f);
+            Hand(g, c1, c2, -0.05f, 0.02f);
+            g.Restore(st);
+            // A tiny drop now and then, between sips.
+            double d = (t % 2300) / 2300.0;
+            if (d > 0.62 && d < 0.95)
+            {
+                float u = (float)((d - 0.62) / 0.33);
+                Dot(g, A(Water1, k * (1 - u)), 0.2f + 0.02f * u, 0.0f + 0.12f * u, 0.014f);
+            }
+        }
+
+        // Shading the eyes with one hand and looking far away; the other hand rests.
+        static void PaintEyeRest(Graphics g, double t, Color c1, Color c2, float faceY)
+        {
+            Hand(g, c1, c2, -0.31f, 0.22f);
+            Color arm = Mac.Mix(c1, c2, 0.25);
+            float sway = (float)Math.Sin(t / 1400.0) * 0.008f;
+            float y = faceY - 0.1f + sway;
+            Seg(g, arm, 0.07f, 0.27f, 0.08f, 0.25f, y + 0.02f);
+            GraphicsState st = g.Save();
+            g.TranslateTransform(0.1f, y);
+            g.RotateTransform(-8);
+            Color c = Mac.Mix(c1, c2, 0.3);
+            using (GraphicsPath p = Theme.Round(new RectangleF(-0.14f, -0.03f, 0.28f, 0.06f), 0.03f))
+            {
+                using (SolidBrush b = new SolidBrush(c)) g.FillPath(b, p);
+                using (Pen pn = new Pen(Color.FromArgb(60, 255, 255, 255), 0.007f)) g.DrawPath(pn, p);
+            }
+            g.Restore(st);
+            // Little sparkles where it is looking: far away, out to the side.
+            for (int i = 0; i < 3; i++)
+            {
+                double u = ((t / 1800.0) + i / 3.0) % 1;
+                float a = (float)Math.Sin(u * Math.PI);
+                Dot(g, Color.FromArgb((int)(150 * a), 255, 255, 255), -0.44f - i * 0.05f, -0.28f + i * 0.07f, 0.012f + 0.01f * a);
+            }
+        }
+
+        // Squats with the arms out in front.
+        static void PaintLegs(Graphics g, double t, Color c1, Color c2)
+        {
+            float d = (float)SquatAmt(t);
+            Color arm = Mac.Mix(c1, c2, 0.25);
+            foreach (int s in new int[] { -1, 1 })
+            {
+                float hx = s * 0.17f, hy = 0.16f - 0.12f * d;
+                Seg(g, arm, 0.07f, s * 0.27f, 0.1f, hx, hy);
+                Hand(g, c1, c2, hx, hy);
+            }
+            // A drop of effort at the bottom of each squat.
+            if (d > 0.7) Dot(g, Color.FromArgb((int)(170 * (d - 0.7) / 0.3), 170, 220, 255), 0.3f, -0.26f, 0.018f);
+        }
+
+        // Hands on the belly, and a soft ring that grows as it breathes in.
+        static void PaintBreathe(Graphics g, double t, double k, Color c1, Color c2)
+        {
+            float b = (float)BreathAmt(t);
+            float r = 0.48f + 0.1f * b;
+            using (Pen p = new Pen(A(Mac.Mix(c1, Color.White, 0.5), 0.55 * k * (0.35 + 0.65 * b)), 0.012f))
+                g.DrawEllipse(p, -r, -0.02f - r, r * 2, r * 2);
+            Hand(g, c1, c2, -0.12f, 0.2f - 0.02f * b);
+            Hand(g, c1, c2, 0.12f, 0.2f - 0.02f * b);
         }
 
         static void PaintCoffee(Graphics g, double t, double k, Color c1, Color c2, float faceY)

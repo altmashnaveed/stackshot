@@ -205,6 +205,7 @@ namespace Stackshot
             // What other copies asked for while this one was starting (startFile itself was already sent).
             if (startFile == null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(null); });
             Updater.Start(this);
+            StartWellness();
         }
 
         System.Threading.EventWaitHandle showEvent, openEvent;

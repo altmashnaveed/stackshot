@@ -79,7 +79,7 @@ namespace Stackshot
                 MenuEntry e = MenuEntry.Item(MascotCmd.Short[c], MascotCmd.Glyphs[c], false, delegate { MascotDo(c); });
                 e.Detail = MascotCmd.Hints[c];
                 m.Add(e);
-                if (c == MascotCmd.Sleep || c == MascotCmd.Love) m.Add(MenuEntry.Line());
+                if (c == MascotCmd.Sleep || c == MascotCmd.Love || c == MascotCmd.Tricks - 1) m.Add(MenuEntry.Line());
             }
             return MacMenu.ShowGrid(anchor, null, m, 4);
         }
@@ -103,6 +103,39 @@ namespace Stackshot
                 AloneRow("Bailes y piruetas", "Bailar, girar, voltereta y pompas.", "sound", MascotCmd.AloneDance),
                 AloneRow("Juegos con objetos", "Malabares, caf\u00E9, consola, lectura y fotos.", "play", MascotCmd.AloneProps),
                 AloneRow("Saludos y miradas", "Saluda, mira alrededor y hace reverencias.", "heart", MascotCmd.AloneLook));
+        }
+
+        // ---- Healthy breaks, in the mascot settings
+
+        void BuildWellness()
+        {
+            Func<bool> on = delegate { return settings.WellOn; };
+            Group("Pausas saludables",
+                new ToggleRow("Recordarme hacer pausas", "Te avisa para beber agua, descansar la vista, moverte y respirar, y las hace contigo.", "heart", Mac.Pink, Mac.Red,
+                              delegate { return settings.WellOn; }, delegate(bool v) { settings.WellOn = v; }),
+                WellRow("Beber agua", "Se toma un vaso contigo.", "drop", Mac.Blue, Mac.Teal, new int[] { 0, 30, 45, 60, 90 },
+                        delegate { return settings.WellWater; }, delegate(int m) { settings.WellWater = m; }, on),
+                WellRow("Descansar la vista", "Regla 20-20-20: mirar algo a 6 metros durante 20 segundos.", "eye", Mac.Green, Mac.Teal, new int[] { 0, 20, 30, 45, 60 },
+                        delegate { return settings.WellEyes; }, delegate(int m) { settings.WellEyes = m; }, on),
+                WellRow("Moverse", "Sentadillas o estirar la espalda, una vez cada cosa.", "walk", Mac.Orange, Mac.Pink, new int[] { 0, 30, 45, 60, 90 },
+                        delegate { return settings.WellMove; }, delegate(int m) { settings.WellMove = m; }, on),
+                WellRow("Respirar", "Un minuto de respiraci\u00F3n lenta: 4 segundos dentro y 6 fuera.", "wind", Mac.Indigo, Mac.Purple, new int[] { 0, 60, 90, 120 },
+                        delegate { return settings.WellBreathe; }, delegate(int m) { settings.WellBreathe = m; }, on),
+                new ToggleRow("Avisar con notificaciones", "Cuando la mascota no est\u00E1 en el escritorio, el aviso llega como una notificaci\u00F3n de Stackshot.", "bell", Mac.Orange, Mac.Red,
+                              delegate { return settings.WellToasts; }, delegate(bool v) { settings.WellToasts = v; }) { When = on });
+            Note(Wellness.Summary(settings) + " Solo cuenta el tiempo que est\u00E1s delante del ordenador: si te ausentas 5 minutos, la vista y el cuerpo ya han descansado y empieza de cero. " +
+                 "Nunca te interrumpe en una llamada, presentando, grabando, a pantalla completa ni en el tiempo de silencio de Windows: espera a que termines. " +
+                 "Puedes hacer una pausa cuando quieras desde su men\u00FA en el escritorio (\u00ABUna pausa conmigo\u00BB).");
+        }
+
+        SegRow WellRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int[] minutes, Func<int> get, Action<int> set, Func<bool> when)
+        {
+            string[] names = new string[minutes.Length];
+            for (int i = 0; i < minutes.Length; i++) names[i] = WellKind.MinuteNames[WellKind.IndexOf(minutes[i])];
+            return new SegRow(title, sub, icon, c1, c2, names,
+                              delegate { int i = Array.IndexOf(minutes, get()); return i < 0 ? 0 : i; },
+                              delegate(int i) { set(minutes[Math.Max(0, Math.Min(minutes.Length - 1, i))]); })
+                { When = when };
         }
 
         ToggleRow AloneRow(string title, string sub, string icon, int bit)

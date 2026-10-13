@@ -352,6 +352,49 @@ namespace Stackshot
                     g.DrawLines(p, new PointF[] { new PointF(20, 12.5f), new PointF(20, 19), new PointF(13.5f, 19) });
                     Dot(g, b, 12, 12, 2.4f);
                     break;
+                case "drop":
+                    using (GraphicsPath d = new GraphicsPath())
+                    {
+                        d.AddBezier(12, 3.5f, 9.5f, 7, 6, 10.8f, 6, 14.5f);
+                        d.AddArc(6, 8.5f, 12, 12, 180, -180);
+                        d.AddBezier(18, 14.5f, 18, 10.8f, 14.5f, 7, 12, 3.5f);
+                        d.CloseFigure();
+                        g.DrawPath(p, d);
+                    }
+                    break;
+                case "eye":
+                    using (GraphicsPath e = new GraphicsPath())
+                    {
+                        e.AddBezier(2.5f, 12, 5.5f, 7, 8.5f, 5.5f, 12, 5.5f);
+                        e.AddBezier(12, 5.5f, 15.5f, 5.5f, 18.5f, 7, 21.5f, 12);
+                        e.AddBezier(21.5f, 12, 18.5f, 17, 15.5f, 18.5f, 12, 18.5f);
+                        e.AddBezier(12, 18.5f, 8.5f, 18.5f, 5.5f, 17, 2.5f, 12);
+                        e.CloseFigure();
+                        g.DrawPath(p, e);
+                    }
+                    g.DrawEllipse(p, 9, 9, 6, 6);
+                    break;
+                case "walk":
+                    g.DrawEllipse(p, 11.7f, 2.8f, 3.6f, 3.6f);
+                    g.DrawLines(p, new PointF[] { new PointF(8, 11.5f), new PointF(12.5f, 8.5f), new PointF(16, 11) });
+                    g.DrawLine(p, 12.5f, 8.5f, 11, 14);
+                    g.DrawLine(p, 11, 14, 8, 20.5f);
+                    g.DrawLines(p, new PointF[] { new PointF(11, 14), new PointF(14, 16.5f), new PointF(15, 21) });
+                    break;
+                case "wind":
+                    g.DrawLine(p, 3, 9, 13.5f, 9);
+                    g.DrawArc(p, 11, 4, 5, 5, 90, -270);
+                    g.DrawLine(p, 3, 13, 17.5f, 13);
+                    g.DrawArc(p, 15, 13, 5, 5, -90, 270);
+                    g.DrawLine(p, 3, 17, 10, 17);
+                    break;
+                case "play":
+                    g.DrawPolygon(p, new PointF[] { new PointF(8, 5.5f), new PointF(18.5f, 12), new PointF(8, 18.5f) });
+                    break;
+                case "clock":
+                    g.DrawEllipse(p, 3.5f, 3.5f, 17, 17);
+                    g.DrawLines(p, new PointF[] { new PointF(12, 7.5f), new PointF(12, 12), new PointF(15, 14) });
+                    break;
                 default:
                     g.DrawEllipse(p, 4, 4, 16, 16);
                     break;

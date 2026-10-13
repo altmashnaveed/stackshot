@@ -146,9 +146,63 @@ namespace Stackshot
                     return By(personality, new string[] { "\u00A1A estirar!", "Ufff, qu\u00E9 bien sienta.", "\u00A1Cr\u00E1c, cr\u00E1c!" }, new string[] { "Estirar tambi\u00E9n es descansar.", "Aaah\u2026", "Un poco de movimiento." }, new string[] { "Hasta los bots se anquilosan.", "Mira qu\u00E9 flexibilidad.", "Tanto estar sentado\u2026" });
                 case MascotProps.Read:
                     return By(personality, new string[] { "\u00A1Qu\u00E9 libro m\u00E1s bueno!", "Un capitulito.", "\u00A1Mira qu\u00E9 final!" }, new string[] { "Un buen libro y silencio.", "Cap\u00EDtulo a cap\u00EDtulo.", "Leyendo un rato." }, new string[] { "No hagas spoilers.", "Shhh, que llego al final.", "Mejor que tu escritorio." });
+                case MascotProps.Water:
+                    return By(personality, new string[] { "\u00A1Ag\u00FCita fresca!", "\u00A1A tu salud!", "Glu, glu, glu." }, new string[] { "Un poco de agua sienta bien.", "Sorbo a sorbo.", "Hidratarse es cuidarse." }, new string[] { "Agua, el refresco de los campeones.", "\u00BFBrindamos? T\u00FA tambi\u00E9n.", "Ni caf\u00E9 ni nada: agua." });
+                case MascotProps.EyeRest:
+                    return By(personality, new string[] { "\u00A1Qu\u00E9 lejos se ve todo!", "Miro el horizonte.", "\u00A1All\u00ED a lo lejos!" }, new string[] { "Los ojos tambi\u00E9n descansan.", "Mirar lejos relaja.", "Calma para la vista." }, new string[] { "Veo, veo\u2026 algo lejano.", "Tu pantalla puede esperar.", "Mira, un p\u00E1jaro. O no." });
+                case MascotProps.Legs:
+                    return By(personality, new string[] { "\u00A1Arriba y abajo!", "\u00A1Una, dos!", "\u00A1Vamos, piernas!" }, new string[] { "Despacito, sin prisa.", "Mover las piernas sienta bien.", "Arriba\u2026 y abajo." }, new string[] { "Esto es mejor que el gimnasio.", "No me copies, que te canso.", "\u00A1Mira qu\u00E9 piernas!" });
+                case MascotProps.Breathe:
+                    return By(personality, new string[] { "Respira conmigo.", "Dentro\u2026 y fuera.", "\u00A1Qu\u00E9 bien se respira!" }, new string[] { "Inspira\u2026 suelta.", "Todo a su ritmo.", "Un poco de calma." }, new string[] { "Respirar es gratis, aprovecha.", "Hasta un bot necesita aire.", "Inspira hondo, que no cobro." });
                 default:
                     return By(personality, new string[] { "\u00A1Sonr\u00EDe!", "\u00A1Patata!", "\u00A1Clic!" }, new string[] { "Un buen recuerdo.", "Luz perfecta.", "Quieto un segundo." }, new string[] { "Salgo mejor yo.", "Esta va al marco.", "Di \u00ABwhisky\u00BB." });
             }
+        }
+
+        // ---- Healthy breaks: the reminder, what it says while you do it, and the thanks.
+
+        public static string Remind(Settings s, int kind, int minutes)
+        {
+            string t = minutes >= 60 ? (minutes % 60 == 0 ? (minutes / 60 == 1 ? "una hora" : minutes / 60 + " horas") : "hora y media") : minutes + " minutos";
+            switch (kind)
+            {
+                case WellKind.Water:
+                    return By(s.MascotPersonality,
+                        new string[] { "\u00A1Hora de beber agua! Llevas " + t + " sin un trago.", "\u00BFUn vaso de agua? Yo me tomo uno contigo.", "\u00A1Ag\u00FCita! Tu cuerpo te lo agradecer\u00E1." },
+                        new string[] { "Un poco de agua te sentar\u00E1 bien.", "Llevas " + t + " trabajando. \u00BFBebemos agua?", "Un vaso de agua y seguimos." },
+                        new string[] { "\u00BFAgua? \u00BFTe suena? Llevas " + t + ".", "Si no bebes agua, me la bebo yo.", "Plantita que no se riega, se seca." });
+                case WellKind.Eyes:
+                    return By(s.MascotPersonality,
+                        new string[] { "\u00A1Descansa la vista! Mira algo lejano 20 segundos.", "Tus ojos llevan " + t + " pegados a la pantalla. \u00BFMiramos lejos?", "Regla 20-20-20: mira a 6 metros durante 20 segundos." },
+                        new string[] { "Deja que tus ojos descansen: mira a lo lejos un momento.", "20 segundos mirando lejos. Sin prisa.", "Tus ojos merecen una pausa." },
+                        new string[] { "Esa pantalla no se va a escapar. Mira por la ventana.", "Parpadea, que se te olvida.", "Tus ojos piden vacaciones. Veinte segundos." });
+                case WellKind.Move:
+                    return By(s.MascotPersonality,
+                        new string[] { "\u00A1Arriba! Llevas " + t + " en la silla. \u00A1Estiramos las piernas!", "\u00A1Hora de moverse! Lev\u00E1ntate un momento.", "\u00BFDamos un pase\u00EDto? Tus piernas lo piden." },
+                        new string[] { "Lev\u00E1ntate y estira un poco el cuerpo.", "Un minuto de pie sienta de maravilla.", "Llevas " + t + " en la silla. Mu\u00E9vete un poco." },
+                        new string[] { "Tu silla te va a cobrar alquiler.", "Si no te levantas, me pongo a bailar.", "\u00BFTe has pegado a la silla? Arriba." });
+                default:
+                    return By(s.MascotPersonality,
+                        new string[] { "\u00BFRespiramos juntos un minuto?", "Una pausa para respirar te va a encantar.", "Seis respiraciones lentas y como nuevo." },
+                        new string[] { "Respira hondo conmigo un momento.", "Un minuto de calma: respiremos.", "Inspira, suelta. As\u00ED de simple." },
+                        new string[] { "Respira, que se te nota el estr\u00E9s.", "Un minuto sin correos. Respira.", "Hasta los bots respiramos. Bueno, casi." });
+            }
+        }
+
+        public static string WellDone(Settings s, int kind, int today)
+        {
+            string count = kind == WellKind.Water ? (today == 1 ? "Tu primer vaso de hoy." : "Ya van " + today + " vasos hoy.")
+                         : kind == WellKind.Eyes ? (today == 1 ? "Primer descanso de vista de hoy." : today + " descansos de vista hoy.")
+                         : kind == WellKind.Move ? (today == 1 ? "Primera pausa para moverte." : today + " pausas para moverte hoy.")
+                         : (today == 1 ? "Primera respiraci\u00F3n de hoy." : today + " respiraciones hoy.");
+            return By(s.MascotPersonality, new string[] { "\u00A1Genial! ", "\u00A1Muy bien! ", "\u00A1As\u00ED me gusta! " }, new string[] { "Bien hecho. ", "Perfecto. ", "Qu\u00E9 bien. " },
+                      new string[] { "Mira t\u00FA qu\u00E9 disciplina. ", "No est\u00E1 mal. ", "Ole. " }) + count;
+        }
+
+        public static string WellLater(Settings s)
+        {
+            return By(s.MascotPersonality, new string[] { "\u00A1Vale! Te aviso en un rato.", "\u00A1De acuerdo! Luego te lo recuerdo." }, new string[] { "Sin problema, luego.", "Te lo recuerdo en un rato." },
+                      new string[] { "Vale, pero no te escapas.", "Luego no hay excusas, \u00BFeh?" });
         }
 
         // What it says when told to do something (-1: woken up on request).
