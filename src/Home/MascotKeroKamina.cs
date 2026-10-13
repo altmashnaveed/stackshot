@@ -11,13 +11,15 @@ namespace Stackshot
     {
         public const int KindKero = 13, ColorHoney = 24, HatKaminaHair = 44, OutfitKamina = 37, FaceKaminaShades = 20;
         static readonly Color Feather1 = Color.FromArgb(255, 255, 255), Feather2 = Color.FromArgb(206, 214, 232);
+        // Left and right, without a new array every frame.
+        static readonly int[] Sides = { -1, 1 };
 
         // ---- Kero: behind the body go the tail with its puff, the small white wings and the pointed ears.
         static void KeroBack(Graphics g, float D, Color c1, Color c2, MascotPose p)
         {
             KeroTail(g, D, c1, c2, p.Now);
-            foreach (int s in new int[] { -1, 1 }) KeroWing(g, D, s, p.Now, p.Sleeping);
-            foreach (int s in new int[] { -1, 1 }) KeroEar(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR);
+            foreach (int s in Sides) KeroWing(g, D, s, p.Now, p.Sleeping);
+            foreach (int s in Sides) KeroEar(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR);
         }
 
         // Tuft puffs: x, y (in puff radii from the tail tip) and size.
@@ -32,18 +34,16 @@ namespace Stackshot
                 t.AddBezier(P(0.2f * D, 0.25f * D), P(0.44f * D, 0.31f * D), P(0.52f * D, 0.12f * D), end);
                 using (Pen pen = new Pen(Mac.Mix(c1, c2, 0.55), D * 0.036f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawPath(pen, t); }
             }
-            // Fluffy tuft: a few overlapping puffs, lighter than the body.
-            Color f1 = Color.FromArgb(255, 250, 232), f2 = Color.FromArgb(236, 214, 170);
+            // Fluffy tuft: a few overlapping puffs, lighter than the body, filled as one shape.
             float r = 0.05f * D;
-            foreach (float[] q in TuftPuffs)
+            using (GraphicsPath pp = new GraphicsPath(FillMode.Winding))
             {
-                float rr = r * q[2];
-                RectangleF b = new RectangleF(end.X + q[0] * r - rr, end.Y + q[1] * r - rr, rr * 2, rr * 2);
-                using (GraphicsPath pp = new GraphicsPath())
+                foreach (float[] q in TuftPuffs)
                 {
-                    pp.AddEllipse(b);
-                    Fill(g, pp, b, f1, f2, 90f);
+                    float rr = r * q[2];
+                    pp.AddEllipse(end.X + q[0] * r - rr, end.Y + q[1] * r - rr, rr * 2, rr * 2);
                 }
+                Fill(g, pp, new RectangleF(end.X - r * 1.4f, end.Y - r * 1.6f, r * 2.8f, r * 3.0f), Color.FromArgb(255, 250, 232), Color.FromArgb(236, 214, 170), 90f);
             }
             Ellipse(g, Color.FromArgb(180, 255, 255, 255), end.X - r * 0.5f, end.Y - r * 1.1f, r * 0.6f, r * 0.45f);
         }
@@ -67,8 +67,12 @@ namespace Stackshot
                 Fill(g, w, r, Feather1, Feather2, 90f);
                 Stroke(g, w, Color.FromArgb(110, 150, 160, 190), D * 0.009f);
             }
-            Line(g, Color.FromArgb(90, 150, 160, 190), D * 0.007f, s * 0.07f * D, -0.03f * D, s * 0.22f * D, -0.1f * D);
-            Line(g, Color.FromArgb(90, 150, 160, 190), D * 0.007f, s * 0.06f * D, 0.01f * D, s * 0.15f * D, -0.01f * D);
+            using (Pen vein = new Pen(Color.FromArgb(90, 150, 160, 190), Math.Max(0.6f, D * 0.007f)))
+            {
+                vein.StartCap = vein.EndCap = LineCap.Round;
+                g.DrawLine(vein, s * 0.07f * D, -0.03f * D, s * 0.22f * D, -0.1f * D);
+                g.DrawLine(vein, s * 0.06f * D, 0.01f * D, s * 0.15f * D, -0.01f * D);
+            }
             g.Restore(st);
         }
 
@@ -122,11 +126,12 @@ namespace Stackshot
                 Fill(g, gp, grip, Color.FromArgb(60, 46, 60), Color.FromArgb(24, 18, 26), 0f);
                 Region old = g.Clip;
                 g.SetClip(gp, CombineMode.Intersect);
-                for (float y = grip.Y + 0.02f * D; y < grip.Bottom; y += 0.035f * D)
-                {
-                    Line(g, Color.FromArgb(200, 236, 228, 210), D * 0.007f, grip.X, y, grip.Right, y + 0.018f * D);
-                    Line(g, Color.FromArgb(200, 236, 228, 210), D * 0.007f, grip.Right, y, grip.X, y + 0.018f * D);
-                }
+                using (Pen wrap = new Pen(Color.FromArgb(200, 236, 228, 210), Math.Max(0.6f, D * 0.007f)))
+                    for (float y = grip.Y + 0.02f * D; y < grip.Bottom; y += 0.035f * D)
+                    {
+                        g.DrawLine(wrap, grip.X, y, grip.Right, y + 0.018f * D);
+                        g.DrawLine(wrap, grip.Right, y, grip.X, y + 0.018f * D);
+                    }
                 g.Clip = old;
                 old.Dispose();
             }
@@ -173,8 +178,12 @@ namespace Stackshot
                 Region old = g.Clip;
                 g.SetClip(h, CombineMode.Intersect);
                 // Darker strands from each spike tip back towards the scalp, for volume.
-                for (int i = 1; i <= 13; i += 2)
-                    Line(g, Color.FromArgb(70, 20, 50, 130), u * 0.022f, pts[i].X * 0.55f, pts[i].Y * 0.55f + 0.12f * u, pts[i].X * 0.15f, 0.2f * u);
+                using (Pen strand = new Pen(Color.FromArgb(70, 20, 50, 130), Math.Max(0.6f, u * 0.022f)))
+                {
+                    strand.StartCap = strand.EndCap = LineCap.Round;
+                    for (int i = 1; i <= 13; i += 2)
+                        g.DrawLine(strand, pts[i].X * 0.55f, pts[i].Y * 0.55f + 0.12f * u, pts[i].X * 0.15f, 0.2f * u);
+                }
                 g.Clip = old;
                 old.Dispose();
                 Stroke(g, h, Color.FromArgb(120, 16, 40, 100), u * 0.016f);
@@ -186,7 +195,7 @@ namespace Stackshot
         {
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             Color frame = Color.FromArgb(150, 16, 20);
-            foreach (int s in new int[] { -1, 1 })
+            foreach (int s in Sides)
             {
                 using (GraphicsPath lens = new GraphicsPath())
                 {
@@ -213,23 +222,21 @@ namespace Stackshot
         // falling down both sides and light baggy trousers with a dark belt.
         static void KaminaOutfit(Graphics g, float D, float y, Geo geo)
         {
-            Color ink = Color.FromArgb(220, 34, 84, 196);
-            foreach (int s in new int[] { -1, 1 })
+            // Six tongues of flame licking inwards and up, filled as one shape.
+            using (GraphicsPath f = new GraphicsPath(FillMode.Winding))
             {
-                for (int k = 0; k < 3; k++)
-                {
-                    float x0 = s * (0.28f - k * 0.04f) * D, y0 = y - 0.02f * D + k * 0.05f * D;
-                    using (GraphicsPath f = new GraphicsPath())
+                foreach (int s in Sides)
+                    for (int k = 0; k < 3; k++)
                     {
-                        // One tongue of flame licking inwards and up.
+                        float x0 = s * (0.28f - k * 0.04f) * D, y0 = y - 0.02f * D + k * 0.05f * D;
+                        f.StartFigure();
                         f.AddBezier(P(x0, y0 + 0.05f * D), P(x0 - s * 0.03f * D, y0), P(x0 - s * 0.05f * D, y0 - 0.01f * D), P(x0 - s * 0.1f * D, y0 - 0.04f * D));
                         f.AddBezier(P(x0 - s * 0.1f * D, y0 - 0.04f * D), P(x0 - s * 0.06f * D, y0 + 0.01f * D), P(x0 - s * 0.03f * D, y0 + 0.04f * D), P(x0 + s * 0.01f * D, y0 + 0.08f * D));
                         f.CloseFigure();
-                        FillSolid(g, f, ink);
                     }
-                }
+                FillSolid(g, f, Color.FromArgb(220, 34, 84, 196));
             }
-            foreach (int s in new int[] { -1, 1 })
+            foreach (int s in Sides)
             {
                 using (GraphicsPath side = Poly(P(s * 0.31f * D, y - 0.08f * D), P(s * D, y - 0.08f * D), P(s * D, geo.Bottom * D + D), P(s * 0.34f * D, geo.Bottom * D + D)))
                     Fill(g, side, new RectangleF(-D, y - 0.08f * D, 2 * D, D), Color.FromArgb(236, 48, 40), Color.FromArgb(140, 14, 18), 90f);
