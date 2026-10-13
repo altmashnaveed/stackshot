@@ -930,17 +930,21 @@ namespace Stackshot
             using (Graphics g = dib.Graphics())
             {
                 g.CompositingMode = CompositingMode.SourceCopy;
-                // Only the mascot area changes unless a bubble or the menu is (or was) up.
-                RectangleF pb = m.PaintBounds;
-                bool full = menu != null || bubble != null || m.Bubble != null || lastFull;
-                lastFull = menu != null || bubble != null || m.Bubble != null;
-                if (!full && !lastPaint.IsEmpty)
+                // Only what changes is cleared and painted: the mascot and its bubble or menu, where they are now and
+                // where they were last frame (a reminder card or a minute-long breathing bubble never repaints the
+                // whole window).
+                RectangleF pb = m.PaintBounds, ui = UiRect(g);
+                if (!lastPaint.IsEmpty)
                 {
                     RectangleF clip = RectangleF.Union(pb, lastPaint);
+                    if (!ui.IsEmpty) clip = RectangleF.Union(clip, ui);
+                    if (!lastUi.IsEmpty) clip = RectangleF.Union(clip, lastUi);
                     clip.Inflate(2, 2);
                     g.SetClip(clip);
                 }
                 lastPaint = pb;
+                lastUi = ui;
+                lastFull = !ui.IsEmpty;
                 g.Clear(Color.Transparent);
                 g.CompositingMode = CompositingMode.SourceOver;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -950,15 +954,11 @@ namespace Stackshot
                 else PaintBubble(g);
             }
             Native.GdiFlush();
-            // Without a bubble or the menu, only the mascot's own box goes to the screen (a fraction of the window).
-            Rectangle crop = new Rectangle(0, 0, W, H);
-            if (!lastFull && menu == null && bubble == null && m.Bubble == null)
-            {
-                RectangleF pb = m.PaintBounds;
-                pb.Inflate(4, 4);
-                crop = Rectangle.Intersect(Rectangle.Round(pb), crop);
-                if (crop.Width < 1 || crop.Height < 1) crop = new Rectangle(0, 0, W, H);
-            }
+            // Only the mascot's box, and the bubble or menu if any, goes to the screen (a fraction of the window).
+            RectangleF show = lastUi.IsEmpty ? lastPaint : RectangleF.Union(lastPaint, lastUi);
+            show.Inflate(4, 4);
+            Rectangle crop = Rectangle.Intersect(Rectangle.Round(show), new Rectangle(0, 0, W, H));
+            if (crop.Width < 1 || crop.Height < 1) crop = new Rectangle(0, 0, W, H);
             presentAt = crop.Location;
             long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             shownX = wx + crop.X; shownY = wy + crop.Y;
@@ -969,7 +969,7 @@ namespace Stackshot
         // Optional frame timing hook (render ms, present ms, pixels sent); null in normal use.
         public static Action<double, double, int> Probe;
 
-        RectangleF lastPaint;
+        RectangleF lastPaint, lastUi;
         Point presentAt;             // top-left of the part of the surface currently shown
         string measuredFor;
         SizeF measured;
@@ -1010,20 +1010,40 @@ namespace Stackshot
         }
         int shownX = int.MinValue, shownY = int.MinValue;
 
-        void PaintBubble(Graphics g)
+        // Where the bubble or the menu goes this frame, with its shadow and arrow (Empty: none). Worked out before
+        // painting, so only that area is redrawn.
+        RectangleF UiRect(Graphics g)
         {
+            if (menu != null)
+            {
+                RectangleF r = MenuLayout(g);
+                return RectangleF.FromLTRB(r.Left - 15 * s, r.Top - 15 * s, r.Right + 15 * s, r.Bottom + 22 * s);
+            }
             if (m.Bubble != null) bubble = m.Bubble;
-            if (bubble == null) return;
-            double a = m.BubbleAlpha;
-            if (a < 0.02) { if (m.Bubble == null) bubble = null; return; }
+            if (bubble == null) return RectangleF.Empty;
+            if (m.BubbleAlpha < 0.02) { if (m.Bubble == null) bubble = null; return RectangleF.Empty; }
+            RectangleF b = BubbleLayout(g);
+            return RectangleF.FromLTRB(b.Left - 2, b.Top - 2, b.Right + 2, b.Bottom + 10 * s);
+        }
+
+        RectangleF BubbleLayout(Graphics g)
+        {
             Font f = Fonts.Get(Mac.TextFont, 13 * s);
             // Measured once per text, not every frame.
             if (bubble != measuredFor) { measured = g.MeasureString(bubble, f, (int)(W - 60 * s)); measuredFor = bubble; }
-            SizeF ts = measured;
-            float w = ts.Width + 26 * s, h = ts.Height + 16 * s;
+            float w = measured.Width + 26 * s, h = measured.Height + 16 * s;
             float x = ClampX(MidX - w / 2, w), y = m.Box.Y - D * 0.38f - h;
-            x = (float)Math.Round(x); y = (float)Math.Round(y); w = (float)Math.Ceiling(w); h = (float)Math.Ceiling(h);
-            RectangleF r = new RectangleF(x, y, w, h);
+            return new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Ceiling(w), (float)Math.Ceiling(h));
+        }
+
+        void PaintBubble(Graphics g)
+        {
+            if (bubble == null) return;
+            double a = m.BubbleAlpha;
+            if (a < 0.02) return;
+            Font f = Fonts.Get(Mac.TextFont, 13 * s);
+            RectangleF r = BubbleLayout(g);
+            float x = r.X, y = r.Y, w = r.Width, h = r.Height;
             using (GraphicsPath p = Theme.Round(r, 12 * s))
             {
                 RectangleF sh = r;
@@ -1103,10 +1123,9 @@ namespace Stackshot
 
         static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }
 
-        void PaintMenu(Graphics g, double now)
+        // The menu's card (without the arrow): its size from what it holds, above the mascot and inside the monitor.
+        RectangleF MenuLayout(Graphics g)
         {
-            Palette pal = Ds.Brushes;
-            bool dark = pal.Dark;
             Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
             float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, w = 238 * s, arrow = 7 * s;
             float h = pad * 2;
@@ -1132,6 +1151,16 @@ namespace Stackshot
                 }
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
             menuRect = new RectangleF(x, y, w, h);
+            return menuRect;
+        }
+
+        void PaintMenu(Graphics g, double now)
+        {
+            Palette pal = Ds.Brushes;
+            bool dark = pal.Dark;
+            Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
+            float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, arrow = 7 * s;
+            float x = menuRect.X, y = menuRect.Y, w = menuRect.Width, h = menuRect.Height;
 
             // Quick ease-out: a fade with a slight settle in size, anchored at the arrow.
             double t = (now - menuAt) / 1000.0, a = Math.Min(1, t / 0.1), p = 1 - Math.Exp(-t * 20);
