@@ -96,8 +96,7 @@ namespace Stackshot
             StackPanel links = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) };
             links.Children.Add(AboutLink("Novedades", Program.RepoUrl + "/releases"));
             links.Children.Add(Label("\u00B7", Ds.Regular, 12, pal.Label3, new Thickness(8, 0, 8, 0)));
-            links.Children.Add(AboutLink("Informar de un problema", Program.RepoUrl + "/issues/new?body=" +
-                Uri.EscapeDataString("\n\n---\nStackshot " + Installer.MyVersion.ToString(3) + " \u00B7 Windows " + Environment.OSVersion.Version)));
+            links.Children.Add(AboutAction("Informar de un problema", ReportWindow.Open));
             head.Children.Add(links);
             Add(head);
 
@@ -418,6 +417,16 @@ namespace Stackshot
             t.MouseEnter += delegate { t.TextDecorations = TextDecorations.Underline; };
             t.MouseLeave += delegate { t.TextDecorations = null; };
             t.MouseLeftButtonUp += delegate { try { Process.Start(url); } catch (Exception ex) { ShotStack.Log("Enlace: " + ex.Message); } };
+            return t;
+        }
+
+        static FrameworkElement AboutAction(string text, Action act)
+        {
+            TextBlock t = LinkLabel(text, Ds.Regular, 12, Ds.Brushes.Link, act);
+            t.Cursor = Cursors.Hand;
+            t.MouseEnter += delegate { t.TextDecorations = TextDecorations.Underline; };
+            t.MouseLeave += delegate { t.TextDecorations = null; };
+            t.MouseLeftButtonUp += delegate { act(); };
             return t;
         }
 

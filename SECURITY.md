@@ -2,8 +2,9 @@
 
 ## What Stackshot does on your computer
 
-- **Nothing leaves your computer.** There are no accounts, cloud services or telemetry, and screenshots are never synced through the Windows cloud clipboard.
-- **Network access is limited to two things:**
+- **Nothing leaves your computer** unless you send a report yourself. There are no accounts or telemetry, and screenshots are never synced through the Windows cloud clipboard.
+- **Network access is limited to three things:**
+  - a **report you send** from *Informar de un problema*: only what the form shows (title, text, Stackshot and Windows versions, screen sizes and, if you turn it on, the end of the log with your user name, computer name, profile paths and e-mail addresses removed). It goes to the report relay in [tools/report-relay](tools/report-relay), which opens a public GitHub issue; the GitHub token lives only in the relay;
   - the download of [FFmpeg](https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2) the first time you record a video or GIF, and only after you accept it. It is always the same version (9.0.2), from a fixed URL, and its **SHA-256 hash is stored in the source code**; if the download doesn't match, nothing is installed. Only `ffmpeg.exe` is extracted from the package. Stackshot never runs an `ffmpeg.exe` found on `PATH`;
   - an **update check** (shortly after start, every few hours and when the PC wakes up) against `api.github.com` (latest release of this repository). It sends nothing but a standard request and can be turned off in General.
 - **Updates are verified before they run.** An update installed from the app is only accepted from this repository's release downloads, its SHA-256 must match the digest GitHub reports for the asset, and its **RSA-PSS signature** must verify against the public key in [src/Updater.cs](src/Updater.cs). The private key never leaves the maintainer's computer: releases are signed locally with `tools/sign-release.ps1`, which uploads only the signature, and the version inside the executable must match the release. Unsigned releases are only offered as a download. Anything missing or wrong is discarded. Installations managed with the MSI are never updated by the app; they only show a notice.
