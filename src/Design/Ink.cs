@@ -160,15 +160,20 @@ namespace Stackshot
 
         public static RenderTargetBitmap Render(int w, int h, Action<DrawingContext> paint, Effect effect)
         {
+            RenderTargetBitmap rtb = new RenderTargetBitmap(Math.Max(1, w), Math.Max(1, h), 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(Visual(paint, effect));
+            rtb.Freeze();
+            return rtb;
+        }
+
+        internal static DrawingVisual Visual(Action<DrawingContext> paint, Effect effect)
+        {
             DrawingVisual v = new DrawingVisual();
             if (effect != null) v.Effect = effect;
             TextOptions.SetTextRenderingMode(v, TextRenderingMode.Grayscale);
             RenderOptions.SetBitmapScalingMode(v, BitmapScalingMode.HighQuality);
             using (DrawingContext dc = v.RenderOpen()) paint(dc);
-            RenderTargetBitmap rtb = new RenderTargetBitmap(Math.Max(1, w), Math.Max(1, h), 96, 96, PixelFormats.Pbgra32);
-            rtb.Render(v);
-            rtb.Freeze();
-            return rtb;
+            return v;
         }
 
         // Soft drop shadow of a rounded rectangle, pre-rendered once per size.
@@ -206,6 +211,9 @@ namespace Stackshot
     public sealed class Surface : IDisposable
     {
         Dib dib;
+        // Kept between frames: a new one per frame piles up native memory, and WPF answers that pressure with full
+        // garbage collections in the middle of animations.
+        RenderTargetBitmap rtb;
 
         public int Width { get { return dib == null ? 0 : dib.Width; } }
         public int Height { get { return dib == null ? 0 : dib.Height; } }
@@ -216,8 +224,10 @@ namespace Stackshot
             {
                 if (dib != null) dib.Dispose();
                 dib = new Dib(w, h, true);
+                rtb = new RenderTargetBitmap(dib.Width, dib.Height, 96, 96, PixelFormats.Pbgra32);
             }
-            RenderTargetBitmap rtb = Ink.Render(w, h, paint, null);
+            else rtb.Clear();
+            rtb.Render(Ink.Visual(paint, null));
             Native.GdiFlush();
             rtb.CopyPixels(new Int32Rect(0, 0, w, h), dib.Bits, w * 4 * h, w * 4);
         }
@@ -237,6 +247,7 @@ namespace Stackshot
         public void Dispose()
         {
             if (dib != null) { dib.Dispose(); dib = null; }
+            rtb = null;
         }
     }
 }
