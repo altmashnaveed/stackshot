@@ -156,15 +156,23 @@ namespace Stackshot
             // Test mode cleans nothing: the temp folder belongs to the real install. Otherwise the sweep runs only when
             // something can have become old enough (no timer at all while the folder holds nothing to clean).
             sweepTimer.Tick += delegate { sweepTimer.Stop(); Sweep(); };
+            string startFile = OpenAtStart;
+            OpenAtStart = null;
+            // Started to open a document: it comes first, before the cleanup, the main window and the mascot.
+            if (startFile != null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(startFile); });
             if (!Test)
             {
-                RescueOrphans();
-                Sweep();
+                if (startFile != null) sync.BeginInvoke((Action)delegate { if (!exiting) { RescueOrphans(); Sweep(); } });
+                else
+                {
+                    RescueOrphans();
+                    Sweep();
+                }
             }
 
             Backdrop.Prewarm();
             if (startPage != null) sync.BeginInvoke((Action)delegate { ShowHome(startPage, false); });
-            else if (justInstalled || showHome) sync.BeginInvoke((Action)delegate { ShowHome("home", true); });
+            else if ((justInstalled && startFile == null) || showHome) sync.BeginInvoke((Action)delegate { ShowHome("home", true); });
             else
             {
                 // Build the main window quietly a little after startup, so the first time it opens it is instant.
@@ -194,10 +202,8 @@ namespace Stackshot
                 warm.Start();
             }
             sync.BeginInvoke((Action)MascotChanged);
-            string startFile = OpenAtStart;
-            OpenAtStart = null;
-            // Also what other copies asked for while this one was starting.
-            sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(startFile); });
+            // What other copies asked for while this one was starting (startFile itself was already sent).
+            if (startFile == null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(null); });
             Updater.Start(this);
         }
 

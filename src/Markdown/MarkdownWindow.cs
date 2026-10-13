@@ -31,7 +31,7 @@ namespace Stackshot
         readonly DispatcherTimerLite searchLater, syncLater, checkLater;
         string text, name, status, savedText, approvedText;
         DocFile file;
-        bool editing, statusBad, dragging, compact, dirtyShown;
+        bool editing, statusBad, dragging, compact, dirtyShown, reveal, quiet;
         volatile bool unsaved;
         int token;
         double split = 1, fullWidth;
@@ -103,7 +103,8 @@ namespace Stackshot
         // A file named on the command line, or sent by another copy of Stackshot.
         public static void OpenFile(ShotStack owner, string path)
         {
-            MarkdownWindow w = Show(owner);
+            // Asking about unsaved changes needs the window in front; otherwise it only appears once the file is read.
+            MarkdownWindow w = open != null && open.Dirty ? Show(owner) : Pending(owner);
             w.LoadFile(path);
         }
 
@@ -112,10 +113,25 @@ namespace Stackshot
         public static bool OpenArrived(ShotStack owner, string path)
         {
             if (open != null && open.Dirty) return false;
-            MarkdownWindow w = Show(owner);
-            w.LoadFile(path);
-            w.Front();
+            Pending(owner).LoadFile(path);
             return true;
+        }
+
+        // The window to load a file into, shown (or brought to the front) only when the document is ready: a cold
+        // open never flashes the empty start screen, and an open window doesn't show its old document first.
+        static MarkdownWindow Pending(ShotStack owner)
+        {
+            if (open == null) open = new MarkdownWindow(owner);
+            open.reveal = true;
+            return open;
+        }
+
+        void Reveal()
+        {
+            if (!reveal) return;
+            reveal = false;
+            if (!IsVisible) { quiet = true; Show(); }
+            Front();
         }
 
         // Windows won't hand the foreground to a background process; toggling Topmost still raises the window over the rest.
@@ -143,6 +159,8 @@ namespace Stackshot
         {
             if (open != null)
             {
+                open.reveal = false;
+                if (!open.IsVisible) open.Show();
                 if (open.WindowState == WindowState.Minimized) open.WindowState = WindowState.Normal;
                 open.Activate();
                 return open;
@@ -186,7 +204,7 @@ namespace Stackshot
                 if (open == this) open = null;
             };
             Build();
-            Loaded += delegate { Enter(Root, 0); };
+            Loaded += delegate { if (quiet) quiet = false; else Enter(Root, 0); };
         }
 
         // Resizing is done by hit-testing the edges ourselves: a resizable frame makes DWM paint its own caption buttons over ours.
@@ -998,7 +1016,7 @@ namespace Stackshot
             // A document that does not parse opens in the editor, with the error beside it.
             autoEdit = xml;
             Build();
-            Enter(page, 0);
+            if (reveal) Reveal(); else Enter(page, 0);
             if (file != null && file.Lossy) Say("Hay bytes que no son " + file.EncodingName + " v\u00E1lido: se muestran como \u00AB\uFFFD\u00BB.", true);
         }
 
@@ -1052,6 +1070,7 @@ namespace Stackshot
                         status = null;
                         if (doc == null) { Stats(); Fail(err ?? "No he podido leer el archivo."); }
                         else LoadText(doc.Text, System.IO.Path.GetFileName(doc.Path), doc);
+                        Reveal();
                     }));
                 }
                 catch { }
