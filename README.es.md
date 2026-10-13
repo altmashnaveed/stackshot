@@ -6,16 +6,16 @@
 
 Pulsa <kbd>Impr Pant</kbd>, selecciona y listo. Cada captura queda en una miniatura flotante para copiarla, anotarla o arrastrarla donde quieras.
 
-[![Descargar para Windows](https://img.shields.io/badge/Descargar_para_Windows-2%2C2_MB-4F7BFF?style=for-the-badge)](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.exe) [![Ver el vídeo](https://img.shields.io/badge/Ver_el_v%C3%ADdeo-1%3A38-1C1C20?style=for-the-badge)](docs/video/stackshot-es.mp4)
+[![Descargar para Windows](https://img.shields.io/badge/Descargar_para_Windows-2%2C2_MB-4F7BFF?style=for-the-badge)](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.exe) [![Ver el vídeo](https://img.shields.io/badge/Ver_el_v%C3%ADdeo-1%3A38-1C1C20?style=for-the-badge)](https://stackshot.rubenitx.me/#video)
 
 Gratis y de código abierto · 2,2 MB · Sin permisos de administrador<br>
 Para Windows 10 y 11 · Versión 2.1.0 · También como [paquete MSI](https://github.com/rubenitx/stackshot/releases/latest/download/Stackshot.msi)
 
 [![Última versión](https://img.shields.io/github/v/release/rubenitx/stackshot?label=versi%C3%B3n&color=4F7BFF)](https://github.com/rubenitx/stackshot/releases/latest) [![Descargas](https://img.shields.io/github/downloads/rubenitx/stackshot/total?label=descargas&color=8B5CF6)](https://github.com/rubenitx/stackshot/releases) [![Compilación](https://github.com/rubenitx/stackshot/actions/workflows/build.yml/badge.svg)](https://github.com/rubenitx/stackshot/actions/workflows/build.yml) [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-14B8E6)](LICENSE)
 
-[English](README.md) · [Registro de cambios](CHANGELOG.md) · [Seguridad](SECURITY.md) · [Directivas de empresa](docs/it-policies.md)
+[Web](https://stackshot.rubenitx.me) · [English](README.md) · [Registro de cambios](CHANGELOG.md) · [Seguridad](SECURITY.md) · [Directivas de empresa](docs/it-policies.md)
 
-<a href="docs/video/stackshot-es.mp4"><img src="docs/video/poster-es.png" alt="Stackshot, el vídeo. Haz clic para verlo." width="100%"></a>
+<a href="https://stackshot.rubenitx.me/#video"><img src="docs/video/poster-es.png" alt="Stackshot, el vídeo. Haz clic para verlo." width="100%"></a>
 
 </div>
 
