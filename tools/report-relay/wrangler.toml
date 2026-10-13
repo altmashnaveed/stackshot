@@ -1,0 +1,12 @@
+name = "stackshot-report"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+REPO = "rubenitx/stackshot"
+
+# At most 3 reports a minute from the same address.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 3, period = 60 }

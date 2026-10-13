@@ -2,3 +2,5 @@ bin/
 *.tmp.exe
 docs/studio-errores.txt
 tests/*/results/
+tools/report-relay/.wrangler/
+tools/report-relay/node_modules/
