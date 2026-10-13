@@ -75,6 +75,7 @@ namespace Stackshot
         List<Choice> menu;
         double menuAt, menuSeen, nextTalk;
         int menuHot = -1;
+        bool menuArmed;
         RectangleF menuRect;
         // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
         int menuWell = -1, session = -1, sessionReps;
@@ -537,6 +538,8 @@ namespace Stackshot
             Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { owner.WellLater(k, 600000); if (settings.MascotTalks) m.Say(MascotTalk.WellLater(settings), 2600); });
             Add("close", "Hoy no", null, delegate { owner.WellLater(k, -1); });
             menuAt = menuSeen = Anim.Now;
+            menuArmed = false;
+            menuRect = RectangleF.Empty;
             menuHot = -1;
             menuWell = kind;
             nextIdea = Anim.Now + 8000;
@@ -559,6 +562,8 @@ namespace Stackshot
             AddSep();
             Add("gear", "Ajustar los avisos", null, delegate { owner.ShowHome("mascotset", false); });
             menuAt = menuSeen = Anim.Now;
+            menuArmed = false;
+            menuRect = RectangleF.Empty;
             menuHot = -1;
         }
 
@@ -742,8 +747,12 @@ namespace Stackshot
                 // Close the bubble when the user clicks somewhere else or ignores it for a while.
                 bool inside = menuRect.Contains(mouse.X - wx, mouse.Y - wy) || new RectangleF((float)bx, (float)by, D, D).Contains(mouse);
                 if (inside) menuSeen = now;
-                // A reminder stays a minute (it is answered later anyway if nobody does); the quick menu, 9 s.
-                if ((Control.MouseButtons != MouseButtons.None && !inside) || now - menuSeen > (menuWell >= 0 ? 60000 : 9000)) CloseMenu();
+                // Only a click that starts after the menu is up closes it (not a button already held when it appeared).
+                // A reminder ignores clicks elsewhere, since you are working, and stays a minute (it is answered later
+                // anyway if nobody does); the quick menu stays 9 s.
+                bool pressed = Control.MouseButtons != MouseButtons.None;
+                if (!pressed) menuArmed = true;
+                if ((pressed && menuArmed && !inside && menuWell < 0) || now - menuSeen > (menuWell >= 0 ? 60000 : 9000)) CloseMenu();
             }
 
             FollowPerch();
@@ -1094,6 +1103,8 @@ namespace Stackshot
             Add("logo", "Abrir Stackshot", null, delegate { owner.ShowHome("home", false); });
             Add("home", "Vete a casa", null, GoHome);
             menuAt = menuSeen = Anim.Now;
+            menuArmed = false;
+            menuRect = RectangleF.Empty;
             menuHot = -1;
         }
 
