@@ -358,7 +358,8 @@ namespace Stackshot
             g.SmoothingMode = SmoothingMode.AntiAlias;
             if (bg)
             {
-                FloatShadow(g, frameScreen);
+                // The shadow lies outside the frame: a repaint inside it (dragging a mark) never reaches it.
+                if (!frameScreen.Contains(e.ClipRectangle)) FloatShadow(g, frameScreen);
                 g.DrawImageUnscaled(BgView(ir), frameScreen.X, frameScreen.Y);
                 if (!(playing && DrawLive(g, ir, true)))
                 {
@@ -368,7 +369,7 @@ namespace Stackshot
             }
             else
             {
-                FloatShadow(g, ir);
+                if (!ir.Contains(e.ClipRectangle)) FloatShadow(g, ir);
                 if (!(playing && DrawLive(g, ir, false)))
                 {
                     if (v == null && !direct) v = View();
