@@ -180,8 +180,7 @@ namespace Stackshot
                 bool prev = false, next = false;
                 try
                 {
-                    prev = XmlWatch.Sibling(p, -1) != null;
-                    next = XmlWatch.Sibling(p, 1) != null;
+                    XmlWatch.Siblings(p, out prev, out next);
                 }
                 catch (Exception ex) { ShotStack.Log("XML vecinos: " + ex.Message); }
                 try

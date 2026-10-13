@@ -170,18 +170,41 @@ namespace Stackshot
         {
             try
             {
-                string dir = Path.GetDirectoryName(path);
-                List<FileInfo> files = new List<FileInfo>(new DirectoryInfo(dir).GetFiles("*.xml"));
-                files.Sort(delegate(FileInfo a, FileInfo b)
-                {
-                    int c = a.LastWriteTimeUtc.CompareTo(b.LastWriteTimeUtc);
-                    return c != 0 ? c : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-                });
-                int i = files.FindIndex(delegate(FileInfo f) { return string.Equals(f.FullName, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase); });
+                int i;
+                List<FileInfo> files = Ordered(path, out i);
                 int j = i + step;
                 return i >= 0 && j >= 0 && j < files.Count ? files[j].FullName : null;
             }
             catch (Exception) { return null; }
+        }
+
+        // Both neighbours from one listing of the folder (it can hold thousands of messages).
+        public static void Siblings(string path, out bool prev, out bool next)
+        {
+            prev = next = false;
+            try
+            {
+                int i;
+                List<FileInfo> files = Ordered(path, out i);
+                if (i < 0) return;
+                prev = i > 0;
+                next = i + 1 < files.Count;
+            }
+            catch (Exception) { }
+        }
+
+        // The folder's XML files by the time they were written, and where path is among them (-1: not there).
+        static List<FileInfo> Ordered(string path, out int index)
+        {
+            string full = Path.GetFullPath(path);
+            List<FileInfo> files = new List<FileInfo>(new DirectoryInfo(Path.GetDirectoryName(path)).GetFiles("*.xml"));
+            files.Sort(delegate(FileInfo a, FileInfo b)
+            {
+                int c = a.LastWriteTimeUtc.CompareTo(b.LastWriteTimeUtc);
+                return c != 0 ? c : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            });
+            index = files.FindIndex(delegate(FileInfo f) { return string.Equals(f.FullName, full, StringComparison.OrdinalIgnoreCase); });
+            return files;
         }
 
         static readonly Regex BodyRx = new Regex(@"<(?:[\w.\-]+:)?Body[^>]*>\s*<(?:[\w.\-]+:)?([\w.\-]+)", RegexOptions.Compiled);
