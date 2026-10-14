@@ -84,10 +84,18 @@ namespace Stackshot
 
             StackPanel buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 22, 0, 0) };
             MacButton gh = new MacButton("Ver en GitHub", ButtonKind.Primary, null, null, 32);
-            gh.Click += delegate { try { Process.Start(Program.RepoUrl); } catch { } };
+            gh.Click += delegate
+            {
+                try { Process.Start(Program.RepoUrl); }
+                catch (Exception ex) { ShotStack.Log("GitHub: " + ex.Message); owner.Notify("No se pudo abrir el navegador", Program.RepoUrl); }
+            };
             MacButton data = new MacButton("Carpeta de datos", ButtonKind.Secondary, null, null, 32);
             data.Margin = new Thickness(10, 0, 0, 0);
-            data.Click += delegate { try { Process.Start(Native.Explorer, "\"" + Settings.DataDir + "\""); } catch { } };
+            data.Click += delegate
+            {
+                try { Process.Start(Native.Explorer, "\"" + Settings.DataDir + "\""); }
+                catch (Exception ex) { ShotStack.Log("Carpeta de datos: " + ex.Message); owner.Notify("No se pudo abrir la carpeta", Settings.DataDir); }
+            };
             buttons.Children.Add(gh);
             buttons.Children.Add(data);
             head.Children.Add(buttons);

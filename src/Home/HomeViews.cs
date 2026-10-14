@@ -867,7 +867,7 @@ namespace Stackshot
                     ShotStack.CopyFiles(path);
                     Copied(button);
                 }
-                catch (Exception ex) { ShotStack.Log("Copiar: " + ex.Message); }
+                catch (Exception ex) { ShotStack.Log("Copiar: " + ex.Message); NotCopied(); }
                 return;
             }
             Dispatcher ui = Dispatcher;
@@ -879,19 +879,26 @@ namespace Stackshot
                 catch (Exception ex) { error = ex.Message; }
                 ui.BeginInvoke((Action)delegate
                 {
-                    if (img == null) { ShotStack.Log("Copiar: " + (error ?? path)); return; }
+                    if (img == null) { ShotStack.Log("Copiar: " + (error ?? path)); if (!IsDisposed) NotCopied(); return; }
                     if (IsDisposed) { img.Dispose(); return; }
                     try { owner.CopyTracked(path, img, false, true); Copied(button); }
-                    catch (Exception ex) { ShotStack.Log("Copiar: " + ex.Message); }
+                    catch (Exception ex) { ShotStack.Log("Copiar: " + ex.Message); NotCopied(); }
                 });
             });
         }
 
         void Copied(TextBlock button)
         {
+            // From a menu there is no button to say it: a notice does.
+            if (button == null) owner.Notify("Copiada", "Ya puedes pegarla donde quieras.");
             FlashLabel(button, "Copiada");
             if (settings.MascotOn) mascot.Say("\u00A1Copiada!", 1600);
             Wake();
+        }
+
+        void NotCopied()
+        {
+            owner.Notify("No se pudo copiar", "No se ha podido leer la captura o el portapapeles est\u00E1 ocupado. Vuelve a intentarlo.");
         }
 
         // ---- Widgets: today at a glance.
@@ -942,7 +949,11 @@ namespace Stackshot
                 bool kept = SaveFolders.Inside(settings, f.DirectoryName);
                 acts.Children.Add(WidgetButton(kept ? "Mostrar" : "Guardar", false, delegate(TextBlock l)
                 {
-                    if (kept) { try { Process.Start(Native.Explorer, "/select,\"" + f.FullName + "\""); } catch { } }
+                    if (kept)
+                    {
+                        try { Process.Start(Native.Explorer, "/select,\"" + f.FullName + "\""); }
+                        catch (Exception ex) { ShotStack.Log("Mostrar: " + ex.Message); owner.Notify("No se pudo abrir la carpeta", f.DirectoryName); }
+                    }
                     else HomeKeep(f.FullName, l);
                 }));
                 Grid.SetRow(acts, 2);

@@ -781,7 +781,11 @@ namespace Stackshot
         {
             if (!File.Exists(it.Path)) { HistoryMissing(it); return; }
             try { Process.Start(Native.Explorer, "/select,\"" + it.Path + "\""); }
-            catch (Exception ex) { ShotStack.Log("Historial: mostrar " + it.Path + ": " + ex.Message); }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Historial: mostrar " + it.Path + ": " + ex.Message);
+                owner.Notify("No se pudo abrir la carpeta", it.Name + ": " + ShotStack.ExplainOpen(ex, it.Path));
+            }
         }
 
         // Deleted or moved since the list was made: said once, and the list catches up.

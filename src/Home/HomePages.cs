@@ -667,6 +667,8 @@ namespace Stackshot
             Installer.FreePrintScreen();
             owner.ResumeHotkeys();
             Rebuild();
+            owner.Notify("Impr Pant ya es de Stackshot",
+                         "Windows la tenía reservada para Recortes; ya está liberada en tu usuario. Si aún se abre Recortes, cierra sesión y vuelve a entrar.");
         }
 
         // ---- General
@@ -897,7 +899,11 @@ namespace Stackshot
         static void OpenRecovered()
         {
             try { System.Diagnostics.Process.Start(Native.Explorer, "\"" + ShotStack.RecoveredDir + "\""); }
-            catch (Exception ex) { ShotStack.Log("Recuperadas: " + ex.Message); }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Recuperadas: " + ex.Message);
+                if (ShotStack.Running != null) ShotStack.Running.Notify("No se pudo abrir la carpeta", ShotStack.RecoveredDir);
+            }
         }
 
         void ClearRecent()
@@ -906,6 +912,7 @@ namespace Stackshot
             owner.ClearTemp();
             HistoryIndex.RequestScan();
             Rebuild();
+            owner.Notify("Recientes borradas", "Se han borrado las capturas temporales. Las de tu carpeta siguen ah\u00ED.");
         }
 
         // Looking for updates, and installing them on their own (which needs the looking, and an installed copy that is
