@@ -153,7 +153,7 @@ namespace Stackshot
                               delegate { return settings.FocusAuto; }, delegate(bool v) { settings.FocusAuto = v; }),
                 new ToggleRow("Sonido", "Un sonido suave y distinto para cada momento: empezar, pausar, reanudar, acabar, descansar y terminar.", "sound", Mac.Pink, Mac.Red,
                               delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(FocusChime.Cue.Start); }),
-                new ToggleRow("Avisar con notificaciones", "Cuando la mascota no está en el escritorio, junto al reloj de Windows: al empezar, pausar, reanudar y terminar cada bloque y cada descanso. Con la mascota, te lo dice ella.", "bell", Mac.Orange, Mac.Red,
+                new ToggleRow("Avisar con notificaciones", "Cuando la mascota no est\u00E1 en el escritorio, junto al reloj de Windows: al empezar, pausar, reanudar y terminar cada bloque y cada descanso. Con la mascota, te lo dice ella.", "bell", Mac.Orange, Mac.Red,
                               delegate { return settings.FocusNotices; }, delegate(bool v) { settings.FocusNotices = v; }));
             Note("Empieza desde aqu\u00ED o desde el men\u00FA de la mascota en el escritorio (\u00ABConcentrarme\u00BB). Mientras dura un bloque, la mascota lee a tu lado sin hablar, " +
                  "lleva el reloj encima de la cabeza y las pausas saludables esperan al descanso, donde te propone la que toque. Si te levantas m\u00E1s de 5 minutos, " +
@@ -171,10 +171,29 @@ namespace Stackshot
                                 "drop", Mac.Blue, Mac.Teal, new string[] { "Sin objetivo", "6 vasos", "8 vasos", "10 vasos" },
                                 delegate { int i = Array.IndexOf(goals, settings.WaterGoal); return i < 0 ? 2 : i; },
                                 delegate(int i) { settings.WaterGoal = goals[Math.Max(0, Math.Min(goals.Length - 1, i))]; }));
+            // Three usual times, or one of your own (set in the row that then shows under it).
+            bool custom = SummaryCustom;
             rows.Add(new SegRow("Resumen del d\u00EDa", "A esa hora te cuenta c\u00F3mo ha ido: agua, pausas, concentraci\u00F3n, capturas y pasos.", "heart", Mac.Pink, Mac.Red,
-                                new string[] { "No", "17:00", "18:00", "19:00" },
-                                delegate { int i = Array.IndexOf(hours, settings.SummaryHour); return i < 0 ? 2 : i; },
-                                delegate(int i) { settings.SummaryHour = hours[Math.Max(0, Math.Min(hours.Length - 1, i))]; }));
+                                new string[] { "No", "17:00", "18:00", "19:00", "Otra" },
+                                delegate
+                                {
+                                    if (settings.SummaryHour <= 0) return 0;
+                                    if (SummaryCustom) return 4;
+                                    int i = Array.IndexOf(hours, settings.SummaryHour);
+                                    return i < 0 ? 2 : i;
+                                },
+                                delegate(int i)
+                                {
+                                    bool was = SummaryCustom;
+                                    if (i < 4) { settings.SummaryHour = hours[Math.Max(0, i)]; settings.SummaryMinute = 0; }
+                                    else if (!was) { settings.SummaryHour = 20; settings.SummaryMinute = 30; }
+                                    // The row with your own time comes or goes.
+                                    if (SummaryCustom != was) Dispatcher.BeginInvoke((Action)delegate { if (IsVisible) Rebuild(); });
+                                }));
+            if (custom)
+                rows.Add(new TimeRow("Tu hora para el resumen", "De 15 en 15 minutos, entre las 8:00 y las 23:45.", "clock", Mac.Pink, Mac.Orange,
+                                     delegate { return settings.SummaryHour * 60 + settings.SummaryMinute; },
+                                     delegate(int m) { settings.SummaryHour = m / 60; settings.SummaryMinute = m % 60; }));
             // What it tells, there and in its menu's "how was the day": one chip per part, each on or off.
             List<string> names = new List<string> { "Agua", "Pausas", "Concentraci\u00F3n", "Capturas" };
             List<int> bits = new List<int> { Settings.SummaryWater, Settings.SummaryBreaks, Settings.SummaryFocus, Settings.SummaryCaptures };
@@ -228,7 +247,7 @@ namespace Stackshot
                               delegate { QuickWindow.Remind(owner); }),
                 new ButtonRow("Notas", "\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas.", "memo", Mac.Orange, Mac.Pink, "Ver",
                               delegate { owner.OpenNotes(); }),
-                new ButtonRow("Accesos rápidos", LinksSub(), "open", Mac.Indigo, Mac.Blue, "Editar…", delegate { LinksWindow.Show(owner); }),
+                new ButtonRow("Accesos r\u00E1pidos", LinksSub(), "open", Mac.Indigo, Mac.Blue, "Editar\u2026", delegate { LinksWindow.Show(owner); }),
                 new ToggleRow("Avisarme de los XML con fallo", "Cuando llega a la carpeta vigilada un XML con SOAP Fault, te lo dice con un bot\u00F3n para abrirlo.", "warning", Mac.Red, Mac.Orange,
                               delegate { return settings.XmlFaultAlert; }, delegate(bool v) { settings.XmlFaultAlert = v; }));
             Note("Tambi\u00E9n puedes soltar encima de la mascota una imagen (va al editor), un v\u00EDdeo (al reproductor), un XML o un Markdown (al visor), " +
@@ -243,6 +262,57 @@ namespace Stackshot
             string names = l.Count == 1 ? "\u00AB" + l[0].Name + "\u00BB" : l.Count == 2 ? "\u00AB" + l[0].Name + "\u00BB y \u00AB" + l[1].Name + "\u00BB"
                          : "\u00AB" + l[0].Name + "\u00BB, \u00AB" + l[1].Name + "\u00BB y " + (l.Count - 2) + " m\u00E1s";
             return names + " en el men\u00FA de la mascota.";
+        }
+
+        // A summary time other than 17:00, 18:00 and 19:00.
+        bool SummaryCustom { get { return settings.SummaryHour > 0 && (settings.SummaryMinute != 0 || (settings.SummaryHour != 17 && settings.SummaryHour != 18 && settings.SummaryHour != 19)); } }
+
+        // A time of day with − and + on each side, a quarter of an hour at a time (minutes from midnight).
+        public class TimeRow : Row
+        {
+            const int Step = 15, First = 8 * 60, Last = 23 * 60 + 45;
+            readonly Func<int> get;
+            readonly Action<int> set;
+            TextBlock shown;
+
+            public TimeRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, Func<int> get, Action<int> set)
+                : base(title, sub, icon, c1, c2)
+            {
+                this.get = get;
+                this.set = set;
+            }
+
+            static string At(int m) { return m / 60 + ":" + (m % 60).ToString("00"); }
+
+            protected override FrameworkElement Control()
+            {
+                Palette pal = Ds.Brushes;
+                StackPanel p = new StackPanel { Orientation = Orientation.Horizontal };
+                MacButton less = new MacButton("\u2212", ButtonKind.Secondary, null, null, 28) { ToolTip = "15 minutos antes" };
+                MacButton more = new MacButton("+", ButtonKind.Secondary, null, null, 28) { ToolTip = "15 minutos despu\u00E9s" };
+                shown = Label(At(get()), Ds.Semibold, 14, pal.Label, new Thickness(12, 0, 12, 0));
+                shown.MinWidth = 44;
+                shown.TextAlignment = TextAlignment.Center;
+                System.Windows.Automation.AutomationProperties.SetName(less, "15 minutos antes");
+                System.Windows.Automation.AutomationProperties.SetName(more, "15 minutos despu\u00E9s");
+                less.Click += delegate { Move(-Step); };
+                more.Click += delegate { Move(Step); };
+                p.Children.Add(less);
+                p.Children.Add(shown);
+                p.Children.Add(more);
+                return p;
+            }
+
+            void Move(int by)
+            {
+                // Snapped to the quarter hour, inside the day's range.
+                int m = (int)Math.Round(get() / (double)Step) * Step + by;
+                m = Math.Max(First, Math.Min(Last, m));
+                set(m);
+                if (shown != null) shown.Text = At(m);
+                W.Changed();
+                W.SyncRows();
+            }
         }
 
         // A row of chips that each turn one bit of a setting on or off (lit: included).

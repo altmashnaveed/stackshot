@@ -116,7 +116,7 @@ namespace Stackshot
 
         void DaySummaryTick()
         {
-            if (settings.SummaryHour <= 0 || DateTime.Now.Hour < settings.SummaryHour || settings.SummaryDay == Today) return;
+            if (settings.SummaryHour <= 0 || DateTime.Now.TimeOfDay < new TimeSpan(settings.SummaryHour, settings.SummaryMinute, 0) || settings.SummaryDay == Today) return;
             if (Native.IdleMs() >= Wellness.ActiveIdleMs || WellQuiet() || focus.Working) return;
             if (pet != null && !pet.CanRemind) return;
             string text = DaySummary();

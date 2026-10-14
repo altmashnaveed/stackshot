@@ -103,7 +103,7 @@ namespace Stackshot
         // comments on the watch's numbers, what was already said about them today ("date|keys"), the last reading of
         // the watch ("steps|goal|sleep|active|water|ticks"), a short night's date (breaks come a little more often)
         // and today's captures (StatsDay is their date).
-        public int WaterGoal = 8, SummaryHour = 18, StepsGoal = 10000;
+        public int WaterGoal = 8, SummaryHour = 18, SummaryMinute = 0, StepsGoal = 10000;
         public int SummaryParts = 31;       // what the summary tells, Summary* bits
         public string SummaryDay = "";
         public bool XmlFaultAlert = true;   // a SOAP fault arriving in the watched folder is told (mascot or notice)
@@ -288,6 +288,7 @@ namespace Stackshot
                         case "watergoal": s.WaterGoal = Int(v, s.WaterGoal, 0, 20); break;
                         case "stepsgoal": s.StepsGoal = Int(v, s.StepsGoal, 1000, 50000); break;
                         case "summaryhour": s.SummaryHour = Int(v, s.SummaryHour, 0, 23); break;
+                        case "summaryminute": s.SummaryMinute = Int(v, s.SummaryMinute, 0, 59); break;
                         case "summaryday": s.SummaryDay = Cut(v, 10); break;
                         case "healthtalk": s.HealthTalk = Bool(v, s.HealthTalk); break;
                         case "healthsaid": s.HealthSaid = Cut(v, 120); break;
@@ -490,6 +491,7 @@ namespace Stackshot
             b.AppendLine("WaterGoal = " + WaterGoal);
             b.AppendLine("StepsGoal = " + StepsGoal);
             b.AppendLine("SummaryHour = " + SummaryHour);
+            b.AppendLine("SummaryMinute = " + SummaryMinute);
             b.AppendLine("SummaryParts = " + SummaryParts);
             b.AppendLine("SummaryDay = " + OneLine(SummaryDay));
             b.AppendLine("FitbitAsked = " + OneLine(FitbitAsked));
