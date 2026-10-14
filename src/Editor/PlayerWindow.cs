@@ -821,7 +821,7 @@ namespace Stackshot
         {
             string p = path;
             try { Process.Start(Native.Explorer, "/select,\"" + p + "\""); }
-            catch (Exception ex) { ShotStack.Log("Reproductor: carpeta " + ex.Message); }
+            catch (Exception ex) { ShotStack.Log("Reproductor: carpeta " + ex.Message); Flash("No se pudo abrir la carpeta"); }
         }
 
         bool CanEdit { get { return owner != null && info != null && info.CanPlay && Array.IndexOf(PlayerKit.EditorFormats, Path.GetExtension(path ?? "").ToLowerInvariant()) >= 0; } }
@@ -1419,7 +1419,12 @@ namespace Stackshot
             ToolStripMenuItem fill = TrayMenu.Item("Imagen: llenar la ventana", null, delegate { SetFill(true); });
             fill.Checked = settings.PlayerFill;
             m.Items.Add(fill);
-            ToolStripMenuItem opens = TrayMenu.Item("Abrir los v\u00EDdeos en Stackshot", null, delegate { settings.PlayerOpensVideos = !settings.PlayerOpensVideos; Remember(); });
+            ToolStripMenuItem opens = TrayMenu.Item("Abrir los v\u00EDdeos en Stackshot", null, delegate
+            {
+                settings.PlayerOpensVideos = !settings.PlayerOpensVideos;
+                Remember();
+                Flash(settings.PlayerOpensVideos ? "Los v\u00EDdeos se abrir\u00E1n en Stackshot" : "Los v\u00EDdeos se abrir\u00E1n en el reproductor de Windows");
+            });
             opens.Checked = settings.PlayerOpensVideos;
             m.Items.Add(opens);
             if (b != null) OpenMenu(m, new Point(b.R.X, b.R.Y - P(6)));
@@ -1439,7 +1444,7 @@ namespace Stackshot
             for (int i = 0; i < Timeline.Qualities.Length; i++)
             {
                 int q = i;
-                ToolStripMenuItem it = TrayMenu.Item(QualityName(q), null, delegate { settings.ExportQuality = q; Remember(); Invalidate(); });
+                ToolStripMenuItem it = TrayMenu.Item(QualityName(q), null, delegate { settings.ExportQuality = q; Remember(); Flash("Calidad al exportar: " + QualityName(q)); });
                 it.Checked = settings.ExportQuality == q;
                 m.Items.Add(it);
             }
