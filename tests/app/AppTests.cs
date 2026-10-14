@@ -18,7 +18,7 @@ namespace Stackshot.Tests
         static string work;
         static readonly string[] defaultSuites = { "quit", "orphans", "keep", "explain", "clipboard", "uninstall", "pin", "posters",
                                                        "hunt-settings", "hunt-updater", "hunt-recents", "hunt-ffmpeg", "hunt-tracked", "hunt-setup", "hunt-ui", "text", "xmlwatch",
-                                                       "w6capture", "w6sensitive", "w6history", "w6cli", "w6search", "w6a11y", "w6toast", "w6contrast", "w6e2e", "w6home" };
+                                                       "w6capture", "w6sensitive", "w6history", "w6cli", "w6search", "w6a11y", "w6toast", "w6contrast", "w6e2e", "w6home", "scroll" };
 
         [STAThread]
         static int Main(string[] args)
@@ -70,6 +70,7 @@ namespace Stackshot.Tests
                 case "w6e2e": AppTestsW6E2e.Suite(); break;
                 case "w6home": AppTestsW6Home.Suite(); break;
                 case "w6perf": AppTestsW6Perf.Suite(); break;
+                case "scroll": AppTestsScroll.Suite(); break;
                 default: Test(name, "unknown suite", delegate { throw new TestFailed("no such suite"); }); break;
             }
         }
