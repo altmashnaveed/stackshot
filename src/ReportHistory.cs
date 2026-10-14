@@ -182,16 +182,17 @@ namespace Stackshot
             string url = Program.ReportUrl.Substring(0, Program.ReportUrl.LastIndexOf('/')) + "/status?n=" + Join(numbers);
             Dictionary<string, object> r = Get(url, null) as Dictionary<string, object>;
             object list;
-            if (r == null || !r.TryGetValue("issues", out list) || !(list is ArrayList)) throw new InvalidDataException("respuesta sin estado");
+            // JSON lists come as object[] (IList covers that and ArrayList alike).
+            if (r == null || !r.TryGetValue("issues", out list) || !(list is IList)) throw new InvalidDataException("respuesta sin estado");
             Dictionary<int, State> states = new Dictionary<int, State>();
-            foreach (object o in (ArrayList)list)
+            foreach (object o in (IList)list)
             {
                 Dictionary<string, object> i = o as Dictionary<string, object>;
                 if (i == null) continue;
                 State s = new State { Open = Str(i, "state") == "open", Reason = Str(i, "reason") };
                 object cs;
-                if (i.TryGetValue("comments", out cs) && cs is ArrayList)
-                    foreach (object c in (ArrayList)cs)
+                if (i.TryGetValue("comments", out cs) && cs is IList)
+                    foreach (object c in (IList)cs)
                     {
                         Dictionary<string, object> d = c as Dictionary<string, object>;
                         if (d != null) s.Replies.Add(new Reply { Team = d.ContainsKey("team") && d["team"] is bool && (bool)d["team"], AtUtc = When(Str(d, "at")), Text = Str(d, "text") });
@@ -213,7 +214,7 @@ namespace Stackshot
                 object count;
                 if (i.TryGetValue("comments", out count) && count != null && Convert.ToInt32(count) > 0)
                 {
-                    ArrayList cs = Get(api + n + "/comments?per_page=50", "application/vnd.github+json") as ArrayList;
+                    IList cs = Get(api + n + "/comments?per_page=50", "application/vnd.github+json") as IList;
                     if (cs != null)
                         foreach (object c in cs)
                         {
