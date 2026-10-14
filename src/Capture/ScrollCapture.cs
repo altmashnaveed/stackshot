@@ -444,7 +444,9 @@ namespace Stackshot
             }
             Bitmap result = null;
             bool tooBig = false;
-            if (!cancelled && error == null && stitcher.Height > 0)
+            if (error != null) ShotStack.Log("Captura con desplazamiento: " + error);
+            // A failure midway still keeps what was stitched up to then.
+            if (!cancelled && stitcher.Height > 0)
             {
                 try { result = stitcher.Compose(); }
                 catch (Exception ex)
@@ -452,12 +454,14 @@ namespace Stackshot
                     error = ex.Message;
                     // GDI+ reports a bitmap it can't allocate as an invalid parameter (ArgumentException).
                     tooBig = ex is OutOfMemoryException || ex is ArgumentException;
+                    ShotStack.Log("Captura con desplazamiento: " + error);
                 }
             }
-            if (error != null) ShotStack.Log("Captura con desplazamiento: " + error);
-            string problem = error == null || cancelled ? null : FailureText(tooBig);
+            string problem = error == null || cancelled ? null : result != null ? PartialText : FailureText(tooBig);
             owner.Ui(delegate { Done(result, problem); });
         }
+
+        internal const string PartialText = "La captura se cort\u00F3 antes de terminar: se ha guardado lo capturado hasta ese momento.";
 
         internal static string FailureText(bool tooBig)
         {
