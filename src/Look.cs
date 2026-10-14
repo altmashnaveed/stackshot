@@ -105,15 +105,38 @@ namespace Stackshot
             float k = r.Width / 24f;
             g.ScaleTransform(k, k);
             float w = Math.Max(1.55f, 1.25f / k + 0.9f); // slightly thinner stroke at larger sizes
+            bool drawn;
             using (Pen p = new Pen(c, w))
             using (SolidBrush b = new SolidBrush(c))
             {
                 p.StartCap = LineCap.Round;
                 p.EndCap = LineCap.Round;
                 p.LineJoin = LineJoin.Round;
-                Paint(g, name, p, b);
+                drawn = Paint(g, name, p, b);
             }
             g.Restore(st);
+            if (!drawn) FromGlyph(g, name, r, c);
+        }
+
+        // An icon only the app's glyph set has (bell, note, heart...): its picture, rendered once per size and colour and
+        // faded here, so an animated fade doesn't render it again every frame. Unknown to both: a plain circle.
+        static void FromGlyph(Graphics g, string name, RectangleF r, Color c)
+        {
+            // The glyph is rendered by WPF, which needs a UI (STA) thread.
+            if (!Glyph.Has(name) || System.Threading.Thread.CurrentThread.GetApartmentState() != System.Threading.ApartmentState.STA)
+            {
+                using (Pen p = new Pen(c, 1.5f)) g.DrawEllipse(p, r.X + r.Width / 6, r.Y + r.Height / 6, r.Width * 2 / 3, r.Height * 2 / 3);
+                return;
+            }
+            int px = Math.Max(1, (int)Math.Round(r.Width));
+            Bitmap bmp = Ink.GlyphBitmap(name, px, System.Windows.Media.Color.FromRgb(c.R, c.G, c.B), Math.Max(1.3, px / 11.0));
+            Rectangle to = new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), px, px);
+            if (c.A >= 255) { g.DrawImage(bmp, to); return; }
+            using (ImageAttributes ia = new ImageAttributes())
+            {
+                ia.SetColorMatrix(new ColorMatrix { Matrix33 = c.A / 255f });
+                g.DrawImage(bmp, to, 0, 0, px, px, GraphicsUnit.Pixel, ia);
+            }
         }
 
         static void RoundRect(Graphics g, Pen p, float x1, float y1, float x2, float y2, float r)
@@ -126,7 +149,8 @@ namespace Stackshot
             g.FillEllipse(b, x - r, y - r, r * 2, r * 2);
         }
 
-        static void Paint(Graphics g, string name, Pen p, SolidBrush b)
+        // False for a name it doesn't draw.
+        static bool Paint(Graphics g, string name, Pen p, SolidBrush b)
         {
             switch (name)
             {
@@ -396,9 +420,9 @@ namespace Stackshot
                     g.DrawLines(p, new PointF[] { new PointF(12, 7.5f), new PointF(12, 12), new PointF(15, 14) });
                     break;
                 default:
-                    g.DrawEllipse(p, 4, 4, 16, 16);
-                    break;
+                    return false;
             }
+            return true;
         }
     }
 }
