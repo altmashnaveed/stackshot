@@ -77,6 +77,10 @@ namespace Stackshot
         int menuHot = -1;
         bool menuArmed;
         RectangleF menuRect;
+        List<Choice> menuGone;         // the menu just closed, fading out (drawn only, never clicked)
+        RectangleF menuGoneRect;
+        double menuGoneAt;
+        const double MenuInMs = 170, MenuOutMs = 130;
         // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
         int menuWell = -1, session = -1, sessionReps;
         bool menuSticky;            // the menu stays a minute and ignores clicks elsewhere (news after an update)
@@ -549,6 +553,8 @@ namespace Stackshot
             Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { owner.WellLater(k, 600000); m.Say(MascotTalk.WellLater(settings), 3200); });
             Add("close", "Hoy no", null, delegate { owner.WellLater(k, -1); m.Say(MascotTalk.WellToday(settings, k), 3200); });
             menuAt = menuSeen = Anim.Now;
+            menuGone = null;
+            Halt();
             menuArmed = false;
             menuRect = RectangleF.Empty;
             menuHot = -1;
@@ -573,6 +579,8 @@ namespace Stackshot
             AddSep();
             Add("gear", "Ajustar los avisos", null, delegate { owner.ShowHome("mascotset", false); });
             menuAt = menuSeen = Anim.Now;
+            menuGone = null;
+            Halt();
             menuArmed = false;
             menuRect = RectangleF.Empty;
             menuHot = -1;
@@ -590,6 +598,8 @@ namespace Stackshot
             Add("sparkle", "Ver las novedades", null, open);
             Add("clock", "Luego", null, delegate { m.Say("Cuando quieras: Inicio, Acerca de, Novedades.", 3600); });
             menuAt = menuSeen = Anim.Now;
+            menuGone = null;
+            Halt();
             // Like a reminder, it stays while you work (clicks elsewhere don't close it) and goes after a minute.
             menuSticky = true;
             menuArmed = false;
@@ -643,6 +653,8 @@ namespace Stackshot
             menu = new List<Choice>();
             Header(header);
             menuAt = menuSeen = Anim.Now;
+            menuGone = null;
+            Halt();
             // It stays while you work (clicks elsewhere don't close it) and goes after a minute; the clock above its
             // head then says it is waiting, and a click on it brings the same choices back.
             menuSticky = menuFocus = true;
@@ -1206,6 +1218,7 @@ namespace Stackshot
                     break;
                 case State.Walk:
                 {
+                    if (menu != null || menuDue > 0) { Halt(); break; }
                     double step = (leaving ? 160 : Math.Abs(targetX - bx) > 600 * s ? 150 : 75) * s * dt;
                     if (Math.Abs(targetX - bx) <= step)
                     {
@@ -1253,7 +1266,9 @@ namespace Stackshot
             bool still = state == State.Walk && fast && menu == null && bubble == null && m.Bubble == null && !lastFull && (++walkFrame & 1) == 1;
             if (still) MoveOnly(); else Render(now);
 
-            bool wantFast = state == State.Drag || state == State.Fall || state == State.Walk || slide != 0;
+            // The menu opening or closing runs at the display's rate too, so it glides instead of stepping.
+            bool menuMoving = (menu != null && now - menuAt < MenuInMs + 200) || (menuGone != null && now - menuGoneAt < MenuOutMs + 40);
+            bool wantFast = state == State.Drag || state == State.Fall || state == State.Walk || slide != 0 || menuMoving;
             SetFast(wantFast);
             SetInterval(MascotRate.Pet(false, wantFast, menu != null, m.Lively, now - lastNear < MascotRate.NearMs));
         }
@@ -1335,7 +1350,8 @@ namespace Stackshot
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 m.Paint(g);
-                if (menu != null) PaintMenu(g, now);
+                if (menu != null) PaintMenu(g, now, menu, menuRect, menuHot, false);
+                else if (menuGone != null) PaintMenu(g, now, menuGone, menuGoneRect, -1, true);
                 else if (bubble != null && m.BubbleAlpha >= 0.02) PaintBubble(g);
                 else if (owner.FocusState.On) PaintPill(g);
             }
@@ -1405,6 +1421,15 @@ namespace Stackshot
                 RectangleF r = MenuLayout(g);
                 return RectangleF.FromLTRB(r.Left - 15 * s, r.Top - 15 * s, r.Right + 15 * s, r.Bottom + 22 * s);
             }
+            if (menuGone != null)
+            {
+                if (Anim.Now - menuGoneAt < MenuOutMs)
+                {
+                    RectangleF r = menuGoneRect;
+                    return RectangleF.FromLTRB(r.Left - 15 * s, r.Top - 15 * s, r.Right + 15 * s, r.Bottom + 22 * s);
+                }
+                menuGone = null;
+            }
             if (m.Bubble != null) bubble = m.Bubble;
             if (bubble != null && m.BubbleAlpha < 0.02 && m.Bubble == null) bubble = null;
             if (bubble == null || m.BubbleAlpha < 0.02)
@@ -1469,7 +1494,6 @@ namespace Stackshot
             m.WakeUp();
             m.Bubble = null;
             bubble = null;
-            m.Hop(0.9);
             menu = new List<Choice>();
             // Focus mode on: where it stands and what can be done, first.
             FocusClock f = owner.FocusState;
@@ -1503,6 +1527,8 @@ namespace Stackshot
             Add("logo", "Abrir Stackshot", null, delegate { owner.ShowHome("home", false); });
             Add("home", "Vete a casa", null, GoHome);
             menuAt = menuSeen = Anim.Now;
+            menuGone = null;
+            Halt();
             menuArmed = false;
             menuRect = RectangleF.Empty;
             menuHot = -1;
@@ -1525,8 +1551,29 @@ namespace Stackshot
             menu.Add(c);
         }
 
+        // Stands still where it is: a press or a menu stops a walk, so the menu never travels across the screen with it.
+        // It stays put a moment after the menu closes too.
+        void Halt()
+        {
+            if (state == State.Walk)
+            {
+                state = State.Idle;
+                targetX = bx;
+                if (!leaving) RememberSpot(false);
+            }
+            slide = 0;
+            nextIdea = Math.Max(nextIdea, Anim.Now + 5000);
+        }
+
         void CloseMenu()
         {
+            if (menu != null && !menuRect.IsEmpty)
+            {
+                menuGone = menu;
+                menuGoneRect = menuRect;
+                menuGoneAt = Anim.Now;
+                nextIdea = Math.Max(nextIdea, Anim.Now + 3500);
+            }
             menu = null;
             menuHot = -1;
             menuWell = -1;
@@ -1567,25 +1614,39 @@ namespace Stackshot
             return menuRect;
         }
 
-        void PaintMenu(Graphics g, double now)
+        // list and box: the open menu, or the one fading out after it closed (away).
+        void PaintMenu(Graphics g, double now, List<Choice> list, RectangleF box, int hotRow, bool away)
         {
             Palette pal = Ds.Brushes;
             bool dark = pal.Dark;
             Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
             float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, arrow = 7 * s;
-            float x = menuRect.X, y = menuRect.Y, w = menuRect.Width, h = menuRect.Height;
+            float x = box.X, y = box.Y, w = box.Width, h = box.Height;
 
-            // Quick ease-out: a fade with a slight settle in size, anchored at the arrow.
-            double t = (now - menuAt) / 1000.0, a = Math.Min(1, t / 0.1), p = 1 - Math.Exp(-t * 20);
+            // Opening: it fades in and grows up out of the arrow, eased out. Closing: a quick fade and a slight shrink.
+            double t = (now - (away ? menuGoneAt : menuAt)) / 1000.0, a, sc, rise;
+            if (away)
+            {
+                a = Math.Max(0, 1 - t / (MenuOutMs / 1000.0));
+                sc = 0.97 + 0.03 * a;
+                rise = 0;
+            }
+            else
+            {
+                double k = Math.Min(1, t / (MenuInMs / 1000.0)), p = 1 - Math.Exp(-t * 16);
+                a = 1 - Math.Pow(1 - k, 3);
+                sc = 0.94 + 0.06 * p;
+                rise = 8 * s * (1 - p);
+            }
             float tailX = Math.Max(x + 22 * s, Math.Min(x + w - 22 * s, MidX));
             GraphicsState st = g.Save();
-            // Scaled only while it settles: once there (about 0.3 s), it is drawn at exactly its size, with no
-            // transform left over that would soften the text.
-            if (p < 0.995)
+            // Moved only while it settles: once there, it is drawn at exactly its size, with no transform left over that
+            // would soften the text.
+            if (sc < 0.997 || rise > 0.05)
             {
-                float oy = y + h + arrow, sc = (float)(0.95 + 0.05 * p);
-                g.TranslateTransform(tailX, oy);
-                g.ScaleTransform(sc, sc);
+                float oy = y + h + arrow;
+                g.TranslateTransform(tailX, oy + (float)rise);
+                g.ScaleTransform((float)sc, (float)sc);
                 g.TranslateTransform(-tailX, -oy);
             }
 
@@ -1594,14 +1655,14 @@ namespace Stackshot
             // Soft shadow: stacked rounded rectangles that fade out.
             for (int i = pal.High ? 0 : 8; i >= 1; i--)
             {
-                RectangleF sr = menuRect;
+                RectangleF sr = box;
                 sr.Inflate(i * 1.5f * s, i * 1.5f * s);
                 sr.Offset(0, 5 * s);
                 double f = 1 - i / 9.0;
                 using (GraphicsPath sp = Theme.Round(sr, 10 * s + i * 1.5f * s))
                     MascotParts.FillSolid(g, sp, Color.FromArgb((int)((dark ? 15 : 8) * f * f * a + 0.5), 0, 0, 0));
             }
-            using (GraphicsPath cp = Theme.Round(menuRect, 10 * s))
+            using (GraphicsPath cp = Theme.Round(box, 10 * s))
             using (GraphicsPath tp = new GraphicsPath())
             {
                 MascotParts.FillSolid(g, cp, Fade(bg, a));
@@ -1619,9 +1680,9 @@ namespace Stackshot
 
             Color label = Ds.Gdi(pal.Label), label2 = Ds.Gdi(pal.Label2);
             float ry = y + pad;
-            for (int i = 0; i < menu.Count; i++)
+            for (int i = 0; i < list.Count; i++)
             {
-                Choice c = menu[i];
+                Choice c = list[i];
                 if (c.Header)
                 {
                     c.R = RectangleF.Empty;
@@ -1642,7 +1703,7 @@ namespace Stackshot
                 }
                 // Rows on whole pixels too: 9 px separators at 125 % would leave the rows below on half pixels.
                 c.R = new RectangleF((float)Math.Round(x + pad), (float)Math.Round(ry), (float)Math.Round(w - pad * 2), (float)Math.Round(rowH));
-                bool hot = i == menuHot;
+                bool hot = i == hotRow;
                 if (hot)
                     using (GraphicsPath hp = Theme.Round(c.R, 6 * s)) MascotParts.FillSolid(g, hp, Fade(Ds.Gdi(pal.Accent), a));
                 Color fg = hot ? Ds.Gdi(pal.OnAccent) : label;
@@ -1696,6 +1757,7 @@ namespace Stackshot
             if (e.Button != MouseButtons.Left) return;
             down = true;
             Capture = true;
+            Halt();
             smN = 0;
             downAt = Control.MousePosition;
             grab = new Point(downAt.X - (int)bx, downAt.Y - (int)by);
@@ -1749,7 +1811,7 @@ namespace Stackshot
             if (menu != null && clicks == 0) { CloseMenu(); return; }
             clicks = now - lastClick < 380 ? clicks + 1 : 1;
             lastClick = now;
-            if (clicks == 1) menuDue = now + 260;
+            if (clicks == 1) menuDue = now + 220;
             else
             {
                 menuDue = 0;
