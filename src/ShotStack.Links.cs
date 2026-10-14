@@ -91,6 +91,7 @@ namespace Stackshot
             string error;
             string target = LinkTarget(typed, out error);
             if (target == null) return error;
+            if (!Safe(target)) return "Esa direcci\u00F3n o ruta no se puede usar.";
             if (links == null) LoadLinks();
             foreach (QuickLink l in links)
                 if (string.Equals(l.Target, target, StringComparison.OrdinalIgnoreCase)) return "Ya lo tienes en tus accesos r\u00E1pidos: \u00AB" + l.Name + "\u00BB.";
@@ -135,6 +136,16 @@ namespace Stackshot
 
         static string LinkText(string s) { return (s ?? "").Replace("\t", " ").Replace("\r", " ").Replace("\n", " ").Trim(); }
 
+        // What may come from accesos.txt: a web address or a full path (no other schemes, no quotes that would break the
+        // command line), as adding one only allows.
+        static bool Safe(string target)
+        {
+            if (target.Length == 0 || target.IndexOf('"') >= 0) return false;
+            Uri u;
+            if (Uri.TryCreate(target, UriKind.Absolute, out u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps)) return true;
+            return target.StartsWith("\\\\") || (target.Length >= 3 && char.IsLetter(target[0]) && target[1] == ':' && (target[2] == '\\' || target[2] == '/'));
+        }
+
         void LoadLinks()
         {
             links = new List<QuickLink>();
@@ -144,7 +155,7 @@ namespace Stackshot
                 foreach (string line in File.ReadAllLines(LinksFile, Encoding.UTF8))
                 {
                     string[] p = line.Split(new char[] { '\t' }, 2);
-                    if (p.Length == 2 && p[0].Trim().Length > 0 && p[1].Trim().Length > 0 && links.Count < MaxLinks)
+                    if (p.Length == 2 && p[0].Trim().Length > 0 && Safe(p[1].Trim()) && links.Count < MaxLinks)
                         links.Add(new QuickLink { Name = p[0].Trim(), Target = p[1].Trim() });
                 }
             }

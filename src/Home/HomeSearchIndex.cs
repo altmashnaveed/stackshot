@@ -61,7 +61,12 @@ namespace Stackshot
             new string[] { "copiar", "portapapeles", "pegar" },
             new string[] { "borrar", "eliminar", "limpiar" },
             new string[] { "fotogramas", "fps" },
-            new string[] { "nombre", "archivo", "fichero" }
+            new string[] { "nombre", "archivo", "fichero" },
+            new string[] { "reloj", "fitbit", "watch", "pulsera", "pasos", "sueno" },
+            new string[] { "acceso", "enlace", "favorito", "web", "url" },
+            new string[] { "completa", "virtual", "remoto", "presentacion" },
+            new string[] { "resumen", "hora" },
+            new string[] { "nota", "apunte", "apuntar" }
         };
 
         // Left out of a search with other words: "carpeta de capturas" needs no "de" in the row, "modo oscuro" or

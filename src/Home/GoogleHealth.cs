@@ -108,14 +108,19 @@ namespace Stackshot
                 using (TcpClient c = ear.AcceptTcpClient())
                 using (NetworkStream s = c.GetStream())
                 {
-                    s.ReadTimeout = 5000;
-                    string line = new StreamReader(s, Encoding.ASCII).ReadLine() ?? "";
+                    // A browser sends its request at once; a connection that sends nothing doesn't hold the wait (or Cancel).
+                    s.ReadTimeout = 1500;
+                    string line;
+                    // An empty connection (browsers open some ahead of time) is dropped and the wait goes on.
+                    try { line = new StreamReader(s, Encoding.ASCII).ReadLine() ?? ""; }
+                    catch (IOException) { continue; }
                     string[] parts = line.Split(' ');
                     string target = parts.Length > 1 ? parts[1] : "";
                     if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, Mark.Fail, "P\u00E1gina no encontrada", null, "Esta direcci\u00F3n no es de Stackshot."); continue; }
                     Dictionary<string, string> q = Query(target);
-                    string got;
-                    if (q.TryGetValue("error", out got))
+                    string got, from;
+                    // Google sends the state back with an error too: without it, the error comes from somewhere else.
+                    if (q.TryGetValue("error", out got) && q.TryGetValue("state", out from) && from == state)
                     {
                         if (got == "access_denied")
                         {
@@ -168,8 +173,14 @@ namespace Stackshot
             byte[] body = Encoding.UTF8.GetBytes(html);
             string reason = code == 200 ? "OK" : code == 400 ? "Bad Request" : "Not Found";
             byte[] head = Encoding.ASCII.GetBytes("HTTP/1.1 " + code + " " + reason + "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + body.Length + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n");
-            s.Write(head, 0, head.Length);
-            s.Write(body, 0, body.Length);
+            // A tab closed before the page arrives changes nothing: the connection's result stands.
+            try
+            {
+                s.Write(head, 0, head.Length);
+                s.Write(body, 0, body.Length);
+            }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
         }
 
         static Dictionary<string, string> Query(string target)
