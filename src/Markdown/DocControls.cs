@@ -297,7 +297,7 @@ namespace Stackshot
             foreach (UIElement e in Root.Children) if (e is StackPanel && Panel.GetZIndex(e) == 100) e.Visibility = Visibility.Collapsed;
             Palette pal = Ds.Brushes;
             Root.Background = HasMica ? Brushes.Transparent : Ds.Brush(pal.Window);
-            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (e.ClickCount == 1) try { DragMove(); } catch { } };
+            DragAnywhere();
 
             Grid g = new Grid { Margin = new Thickness(24, 22, 22, 20) };
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

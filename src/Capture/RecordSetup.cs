@@ -82,7 +82,7 @@ namespace Stackshot
             Topmost = true;
             ShowActivated = true;
             Icon = AppIcon;
-            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (e.ClickCount == 1) try { DragMove(); } catch { } };
+            DragAnywhere();
             Build();
             Access.Dialog(this, null);
             KeyDown += delegate(object o, KeyEventArgs e)

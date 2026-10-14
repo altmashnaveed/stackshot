@@ -69,7 +69,11 @@ namespace Stackshot
             Deactivated += delegate { DimCaptions(true); };
             try { System.Windows.Forms.Integration.ElementHost.EnableModelessKeyboardInterop(this); } catch { }
             Access.Track(this);
+            SizeChanged += delegate(object o, SizeChangedEventArgs e) { Refit(e.PreviousSize); };
+            LocationChanged += delegate { if (!placing && IsLoaded) moved = true; };
         }
+
+        bool moved, placing;
 
         public IntPtr Handle { get { return hwnd; } }
 
@@ -319,6 +323,62 @@ namespace Stackshot
                 if ((SizeToContent == SizeToContent.Height || SizeToContent == SizeToContent.WidthAndHeight) && MaxHeight > h) MaxHeight = h;
             }
             catch (Exception ex) { ShotStack.Log("Ventana al \u00E1rea de trabajo: " + ex.Message); }
+        }
+
+        // A window that sizes itself to its content and grows after opening (another page, a longer list) stays on its
+        // screen: one never moved by hand grows around its middle, as it opened centred, and any of them is pushed back
+        // inside the work area instead of running past the bottom.
+        void Refit(Size before)
+        {
+            if (SizeToContent == SizeToContent.Manual || !IsLoaded || hwnd == IntPtr.Zero || WindowState != WindowState.Normal || before.Height <= 0) return;
+            try
+            {
+                System.Windows.Forms.Screen scr = System.Windows.Forms.Screen.FromHandle(hwnd);
+                double k = Math.Max(1f, ShotStack.ScaleFor(scr));
+                D.Rectangle wa = scr.WorkingArea;
+                double wl = wa.Left / k, wt = wa.Top / k, wr = wa.Right / k, wb = wa.Bottom / k, h = Math.Max(240, wa.Height / k - 16);
+                if (MaxHeight > h) MaxHeight = h;
+                double top = Top, left = Left;
+                if (!moved)
+                {
+                    top -= (ActualHeight - before.Height) / 2;
+                    left -= (ActualWidth - before.Width) / 2;
+                }
+                top = Math.Max(wt + 8, Math.Min(top, wb - ActualHeight - 8));
+                left = Math.Max(wl + 8, Math.Min(left, wr - ActualWidth - 8));
+                if (Math.Abs(top - Top) < 0.5 && Math.Abs(left - Left) < 0.5) return;
+                placing = true;
+                try { Top = top; Left = left; }
+                finally { placing = false; }
+            }
+            catch (Exception ex) { ShotStack.Log("Ventana al \u00E1rea de trabajo: " + ex.Message); }
+        }
+
+        // Drags the window from any spot a click does nothing on (the page, a title, a paragraph); buttons, boxes, links
+        // and scroll bars keep their clicks.
+        protected void DragAnywhere()
+        {
+            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e)
+            {
+                if (e.ClickCount != 1 || Clickable(e.OriginalSource as DependencyObject)) return;
+                try { DragMove(); } catch { }
+            };
+        }
+
+        static bool Clickable(DependencyObject d)
+        {
+            for (int i = 0; d != null && i < 64; i++)
+            {
+                if (d is System.Windows.Documents.Hyperlink || d is System.Windows.Controls.Primitives.ButtonBase || d is System.Windows.Controls.Primitives.TextBoxBase ||
+                    d is PasswordBox || d is System.Windows.Controls.Primitives.Thumb || d is System.Windows.Controls.Primitives.ScrollBar ||
+                    d is System.Windows.Controls.Primitives.Selector || d is System.Windows.Controls.Primitives.RangeBase || d is Drawn) return true;
+                ITap tap = d as ITap;
+                if (tap != null && (tap.State.Interactive || tap.State.Do != null)) return true;
+                FrameworkElement fe = d as FrameworkElement;
+                if (fe != null && (fe.Cursor == Cursors.Hand || fe.Cursor == Cursors.IBeam)) return true;
+                d = d is Visual ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+            }
+            return false;
         }
 
         [StructLayout(LayoutKind.Sequential)] struct MINMAXINFO { public int rx, ry, sx, sy, mx, my, px, py, tx, ty; }

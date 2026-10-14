@@ -47,7 +47,7 @@ namespace Stackshot
             Topmost = true;
             Icon = AppIcon;
             at = DateTime.Now.AddHours(1).ToString("H:00");
-            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (e.ClickCount == 1 && e.OriginalSource == Root) try { DragMove(); } catch { } };
+            DragAnywhere();
             KeyDown += delegate(object o, KeyEventArgs e)
             {
                 if (e.Handled) return;

@@ -67,7 +67,7 @@ namespace Stackshot
             Topmost = true;
             Icon = AppIcon;
             // Controls handle their own presses; anything else that reaches the root moves the window.
-            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (e.ClickCount == 1) try { DragMove(); } catch { } };
+            DragAnywhere();
             Build();
             KeyDown += delegate(object o, KeyEventArgs e)
             {

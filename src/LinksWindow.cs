@@ -38,7 +38,7 @@ namespace Stackshot
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Icon = AppIcon;
-            Root.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (e.ClickCount == 1 && e.OriginalSource == Root) try { DragMove(); } catch { } };
+            DragAnywhere();
             KeyDown += delegate(object o, KeyEventArgs e)
             {
                 if (e.Handled) return;
