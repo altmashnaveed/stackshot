@@ -40,7 +40,7 @@ namespace Stackshot
         StackPanel page;
         TextBox titleBox, whatBox, stepsBox;
         MacButton send;
-        TextBlock statusLabel, missing;
+        TextBlock statusLabel, missing, titleNeed, whatNeed;
 
         public static void Open() { Open(false); }
 
@@ -114,10 +114,10 @@ namespace Stackshot
             seg.Changed += delegate(int i) { Keep(); kind = i; Build(); };
             page.Children.Add(seg);
 
-            page.Children.Add(Caption("T\u00EDtulo", pal));
+            page.Children.Add(Caption("T\u00EDtulo", pal, out titleNeed));
             titleBox = Field(title, MaxTitle, false, 0, "T\u00EDtulo");
             page.Children.Add(Frame(titleBox));
-            page.Children.Add(Caption(kind == 0 ? "\u00BFQu\u00E9 ha pasado?" : "\u00BFQu\u00E9 te gustar\u00EDa?", pal));
+            page.Children.Add(Caption(kind == 0 ? "\u00BFQu\u00E9 ha pasado?" : "\u00BFQu\u00E9 te gustar\u00EDa?", pal, out whatNeed));
             whatBox = Field(what, MaxWhat, true, 110, "Descripci\u00F3n");
             page.Children.Add(Frame(whatBox));
             if (kind == 0)
@@ -405,6 +405,8 @@ namespace Stackshot
             if (send == null) return;
             int t = titleBox.Text.Trim().Length, w = whatBox.Text.Trim().Length;
             send.IsEnabled = !sending && t >= 4 && w >= 10;
+            Need(titleNeed, t, 4);
+            Need(whatNeed, w, 10);
             if (missing == null) return;
             string field = kind == 0 ? "\u00AB\u00BFQu\u00E9 ha pasado?\u00BB" : "\u00AB\u00BFQu\u00E9 te gustar\u00EDa?\u00BB";
             missing.Text = sending ? "" : t == 0 && w == 0 ? "Escribe un t\u00EDtulo y " + field + "."
@@ -627,6 +629,26 @@ namespace Stackshot
         static TextBlock Caption(string s, Palette pal)
         {
             return Text(s, Ds.Semibold, 12.5, pal.Label, new Thickness(0, 16, 0, 6));
+        }
+
+        // A caption with the field's minimum on its right ("mínimo 10 letras"), which Validate ticks once it is reached.
+        static FrameworkElement Caption(string s, Palette pal, out TextBlock need)
+        {
+            Grid g = new Grid { Margin = new Thickness(0, 16, 0, 6) };
+            g.Children.Add(Text(s, Ds.Semibold, 12.5, pal.Label, new Thickness(0)));
+            need = Text("", Ds.Regular, 12, pal.Label3, new Thickness(0));
+            need.HorizontalAlignment = HorizontalAlignment.Right;
+            g.Children.Add(need);
+            return g;
+        }
+
+        static void Need(TextBlock t, int have, int min)
+        {
+            if (t == null) return;
+            Palette pal = Ds.Brushes;
+            bool ok = have >= min;
+            t.Text = "m\u00EDnimo " + min + " letras" + (ok ? "  \u2713" : have > 0 ? "  \u00B7  " + have + "/" + min : "");
+            t.Foreground = Ds.Brush(ok ? (pal.High ? pal.Label : pal.Green) : pal.Label3);
         }
 
         static TextBox Field(string text, int max, bool multi, double height, string name)
