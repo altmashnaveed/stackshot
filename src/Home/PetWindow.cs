@@ -580,6 +580,7 @@ namespace Stackshot
             for (int i = 0; i < WellKind.Count; i++)
             {
                 int k = i;
+                if (k == WellKind.Water && !owner.WaterOn) continue;
                 string text = k == WellKind.Water ? "Bebe agua conmigo" : k == WellKind.Eyes ? "Descansa la vista (20 s)" :
                               k == WellKind.Move ? (owner.MoveIsStretch ? "Estira la espalda" : "Estira las piernas") : "Respira conmigo (1 min)";
                 Add(WellKind.Glyphs[k], text, null, delegate { StartSession(k); });
@@ -1641,9 +1642,13 @@ namespace Stackshot
             Add("bell", "Recu\u00E9rdame algo\u2026", pending > 0 ? pending + (pending == 1 ? " pendiente" : " pendientes") : null, delegate { QuickWindow.Remind(owner); });
             Add("memo", "Apunta algo\u2026", null, delegate { QuickWindow.Note(owner); });
             if (!f.On) Add("clock", "Concentrarme " + FocusClock.Minutes(settings.FocusWork), null, owner.FocusStart);
-            Add("drop", "Una pausa conmigo", null, OpenBreaks);
-            int water = owner.WaterToday();
-            Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
+            // Only what is turned on: no breaks or water rows for someone who doesn't use them.
+            if (settings.WellOn) Add("drop", "Una pausa conmigo", null, OpenBreaks);
+            if (owner.WaterOn)
+            {
+                int water = owner.WaterToday();
+                Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
+            }
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
             if (GoogleHealth.Connected && !f.On)
             {

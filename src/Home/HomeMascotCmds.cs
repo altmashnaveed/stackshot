@@ -197,9 +197,14 @@ namespace Stackshot
                                      delegate { return settings.SummaryHour * 60 + settings.SummaryMinute; },
                                      delegate(int m) { settings.SummaryHour = m / 60; settings.SummaryMinute = m % 60; }));
             // What it tells, there and in its menu's "how was the day": one chip per part, each on or off.
-            List<string> names = new List<string> { "Agua", "Pausas", "Concentraci\u00F3n", "Capturas" };
-            List<int> bits = new List<int> { Settings.SummaryWater, Settings.SummaryBreaks, Settings.SummaryFocus, Settings.SummaryCaptures };
-            if (GoogleHealth.Available) { names.Add("Pasos"); bits.Add(Settings.SummarySteps); }
+            // Only the parts that can have something to tell: water and breaks while they are on, steps with the watch.
+            List<string> names = new List<string>();
+            List<int> bits = new List<int>();
+            if (owner.WaterOn) { names.Add("Agua"); bits.Add(Settings.SummaryWater); }
+            if (settings.WellOn) { names.Add("Pausas"); bits.Add(Settings.SummaryBreaks); }
+            names.Add("Concentraci\u00F3n"); bits.Add(Settings.SummaryFocus);
+            names.Add("Capturas"); bits.Add(Settings.SummaryCaptures);
+            if (GoogleHealth.Connected) { names.Add("Pasos"); bits.Add(Settings.SummarySteps); }
             rows.Add(new ChipsRow("Qu\u00E9 incluye el resumen", "Toca para quitar o poner. Vale tambi\u00E9n para \u00AB\u00BFQu\u00E9 tal el d\u00EDa?\u00BB de su men\u00FA.", "check", Mac.Green, Mac.Teal,
                                   names.ToArray(), bits.ToArray(), delegate { return settings.SummaryParts; }, delegate(int v) { settings.SummaryParts = v; }));
             if (GoogleHealth.Available)

@@ -66,6 +66,10 @@ namespace Stackshot
 
         // ---- Water
 
+        // Water is followed once the healthy breaks are on and there is a reminder to drink or a daily goal; otherwise
+        // nothing offers or counts it.
+        public bool WaterOn { get { return settings.WellOn && (settings.WellWater > 0 || settings.WaterGoal > 0); } }
+
         // Glasses today: the ones done with the mascot or "+1 vaso", or the water logged on the watch if that is more.
         public int WaterToday()
         {
@@ -90,9 +94,9 @@ namespace Stackshot
             int want = settings.SummaryParts;
             List<string> parts = new List<string>();
             int water = WaterToday();
-            if ((want & Settings.SummaryWater) != 0 && (water > 0 || settings.WaterGoal > 0))
+            if ((want & Settings.SummaryWater) != 0 && WaterOn && (water > 0 || settings.WaterGoal > 0))
                 parts.Add(settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal + " vasos de agua" : water + (water == 1 ? " vaso" : " vasos") + " de agua");
-            if ((want & Settings.SummaryBreaks) != 0)
+            if ((want & Settings.SummaryBreaks) != 0 && settings.WellOn)
             {
                 int[] done = Wellness.Today(settings);
                 int eyes = done[WellKind.Eyes], move = done[WellKind.Move], breathe = done[WellKind.Breathe];
@@ -103,7 +107,7 @@ namespace Stackshot
             FocusDayCheck();
             if ((want & Settings.SummaryFocus) != 0 && settings.FocusBlocks > 0)
                 parts.Add(settings.FocusBlocks + (settings.FocusBlocks == 1 ? " bloque" : " bloques") + " de concentraci\u00F3n (" + FocusClock.Minutes(settings.FocusMinutes) + ")");
-            if ((want & Settings.SummarySteps) != 0 && watch != null && watch.ReadAt.Date == DateTime.Today && watch.Steps > 0)
+            if ((want & Settings.SummarySteps) != 0 && GoogleHealth.Connected && watch != null && watch.ReadAt.Date == DateTime.Today && watch.Steps > 0)
                 parts.Add(watch.Steps.ToString("N0", Es) + " pasos");
             StatsDayCheck();
             if ((want & Settings.SummaryCaptures) != 0 && settings.StatsCaptures > 0)
