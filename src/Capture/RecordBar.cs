@@ -825,6 +825,59 @@ namespace Stackshot
             tick.Dispose();
             if (previous == this) previous = null;
         }
+
+        protected override AccessibleObject CreateAccessibilityInstance() { return new BarAccess(this); }
+
+        // For screen readers: what the bar is doing ("Grabando 1:23", "En pausa", "Guardando") and its buttons, each
+        // pressed as a click would be (Descartar asks first, as with the mouse).
+        sealed class BarAccess : PartsAccessible
+        {
+            readonly RecordBar b;
+            public BarAccess(RecordBar b) : base(b) { this.b = b; }
+
+            public override AccessibleRole Role { get { return AccessibleRole.ToolBar; } }
+            public override string Name { get { return "Barra de grabaci\u00F3n"; } }
+            public override string Value
+            {
+                get
+                {
+                    if (b.phase == Phase.Rec) return (b.paused ? PausedText : "Grabando") + " " + Clock(b.session.Elapsed);
+                    if (b.phase == Phase.Progress || b.phase == Phase.Busy) return "Guardando la grabaci\u00F3n";
+                    return "Grabaci\u00F3n guardada";
+                }
+            }
+
+            protected override string Signature()
+            {
+                return b.phase + "|" + b.paused + "|" + (b.armedAt >= 0) + "|" + b.CapLeft() + "|" + b.stopX + "|" + b.pauseX + "|" + b.discardX + "|" + b.srcX +
+                       "|" + (b.hasMic && b.session.Microphone.Muted) + "|" + (b.hasSys && b.session.SystemAudio.Muted);
+            }
+
+            Rectangle Window(Rectangle capsule)
+            {
+                capsule.Offset(b.CapLeft() + b.Pad, b.Pad);
+                return capsule;
+            }
+
+            protected override void Fill(List<PartAccessible> into)
+            {
+                if (b.phase != Phase.Rec) return;
+                Add(into, "Detener y guardar", b.StopRect(), 0);
+                Add(into, b.paused ? ResumeTip : PauseTip, b.PauseRect(), 5);
+                Add(into, b.armedAt >= 0 ? "Descartar (pulsa otra vez para confirmar)" : "Descartar", b.DiscardRect(), 1);
+                if (b.paused || b.armedAt >= 0) return;
+                if (b.hasMic) Add(into, b.session.Microphone.Muted ? "Activar el micr\u00F3fono" : "Silenciar el micr\u00F3fono", b.SourceRect(b.hasSys ? 1 : 0), 2);
+                if (b.hasSys) Add(into, b.session.SystemAudio.Muted ? "Activar el sonido del equipo" : "Silenciar el sonido del equipo", b.SourceRect(0), 3);
+            }
+
+            void Add(List<PartAccessible> into, string name, Rectangle capsule, int what)
+            {
+                PartAccessible p = NewPart(into, name, AccessibleRole.PushButton, Window(capsule));
+                p.PartState = StateOf(true, false, false);
+                p.PartAction = "Pulsar";
+                p.Do = delegate { if (!b.IsDisposed) b.Act(what); };
+            }
+        }
     }
 
     // Quiet frame around the recorded area: a fine translucent white line with white corner marks, on click-through
