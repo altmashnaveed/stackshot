@@ -968,6 +968,7 @@ namespace Stackshot
             BuildMascotBehavior();
             BuildWellness();
             BuildFocus();
+            BuildHealth();
             Group("En el escritorio",
                 new ToggleRow("Mascota en el escritorio", "Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "screen", Mac.Indigo, Mac.Purple,
                               delegate { return settings.MascotDesktop; }, delegate(bool v) { settings.MascotDesktop = v; owner.MascotChanged(); })

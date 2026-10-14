@@ -211,7 +211,9 @@ namespace Stackshot
                 s = ns;
                 D = (int)Math.Round(84 * s);
                 W = (int)Math.Round(340 * s);
-                H = (int)Math.Round(D * 1.02 + 400 * s);
+                // Room above it for the longest menu (focus mode on: its line and choices on top of the rest); only what
+                // is drawn is ever repainted or sent to the screen.
+                H = (int)Math.Round(D * 1.02 + 580 * s);
                 if (dib != null) dib.Dispose();
                 dib = new Dib(W, H, true);
             }
@@ -644,6 +646,38 @@ namespace Stackshot
             nextIdea = Anim.Now + 8000;
         }
 
+        // ---- Health: what it tells about your day and your watch, in a card that waits while you work.
+
+        public void HealthTell(string text, bool cheer)
+        {
+            if (cheer) m.Perform(MascotCmd.Cheer);
+            FocusPrompt(text);
+            menuFocus = false;
+            Add("check", "Gracias", null, delegate { });
+        }
+
+        public void HealthAskMove(string text)
+        {
+            FocusPrompt(text);
+            menuFocus = false;
+            Add(WellKind.Glyphs[WellKind.Move], "Estiramos las piernas", null, delegate { StartSession(WellKind.Move); });
+            Add("clock", "Luego", null, delegate { m.Say("Vale, luego nos movemos.", 2600); });
+        }
+
+        void DrinkOne()
+        {
+            string up;
+            int n = owner.WaterPlusOne(out up);
+            m.Perform(MascotCmd.Water);
+            m.Say(MascotTalk.WellCount(WellKind.Water, n, settings.WaterGoal) + (up != null ? " " + up : ""), 3600);
+        }
+
+        void TellDay()
+        {
+            string day = owner.DaySummary();
+            HealthTell(day != null ? day : "Todav\u00EDa no ha pasado nada que contar hoy. \u00A1Vamos all\u00E1!", false);
+        }
+
         // What can be done now, for the questions and the top of its menu.
         void AddFocusChoices(FocusClock f)
         {
@@ -872,7 +906,7 @@ namespace Stackshot
             if (alone) m.Perform(MascotCmd.Cheer);
             m.Celebrate(null);
             // Always said, chatty or not: it is the answer to what the user chose.
-            string line = settings.MascotTalks ? MascotTalk.WellDone(settings, kind, today) : MascotTalk.WellCount(kind, today);
+            string line = settings.MascotTalks ? MascotTalk.WellDone(settings, kind, today) : MascotTalk.WellCount(kind, today, settings.WaterGoal);
             m.Say(line + (levelUp != null ? " " + levelUp : ""), 4600);
         }
 
@@ -1341,6 +1375,9 @@ namespace Stackshot
             Add("play", "Ponte a jugar", null, delegate { m.Perform(MascotCmd.Play); });
             Add("drop", "Una pausa conmigo", null, OpenBreaks);
             if (!f.On) Add("clock", "Concentrarme " + FocusClock.Minutes(settings.FocusWork), null, owner.FocusStart);
+            int water = owner.WaterToday();
+            Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
+            Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
             Add("sparkle", "Haz un truco", null, delegate
             {
                 int trick = rnd.Next(MascotCmd.Tricks + 1);

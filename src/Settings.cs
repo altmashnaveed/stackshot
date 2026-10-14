@@ -99,6 +99,15 @@ namespace Stackshot
         public bool FocusAuto = false, FocusSound = true;
         public string FocusDay = "";
         public int FocusBlocks, FocusMinutes;
+        // Health: glasses of water a day (0 none), the hour of the day's summary (0 none) and the day it was given,
+        // comments on the watch's numbers, what was already said about them today ("date|keys"), the last reading of
+        // the watch ("steps|goal|sleep|active|water|ticks"), a short night's date (breaks come a little more often)
+        // and today's captures (StatsDay is their date).
+        public int WaterGoal = 8, SummaryHour = 18;
+        public string SummaryDay = "";
+        public bool HealthTalk = true;
+        public string HealthSaid = "", FitbitLast = "", ShortSleepDay = "", StatsDay = "";
+        public int StatsCaptures;
         // Updates.
         public bool CheckUpdates = true;
         public string LastUpdateCheck = "";
@@ -268,6 +277,15 @@ namespace Stackshot
                         case "focusday": s.FocusDay = Cut(v, 10); break;
                         case "focusblocks": s.FocusBlocks = Int(v, 0, 0, 999); break;
                         case "focusminutes": s.FocusMinutes = Int(v, 0, 0, 99999); break;
+                        case "watergoal": s.WaterGoal = Int(v, s.WaterGoal, 0, 20); break;
+                        case "summaryhour": s.SummaryHour = Int(v, s.SummaryHour, 0, 23); break;
+                        case "summaryday": s.SummaryDay = Cut(v, 10); break;
+                        case "healthtalk": s.HealthTalk = Bool(v, s.HealthTalk); break;
+                        case "healthsaid": s.HealthSaid = Cut(v, 120); break;
+                        case "fitbitlast": s.FitbitLast = Cut(v, 120); break;
+                        case "shortsleepday": s.ShortSleepDay = Cut(v, 10); break;
+                        case "statsday": s.StatsDay = Cut(v, 10); break;
+                        case "statscaptures": s.StatsCaptures = Int(v, 0, 0, 99999); break;
                         case "checkupdates": s.CheckUpdates = Bool(v, s.CheckUpdates); break;
                         case "lastupdatecheck": s.LastUpdateCheck = v; break;
                         case "autoupdate": s.AutoUpdate = Bool(v, s.AutoUpdate); break;
@@ -458,6 +476,16 @@ namespace Stackshot
             b.AppendLine("FocusDay = " + OneLine(FocusDay));
             b.AppendLine("FocusBlocks = " + FocusBlocks);
             b.AppendLine("FocusMinutes = " + FocusMinutes);
+            b.AppendLine("# Salud: vasos de agua al dia (0 = sin objetivo) y hora del resumen del dia (0 = no)");
+            b.AppendLine("WaterGoal = " + WaterGoal);
+            b.AppendLine("SummaryHour = " + SummaryHour);
+            b.AppendLine("SummaryDay = " + OneLine(SummaryDay));
+            b.AppendLine("HealthTalk = " + (HealthTalk ? "1" : "0"));
+            b.AppendLine("HealthSaid = " + OneLine(HealthSaid));
+            b.AppendLine("FitbitLast = " + OneLine(FitbitLast));
+            b.AppendLine("ShortSleepDay = " + OneLine(ShortSleepDay));
+            b.AppendLine("StatsDay = " + OneLine(StatsDay));
+            b.AppendLine("StatsCaptures = " + StatsCaptures);
             b.AppendLine("CheckUpdates = " + (CheckUpdates ? "1" : "0"));
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("AutoUpdate = " + (AutoUpdate ? "1" : "0"));

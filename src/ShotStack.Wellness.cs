@@ -33,7 +33,7 @@ namespace Stackshot
             double now = Anim.Now;
             int idle = IdleMs();
             wellness.Tick(now, idle);
-            int kind = wellness.Due(now, Wellness.MinutesOf(settings));
+            int kind = wellness.Due(now, WellMinutes());
             // Nobody at the computer right now (lunch with the screen on): it waits until you're back. A focus block
             // running: it waits for the break (where the mascot offers it).
             if (kind < 0 || idle >= Wellness.ActiveIdleMs || FocusHoldsBreaks) return;
@@ -53,7 +53,7 @@ namespace Stackshot
                 return;
             }
             if (callChecking || WellQuiet()) return;
-            string text = MascotTalk.Remind(settings, kind, Wellness.MinutesOf(settings)[kind]);
+            string text = MascotTalk.Remind(settings, kind, WellMinutes()[kind]);
             wellness.Shown(now);
             // Answered or not, it comes back in a while; an answer replaces this.
             wellness.Later(kind, now, Wellness.IgnoredMs);
@@ -65,7 +65,7 @@ namespace Stackshot
                 {
                     string up;
                     int today = WellDone(k, out up);
-                    Notify(settings.MascotName, MascotTalk.WellCount(k, today) + (up != null ? " " + up : ""));
+                    Notify(settings.MascotName, MascotTalk.WellCount(k, today, settings.WaterGoal) + (up != null ? " " + up : ""));
                 });
             }
         }
@@ -92,7 +92,7 @@ namespace Stackshot
         // The healthy break that is due now, or -1 (none, or the breaks are off).
         public int WellDueKind()
         {
-            return settings.WellOn ? wellness.Due(Anim.Now, Wellness.MinutesOf(settings)) : -1;
+            return settings.WellOn ? wellness.Due(Anim.Now, WellMinutes()) : -1;
         }
 
         // Later: after ms, or (ms < 0) not again today.

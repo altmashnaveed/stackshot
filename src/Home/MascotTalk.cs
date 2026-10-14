@@ -192,12 +192,18 @@ namespace Stackshot
         public static string WellDone(Settings s, int kind, int today)
         {
             return By(s.MascotPersonality, new string[] { "\u00A1Genial! ", "\u00A1Muy bien! ", "\u00A1As\u00ED me gusta! " }, new string[] { "Bien hecho. ", "Perfecto. ", "Qu\u00E9 bien. " },
-                      new string[] { "Mira t\u00FA qu\u00E9 disciplina. ", "No est\u00E1 mal. ", "Ole. " }) + WellCount(kind, today);
+                      new string[] { "Mira t\u00FA qu\u00E9 disciplina. ", "No est\u00E1 mal. ", "Ole. " }) + WellCount(kind, today, s.WaterGoal);
         }
 
         // How many of that break today, said plainly (also when the mascot doesn't chat).
-        public static string WellCount(int kind, int today)
+        public static string WellCount(int kind, int today) { return WellCount(kind, today, 0); }
+
+        // waterGoal: the glasses a day aimed at (0 none), said with the water count.
+        public static string WellCount(int kind, int today, int waterGoal)
         {
+            if (kind == WellKind.Water && waterGoal > 0)
+                return today >= waterGoal ? (today == waterGoal ? "\u00A1Objetivo de agua cumplido: " + waterGoal + " vasos!" : "Ya van " + today + " vasos hoy: objetivo cumplido.")
+                     : today == 1 ? "Tu primer vaso de hoy (de " + waterGoal + ")." : "Ya van " + today + " de " + waterGoal + " vasos hoy.";
             return kind == WellKind.Water ? (today == 1 ? "Tu primer vaso de hoy." : "Ya van " + today + " vasos hoy.")
                  : kind == WellKind.Eyes ? (today == 1 ? "Primer descanso de vista de hoy." : today + " descansos de vista hoy.")
                  : kind == WellKind.Move ? (today == 1 ? "Primera pausa para moverte." : today + " pausas para moverte hoy.")

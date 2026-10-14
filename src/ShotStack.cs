@@ -213,6 +213,7 @@ namespace Stackshot
             StartWellness();
             StartNews(justInstalled);
             StartReportWatch();
+            StartHealth();
         }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.
@@ -846,7 +847,7 @@ namespace Stackshot
                 catch (Exception ex) { Log("Portapapeles: " + ex.Message); }
             }
             Log("Captura: " + Path.GetFileName(path) + " (" + size.Width + "x" + size.Height + ")");
-            if (!Test) AddLove();
+            if (!Test) { AddLove(); CountCapture(); }
             if (Captured != null) Captured(path);
             return path;
         }
