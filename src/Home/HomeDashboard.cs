@@ -105,6 +105,8 @@ namespace Stackshot
             links.Children.Add(AboutLink("Novedades", Program.RepoUrl + "/releases"));
             links.Children.Add(Label("\u00B7", Ds.Regular, 12, pal.Label3, new Thickness(8, 0, 8, 0)));
             links.Children.Add(AboutAction("Informar de un problema", ReportWindow.Open));
+            links.Children.Add(Label("\u00B7", Ds.Regular, 12, pal.Label3, new Thickness(8, 0, 8, 0)));
+            links.Children.Add(AboutAction("Mis reportes", ReportWindow.OpenMine));
             head.Children.Add(links);
             Add(head);
 
