@@ -2135,6 +2135,7 @@ namespace Stackshot
             cards.Clear();
             if (toasts != null) toasts.CloseAll();
             if (pet != null) { pet.Close(); pet = null; }
+            StickyNotes.CloseAll();
             Updater.Stop();
             upChip.Close();
             downChip.Close();

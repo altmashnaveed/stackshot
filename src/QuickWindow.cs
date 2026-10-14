@@ -85,6 +85,22 @@ namespace Stackshot
             Border frame = Frame(box, hint);
             frame.Margin = new Thickness(0, 16, 0, 0);
             page.Children.Add(frame);
+            if (note)
+            {
+                box.PreviewKeyDown += delegate(object o, KeyEventArgs e)
+                {
+                    if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None) return;
+                    TextBox b = (TextBox)o;
+                    TextEdit ed = EditCommands.Enter(b.Text, b.SelectionStart, b.SelectionLength);
+                    if (ed.None) return;
+                    e.Handled = true;
+                    b.Select(ed.Start, ed.Remove);
+                    b.SelectedText = ed.Insert;
+                    int p = Math.Max(0, Math.Min(b.Text.Length, ed.SelStart));
+                    b.Select(p, Math.Max(0, Math.Min(b.Text.Length - p, ed.SelLength)));
+                };
+                page.Children.Add(Text("Empieza una l\u00EDnea con \u00AB- [ ] \u00BB para una lista de tareas.", Ds.Regular, 11.5, pal.Label3, new Thickness(2, 6, 0, 0)));
+            }
 
             if (!note)
             {
@@ -165,6 +181,20 @@ namespace Stackshot
                         Access.Clickable(x, drop);
                         DockPanel.SetDock(x, Dock.Right);
                         row.Children.Add(x);
+                        bool pinned = StickyNotes.IsPinned(it.Key);
+                        string pinLabel = pinned ? "Quitar del escritorio" : "Fijar en el escritorio";
+                        TapBorder pin = new TapBorder { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Brushes.Transparent, Cursor = Cursors.Hand, Label = pinLabel, ToolTip = pinLabel, Margin = new Thickness(6, 0, 0, 0) };
+                        pin.Child = new GlyphView("pin", 11, pinned ? pal.Accent : pal.Label2, 1.8) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                        Action togglePin = delegate
+                        {
+                            Keep();
+                            if (StickyNotes.IsPinned(it.Key)) StickyNotes.Forget(it.Key); else StickyNotes.Pin(owner, it);
+                            Build();
+                        };
+                        pin.MouseLeftButtonUp += delegate { togglePin(); };
+                        Access.Clickable(pin, togglePin);
+                        DockPanel.SetDock(pin, Dock.Right);
+                        row.Children.Add(pin);
                         TextBlock when = Text(n.When, Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 10, 0));
                         DockPanel.SetDock(when, Dock.Left);
                         row.Children.Add(when);
@@ -193,6 +223,12 @@ namespace Stackshot
             MacButton save = new MacButton(note ? "Apuntar" : "Recu\u00E9rdamelo", ButtonKind.Primary, note ? "check" : "clock", note ? "Ctrl+Intro" : null, 32);
             save.Click += Save;
             buttons.Children.Add(save);
+            if (note)
+            {
+                MacButton savePin = new MacButton("Guardar y fijar", ButtonKind.Secondary, "pin", null, 32) { Margin = new Thickness(8, 0, 0, 0) };
+                savePin.Click += SavePin;
+                buttons.Children.Add(savePin);
+            }
             buttons.Children.Add(cancel);
             page.Children.Add(buttons);
         }
@@ -203,7 +239,7 @@ namespace Stackshot
             if (text.Trim().Length == 0) { Say(note ? "Escribe lo que quieres apuntar." : "Escribe qu\u00E9 te recuerdo."); return; }
             if (note)
             {
-                if (owner.AddNote(text)) { owner.Told("Apuntado en tus notas."); Close(); }
+                if (SaveNote()) Close();
                 return;
             }
             DateTime due;
@@ -218,6 +254,24 @@ namespace Stackshot
                 if (due <= DateTime.Now) due = due.AddDays(1);
             }
             owner.AddReminder(text, due, false);
+            Close();
+        }
+
+        bool SaveNote()
+        {
+            if (!owner.AddNote(text)) return false;
+            owner.Told("Apuntado en tus notas.");
+            return true;
+        }
+
+        // Saves the note and pins it on the desktop.
+        void SavePin()
+        {
+            Keep();
+            if (text.Trim().Length == 0) { Say("Escribe lo que quieres apuntar."); return; }
+            if (!SaveNote()) return;
+            List<ShotStack.Note> newest = owner.LastNotes(1);
+            if (newest.Count > 0) StickyNotes.Pin(owner, newest[0]);
             Close();
         }
 

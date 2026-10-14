@@ -37,6 +37,7 @@ namespace Stackshot
                 catch (Exception ex) { Log("Recordatorios: " + ex.Message); }
             };
             if (reminders.Count > 0) remindTimer.Start();
+            StickyNotes.RestoreAll(this);
         }
 
         // ---- Reminders
@@ -263,7 +264,9 @@ namespace Stackshot
         // Removes a note and the lines that belong to it.
         public bool DeleteNote(Note n)
         {
-            return EditNote(n, delegate(List<string> lines, int at, int count) { lines.RemoveRange(at, count); });
+            bool ok = EditNote(n, delegate(List<string> lines, int at, int count) { lines.RemoveRange(at, count); });
+            if (ok) StickyNotes.Forget(n.Key);
+            return ok;
         }
 
         // Finds the note again by its first line (the last one like it: the newest) and rewrites the file.

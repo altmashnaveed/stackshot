@@ -1655,7 +1655,8 @@ namespace Stackshot
                 GoogleHealth.Today w = owner.Watch;
                 Add("walk", "Mi actividad", w != null && !w.Empty ? w.Steps.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("es-ES")) + " pasos" : null, TellActivity);
             }
-            if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting)
+            // Not for someone who said they have no watch (it stays in Ajustes > Salud y actividad).
+            if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting && settings.FitbitAsked != "no")
                 Add("google", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
