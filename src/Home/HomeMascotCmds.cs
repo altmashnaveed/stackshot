@@ -308,10 +308,13 @@ namespace Stackshot
                 // Snapped to the quarter hour, inside the day's range.
                 int m = (int)Math.Round(get() / (double)Step) * Step + by;
                 m = Math.Max(First, Math.Min(Last, m));
+                bool was = W.SummaryCustom;
                 set(m);
                 if (shown != null) shown.Text = At(m);
                 W.Changed();
                 W.SyncRows();
+                // Landed on 17:00, 18:00 or 19:00: that choice lights up above and this row goes.
+                if (W.SummaryCustom != was) W.Dispatcher.BeginInvoke((Action)delegate { if (W.IsVisible) W.Rebuild(); });
             }
         }
 

@@ -159,18 +159,18 @@ namespace Stackshot
         // Today's steps at each reading (to tell a walk from an hour sitting still); kept while the app runs.
         readonly List<KeyValuePair<DateTime, int>> stepLog = new List<KeyValuePair<DateTime, int>>();
 
-        // "Hoy llevas 4.343 pasos (el 43 % de tu objetivo), anoche dormiste 7 h 10 min y llevas 12 min de actividad intensa."
+        // "Hoy llevas 4.343 pasos (el 43 % de tu objetivo), anoche dormiste 7 h 10 min y llevas 12 min de actividad moderada o intensa."
         public string ActivityLine()
         {
             GoogleHealth.Today w = Watch;
-            if (w == null) return WatchError != null ? "No he podido leer tu reloj: " + WatchError : "Todavía no he leído tu reloj hoy.";
-            if (w.Empty) return "Google aún no tiene datos de hoy. Abre la app de tu reloj en el móvil para que se sincronice y vuelvo a mirarlo.";
+            if (w == null) return WatchError != null ? "No he podido leer tu reloj: " + WatchError : "Todav\u00EDa no he le\u00EDdo tu reloj hoy.";
+            if (w.Empty) return "Google a\u00FAn no tiene datos de hoy. Abre la app de tu reloj en el m\u00F3vil para que se sincronice y vuelvo a mirarlo.";
             int goal = w.StepsGoal;
-            string steps = w.Steps >= goal ? "¡Hoy ya llevas " + w.Steps.ToString("N0", Es) + " pasos: objetivo cumplido!"
+            string steps = w.Steps >= goal ? "\u00A1Hoy ya llevas " + w.Steps.ToString("N0", Es) + " pasos: objetivo cumplido!"
                          : "Hoy llevas " + w.Steps.ToString("N0", Es) + " pasos, el " + w.Steps * 100 / goal + " % de tu objetivo de " + goal.ToString("N0", Es) + ".";
             List<string> more = new List<string>();
             if (w.SleepMinutes > 0) more.Add("anoche dormiste " + Hours(w.SleepMinutes));
-            if (w.ActiveMinutes > 0) more.Add("llevas " + w.ActiveMinutes + " min de actividad intensa");
+            if (w.ActiveMinutes > 0) more.Add("llevas " + w.ActiveMinutes + " min de actividad moderada o intensa");
             string extra = more.Count == 0 ? "" : " " + char.ToUpper(more[0][0]) + string.Join(" y ", more.ToArray()).Substring(1) + ".";
             if (w.Steps < goal && DateTime.Now.Hour >= 12) extra += " Te faltan " + (goal - w.Steps).ToString("N0", Es) + ": unos " + WalkMinutes(goal - w.Steps) + " min andando.";
             return steps + extra;
@@ -217,11 +217,15 @@ namespace Stackshot
                     if (t != null)
                     {
                         if (!t.Empty) Logged(t);
-                        watch = t;
-                        settings.FitbitLast = t.Steps + "|" + t.StepsGoal + "|" + t.SleepMinutes + "|" + t.ActiveMinutes + "|" + t.WaterMl + "|" + t.ReadAt.Ticks + "|" + (t.Empty ? "vacio" : "");
-                        settings.Save();
-                        Log(t.Empty ? "Google Health: leído, Google aún no tiene pasos de hoy"
-                                    : "Google Health: leído, " + t.Steps + " pasos, " + t.SleepMinutes + " min de sueño, " + t.ActiveMinutes + " min activo");
+                        // An empty answer after a good one today (Google catching up) keeps the good one.
+                        if (!(t.Empty && Watch != null && !Watch.Empty))
+                        {
+                            watch = t;
+                            settings.FitbitLast = t.Steps + "|" + t.StepsGoal + "|" + t.SleepMinutes + "|" + t.ActiveMinutes + "|" + t.WaterMl + "|" + t.ReadAt.Ticks + "|" + (t.Empty ? "vacio" : "");
+                            settings.Save();
+                        }
+                        Log(t.Empty ? "Google Health: le\u00EDdo, Google a\u00FAn no tiene pasos de hoy"
+                                    : "Google Health: le\u00EDdo, " + t.Steps + " pasos, " + t.SleepMinutes + " min de sue\u00F1o, " + t.ActiveMinutes + " min activo");
                         if (!t.Empty) WatchMoved();
                         if (!quiet) WatchSays();
                     }
@@ -346,9 +350,10 @@ namespace Stackshot
                 pet.FocusSay("\u00A1Ya vas por la mitad! " + w.Steps.ToString("N0", Es) + " de " + goal.ToString("N0", Es) + " pasos.");
                 return;
             }
-            // An hour sitting still during the working day: a nudge (it stands for the "Moverse" break).
+            // An hour sitting still during the working day: a nudge (it stands for the "Moverse" break). Not a single step means
+            // the phone hasn't synced the watch yet, not that you sat still: then it says nothing.
             int still = StepsSince(55, out ago);
-            if (now.Hour >= 9 && now.Hour < 19 && still >= 0 && still < 150 && ago <= 120 && Said("quieto" + now.Hour / 2))
+            if (now.Hour >= 9 && now.Hour < 19 && still > 0 && still < 150 && ago <= 120 && Said("quieto" + now.Hour / 2))
             {
                 if (settings.WellOn) WellLater(WellKind.Move, 40 * 60 * 1000);
                 pet.HealthAskMove("En " + (ago >= 90 ? "la \u00FAltima hora y media" : "la \u00FAltima hora") + " solo has dado " + still + " pasos. \u00BFEstiramos las piernas un par de minutos?");

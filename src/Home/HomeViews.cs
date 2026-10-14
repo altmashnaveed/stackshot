@@ -64,7 +64,7 @@ namespace Stackshot
         {
             System.Text.StringBuilder b = new System.Text.StringBuilder();
             b.Append(DateTime.Today.Ticks).Append(MascotTalk.Greeting()).Append(Recorder.Recording).Append(settings.MascotLove).Append(settings.MascotName);
-            if (settings.HomeStyle == 1) b.Append('|').Append(GoogleHealth.Connected).Append(settings.FitbitLast).Append(owner.WatchError);
+            if (settings.HomeStyle == 1) b.Append('|').Append(GoogleHealth.Connected).Append(settings.FitbitLast).Append(settings.StepsGoal).Append(owner.WatchError);
             if (settings.ShowRecent) foreach (FileInfo f in Recents.Latest(settings, 5)) b.Append('|').Append(f.FullName).Append(f.LastWriteTimeUtc.Ticks);
             return b.ToString();
         }

@@ -15,19 +15,21 @@ namespace Stackshot
 
         public bool Web { get { return Target.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Target.StartsWith("https://", StringComparison.OrdinalIgnoreCase); } }
 
-        // The glyph for its kind: a page, a folder, a program or a file.
+        // The glyph for its kind: a page, a folder, a program or a file. Worked out from the text alone (no disk is
+        // asked while the menu opens): a folder is saved with a "\" at the end.
         public string Icon
         {
             get
             {
                 if (Web) return "open";
+                if (Folder) return "folder";
                 string ext = Path.GetExtension(Target).ToLowerInvariant();
                 if (ext == ".exe" || ext == ".lnk" || ext == ".bat" || ext == ".cmd") return "app";
-                // A network share isn't asked (it could take long to answer): no extension means a folder.
-                bool folder = Target.StartsWith("\\\\") ? ext.Length == 0 || Target.EndsWith("\\") : Directory.Exists(Target);
-                return folder ? "folder" : "doc";
+                return ext.Length == 0 ? "folder" : "doc";
             }
         }
+
+        public bool Folder { get { return !Web && (Target.EndsWith("\\") || Target.EndsWith("/")); } }
     }
 
     public partial class ShotStack
@@ -59,7 +61,8 @@ namespace Stackshot
             if (path.StartsWith("\\\\")) return path;   // a network share: not checked (it could take long to answer)
             if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
             {
-                if (Directory.Exists(path) || File.Exists(path)) return path;
+                if (Directory.Exists(path)) return path.EndsWith("\\") || path.EndsWith("/") ? path : path + "\\";
+                if (File.Exists(path)) return path;
                 error = "No encuentro esa carpeta o ese archivo.";
                 return null;
             }
@@ -89,6 +92,8 @@ namespace Stackshot
             string target = LinkTarget(typed, out error);
             if (target == null) return error;
             if (links == null) LoadLinks();
+            foreach (QuickLink l in links)
+                if (string.Equals(l.Target, target, StringComparison.OrdinalIgnoreCase)) return "Ya lo tienes en tus accesos r\u00E1pidos: \u00AB" + l.Name + "\u00BB.";
             if (links.Count >= MaxLinks) return "Ya tienes " + MaxLinks + " accesos: quita alguno para a\u00F1adir otro.";
             name = LinkText(name);
             if (name.Length == 0) name = LinkText(LinkName(target));
@@ -111,7 +116,13 @@ namespace Stackshot
         {
             try
             {
-                if (!l.Web && l.Icon == "folder") Process.Start(Native.Explorer, "\"" + l.Target + "\"");
+                if (l.Folder)
+                {
+                    // Without the last backslash (a quoted "C:\Carpeta\" ends in an escaped quote), except for a drive.
+                    string p = l.Target.TrimEnd('\\', '/');
+                    // A drive goes unquoted for the same reason ("D:\" has no spaces).
+                    Process.Start(Native.Explorer, p.Length == 2 && p[1] == ':' ? p + "\\" : "\"" + p + "\"");
+                }
                 else Process.Start(new ProcessStartInfo(l.Target) { UseShellExecute = true });
                 return null;
             }

@@ -219,7 +219,7 @@ namespace Stackshot
                 W = (int)Math.Round(340 * s);
                 // Room above it for the longest menu (focus mode on: its line and choices on top of the rest); only what
                 // is drawn is ever repainted or sent to the screen.
-                H = (int)Math.Round(D * 1.02 + 720 * s);
+                H = (int)Math.Round(D * 1.02 + 800 * s);
                 if (dib != null) dib.Dispose();
                 dib = new Dib(W, H, true);
             }
@@ -691,31 +691,39 @@ namespace Stackshot
             {
                 owner.WalkStarted();
                 m.Perform(MascotCmd.Cheer);
-                m.Say("¡Genial! Cuando vuelvas te digo cuántos pasos has dado.", 3600);
+                m.Say("\u00A1Genial! Cuando vuelvas te digo cu\u00E1ntos pasos has dado.", 3600);
             });
-            Add("clock", "Ahora no", null, delegate { m.Say("Vale. Si luego te apetece, aquí estoy.", 2600); });
+            Add("clock", "Ahora no", null, delegate { m.Say("Vale. Si luego te apetece, aqu\u00ED estoy.", 2600); });
         }
 
-        static readonly string[] Opening = { "¡Marchando!", "¡Te lo abro!", "¡Ahí va!", "¡Hecho!" };
+        static readonly string[] Opening = { "\u00A1Marchando!", "\u00A1Te lo abro!", "\u00A1Ah\u00ED va!", "\u00A1Hecho!" };
 
         void OpenLink(QuickLink l)
         {
             string why = owner.OpenLink(l);
             if (why != null) { m.Say(why, 3600); return; }
-            if (settings.MascotTalks) m.Say(Opening[rnd.Next(Opening.Length)] + " «" + l.Name + "»", 2200);
+            if (settings.MascotTalks) m.Say(Opening[rnd.Next(Opening.Length)] + " \u00AB" + l.Name + "\u00BB", 2200);
         }
 
         // "Mi actividad": the watch is read now and the mascot tells how the day goes.
         void TellActivity()
         {
-            if (owner.WatchReading) { HealthTell(owner.ActivityLine(), false); return; }
-            m.Say("Miro tu reloj…", 2200);
-            owner.ReadWatch(delegate
+            m.Say("Miro tu reloj\u2026", 2200);
+            Action tell = delegate
             {
                 if (IsDisposed || !Visible) return;
                 GoogleHealth.Today w = owner.Watch;
                 HealthTell(owner.ActivityLine(), w != null && !w.Empty && w.Steps >= w.StepsGoal);
-            }, true);
+            };
+            // A reading already under way: told when it ends.
+            if (owner.WatchReading)
+            {
+                Action once = null;
+                once = delegate { owner.WatchRead -= once; tell(); };
+                owner.WatchRead += once;
+                return;
+            }
+            owner.ReadWatch(delegate { tell(); }, true);
         }
 
         // "Haz un truco": only real tricks (no props, no just talking), never one of the last two again.
@@ -1256,7 +1264,7 @@ namespace Stackshot
                     break;
                 case State.Walk:
                 {
-                    if (menu != null || menuDue > 0) { Halt(); break; }
+                    if ((menu != null || menuDue > 0) && !leaving) { Halt(); break; }
                     double step = (leaving ? 160 : Math.Abs(targetX - bx) > 600 * s ? 150 : 75) * s * dt;
                     if (Math.Abs(targetX - bx) <= step)
                     {
@@ -1549,13 +1557,13 @@ namespace Stackshot
             // Quick links: each one opens with a word from it; the last row adds or tidies them.
             // A few fit above the mascot (fewer with the focus rows on top); the rest open from their window.
             List<QuickLink> links = owner.Links;
-            int room = f.On ? 3 : 5;
+            int room = f.On ? 2 : 5;
             for (int i = 0; i < links.Count && i < room; i++)
             {
                 QuickLink it = links[i];
                 Add(it.Icon, it.Name, null, delegate { OpenLink(it); });
             }
-            Add("plus", links.Count == 0 ? "Añadir un acceso rápido…" : "Accesos rápidos…", links.Count > room ? (links.Count - room) + " más" : null,
+            Add("plus", links.Count == 0 ? "A\u00F1adir un acceso r\u00E1pido\u2026" : "Accesos r\u00E1pidos\u2026", links.Count > room ? (links.Count - room) + " m\u00E1s" : null,
                 delegate { LinksWindow.Show(owner); });
             AddSep();
             // What it helps with: reminders, notes, focus, breaks and the day.
@@ -1567,7 +1575,7 @@ namespace Stackshot
             int water = owner.WaterToday();
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
-            if (GoogleHealth.Connected)
+            if (GoogleHealth.Connected && !f.On)
             {
                 GoogleHealth.Today w = owner.Watch;
                 Add("walk", "Mi actividad", w != null && !w.Empty ? w.Steps.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("es-ES")) + " pasos" : null, TellActivity);
@@ -1610,7 +1618,7 @@ namespace Stackshot
         // It stays put a moment after the menu closes too.
         void Halt()
         {
-            if (state == State.Walk)
+            if (state == State.Walk && !leaving)
             {
                 state = State.Idle;
                 targetX = bx;

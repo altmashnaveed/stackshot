@@ -173,7 +173,7 @@ namespace Stackshot
                     {
                         int end = line.IndexOf("**", 4);
                         if (end < 0) continue;
-                        string body = line.Substring(end + 2).TrimStart(' ', '·').Trim();
+                        string body = line.Substring(end + 2).TrimStart(' ', '\u00B7').Trim();
                         all.Add(new KeyValuePair<string, string>(line.Substring(4, end - 4), body));
                     }
                     else if (line.StartsWith("  ") && all.Count > 0 && line.Trim().Length > 0)
@@ -210,22 +210,27 @@ namespace Stackshot
         // Each file to where it opens (at most five), a folder to the quick links; what the mascot says about it.
         public string OpenDropped(string[] files)
         {
-            int pics = 0, vids = 0, docs = 0;
-            string skipped = null;
+            int pics = 0, vids = 0, docs = 0, kept = 0;
+            string skipped = null, folder = null, why = null;
             foreach (string f in files)
             {
-                if (pics + vids + docs >= 5) break;
                 if (Directory.Exists(f))
                 {
-                    string why = AddLink(null, f);
-                    return why ?? "¡Apuntada! «" + LinkName(f) + "» ya está en mis accesos rápidos.";
+                    string no = AddLink(null, f);
+                    if (no == null) { kept++; folder = LinkName(f); } else if (why == null) why = no;
+                    continue;
                 }
-                if (!File.Exists(f)) continue;
+                if (pics + vids + docs >= 5 || !File.Exists(f)) continue;
                 if (Is(f, Docs)) { OpenViewerFile(f); docs++; }
                 else if (Is(f, Pictures) || Is(f, Videos)) { OpenMedia(f); if (Is(f, Videos)) vids++; else pics++; }
                 else if (skipped == null) skipped = Path.GetFileName(f);
             }
             int n = pics + vids + docs;
+            // Folders kept as quick links: said first (with the files opened, if any).
+            if (kept > 0)
+                return (kept == 1 ? "\u00A1Apuntada! \u00AB" + folder + "\u00BB ya est\u00E1 en mis accesos r\u00E1pidos." : "\u00A1Apuntadas " + kept + " carpetas en mis accesos r\u00E1pidos!") +
+                       (n > 0 ? " Y te abro " + (n == 1 ? "el archivo." : "los " + n + " archivos.") : "");
+            if (why != null && n == 0) return why;
             if (n == 0) return skipped != null ? "No s\u00E9 qu\u00E9 hacer con \u00AB" + skipped + "\u00BB. Su\u00E9ltame im\u00E1genes, v\u00EDdeos, XML o Markdown." : null;
             if (n > 1) return "\u00A1Abro " + n + " archivos!";
             return pics == 1 ? "\u00A1Al editor!" : vids == 1 ? "\u00A1A verlo!" : "\u00A1Te lo abro!";
