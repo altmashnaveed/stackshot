@@ -115,12 +115,20 @@ namespace Stackshot
             try { Tick(fromPacer); }
             catch (Exception ex)
             {
-                // A drawing bug must not spam the log or eat CPU every frame: stop and leave a trace.
+                // A drawing bug must not spam the log or eat CPU every frame, nor leave the mascot frozen for good: it
+                // pauses, drops the menu (what is most likely to fail), and comes back a second later.
                 timer.Stop();
                 SetFast(false);
-                ShotStack.Log("Mascota en el escritorio: " + ex);
+                if (++tickFailures <= 3) ShotStack.Log("Mascota en el escritorio: " + ex);
+                try { CloseMenu(); } catch (Exception) { }
+                if (IsDisposed || tickFailures > 50) return;
+                Timer again = new Timer { Interval = 1000 };
+                again.Tick += delegate { again.Stop(); again.Dispose(); if (!IsDisposed) timer.Start(); };
+                again.Start();
             }
         }
+
+        int tickFailures;
 
         // Motion runs on the display refresh (DwmFlush) with a 1 ms system timer, only while it moves.
         void SetFast(bool on)
@@ -1568,7 +1576,7 @@ namespace Stackshot
         void PaintBubble(Graphics g)
         {
             if (bubble == null) return;
-            double a = m.BubbleAlpha;
+            double a = Math.Max(0, Math.Min(1, m.BubbleAlpha));
             if (a < 0.02) return;
             Font f = Fonts.Get(Mac.TextFont, 13 * s);
             RectangleF r = BubbleLayout(g);
@@ -1750,6 +1758,9 @@ namespace Stackshot
 
             // Opening: it fades in and grows up out of the arrow, eased out. Closing: a quick fade and a slight shrink.
             double t = (now - (away ? menuGoneAt : menuAt)) / 1000.0, a, sc, rise;
+            // A click can stamp the opening or closing a hair after this frame's clock: no time before it, so no
+            // opacity outside 0..1 (a negative one made GDI+ throw, and the mascot stopped).
+            t = Math.Max(0, t);
             if (away)
             {
                 a = Math.Max(0, 1 - t / (MenuOutMs / 1000.0));
