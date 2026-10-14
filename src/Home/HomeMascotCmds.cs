@@ -176,12 +176,12 @@ namespace Stackshot
                                 new string[] { "No", "17:00", "18:00", "19:00" },
                                 delegate { int i = Array.IndexOf(hours, settings.SummaryHour); return i < 0 ? 2 : i; },
                                 delegate(int i) { settings.SummaryHour = hours[Math.Max(0, Math.Min(hours.Length - 1, i))]; }));
-            // What it tells, there and in "¿Qué tal el día?" of its menu: each part can be left out.
-            rows.Add(SummaryPart("En el resumen: agua", "Los vasos de hoy y tu objetivo.", "drop", Mac.Blue, Mac.Teal, Settings.SummaryWater));
-            rows.Add(SummaryPart("En el resumen: pausas", "Descansos de vista, pausas para moverte y respiraciones.", "eye", Mac.Green, Mac.Teal, Settings.SummaryBreaks));
-            rows.Add(SummaryPart("En el resumen: concentraci\u00F3n", "Bloques y minutos de concentraci\u00F3n.", "clock", Mac.Orange, Mac.Pink, Settings.SummaryFocus));
-            rows.Add(SummaryPart("En el resumen: capturas", "Cu\u00E1ntas capturas has hecho hoy.", "photo", Mac.Indigo, Mac.Purple, Settings.SummaryCaptures));
-            if (Fitbit.Available) rows.Add(SummaryPart("En el resumen: pasos", "Los pasos de tu reloj.", "walk", Mac.Teal, Mac.Green, Settings.SummarySteps));
+            // What it tells, there and in its menu's "how was the day": one chip per part, each on or off.
+            List<string> names = new List<string> { "Agua", "Pausas", "Concentraci\u00F3n", "Capturas" };
+            List<int> bits = new List<int> { Settings.SummaryWater, Settings.SummaryBreaks, Settings.SummaryFocus, Settings.SummaryCaptures };
+            if (Fitbit.Available) { names.Add("Pasos"); bits.Add(Settings.SummarySteps); }
+            rows.Add(new ChipsRow("Qu\u00E9 incluye el resumen", "Toca para quitar o poner. Vale tambi\u00E9n para \u00AB\u00BFQu\u00E9 tal el d\u00EDa?\u00BB de su men\u00FA.", "check", Mac.Green, Mac.Teal,
+                                  names.ToArray(), bits.ToArray(), delegate { return settings.SummaryParts; }, delegate(int v) { settings.SummaryParts = v; }));
             if (Fitbit.Available)
             {
                 bool on = Fitbit.Connected;
@@ -206,11 +206,68 @@ namespace Stackshot
                  "y con el objetivo de agua cumplido, deja de record\u00E1rtelo.");
         }
 
-        ToggleRow SummaryPart(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int bit)
+        // A row of chips that each turn one bit of a setting on or off (lit: included).
+        public class ChipsRow : Row
         {
-            return new ToggleRow(title, sub, icon, c1, c2,
-                                 delegate { return (settings.SummaryParts & bit) != 0; },
-                                 delegate(bool v) { settings.SummaryParts = v ? settings.SummaryParts | bit : settings.SummaryParts & ~bit; });
+            readonly string[] names;
+            readonly int[] bits;
+            readonly Func<int> get;
+            readonly Action<int> set;
+            readonly List<Border> chips = new List<Border>();
+
+            public ChipsRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, string[] names, int[] bits, Func<int> get, Action<int> set)
+                : base(title, sub, icon, c1, c2)
+            {
+                this.names = names;
+                this.bits = bits;
+                this.get = get;
+                this.set = set;
+            }
+
+            protected override FrameworkElement Control()
+            {
+                WrapPanel p = new WrapPanel { MaxWidth = 330, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 6) };
+                chips.Clear();
+                for (int i = 0; i < names.Length; i++)
+                {
+                    int bit = bits[i];
+                    TapBorder c = new TapBorder { CornerRadius = new CornerRadius(13), Padding = new Thickness(11, 4, 11, 5), Margin = new Thickness(6, 3, 0, 3), Cursor = System.Windows.Input.Cursors.Hand,
+                                                  Label = names[i] };
+                    c.Child = new TextBlock { Text = names[i], FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center };
+                    Action flip = delegate { set(get() ^ bit); W.Changed(); Paint(); };
+                    c.MouseLeftButtonUp += delegate { flip(); };
+                    Access.Clickable(c, flip);
+                    chips.Add(c);
+                    p.Children.Add(c);
+                }
+                Paint();
+                return p;
+            }
+
+            void Paint()
+            {
+                Palette pal = Ds.Brushes;
+                int v = get();
+                for (int i = 0; i < chips.Count; i++)
+                {
+                    bool on = (v & bits[i]) != 0;
+                    Border c = chips[i];
+                    c.Background = Ds.Brush(on ? (pal.High ? pal.Accent : Ds.WithAlpha(pal.Accent, pal.Dark ? 0.30 : 0.16)) : pal.Control);
+                    c.BorderBrush = Ds.Brush(on && !pal.High ? Ds.WithAlpha(pal.Accent, 0.55) : pal.Hairline);
+                    c.BorderThickness = new Thickness(1);
+                    TextBlock t = (TextBlock)c.Child;
+                    t.Text = (on ? "\u2713 " : "") + names[i];
+                    t.FontWeight = on ? FontWeights.SemiBold : FontWeights.Normal;
+                    t.Foreground = Ds.Brush(on ? (pal.High ? pal.OnAccent : pal.Label) : pal.Label2);
+                    System.Windows.Automation.AutomationProperties.SetItemStatus(c, on ? "incluido" : "no incluido");
+                }
+            }
+
+            public override void Sync(bool animate)
+            {
+                base.Sync(animate);
+                if (chips.Count > 0) Paint();
+            }
         }
 
         SegRow FocusRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int[] minutes, Func<int> get, Action<int> set)
