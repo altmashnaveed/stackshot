@@ -668,7 +668,7 @@ namespace Stackshot
             owner.ResumeHotkeys();
             Rebuild();
             owner.Notify("Impr Pant ya es de Stackshot",
-                         "Windows la tenía reservada para Recortes; ya está liberada en tu usuario. Si aún se abre Recortes, cierra sesión y vuelve a entrar.");
+                         "Windows la ten\u00EDa reservada para Recortes; ya est\u00E1 liberada en tu usuario. Si a\u00FAn se abre Recortes, cierra sesi\u00F3n y vuelve a entrar.");
         }
 
         // ---- General

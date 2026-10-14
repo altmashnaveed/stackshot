@@ -144,7 +144,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Fijada, copiar: " + ex.Message);
-                Tell("No se pudo copiar", "Otro programa está usando el portapapeles. Vuelve a intentarlo.", null);
+                Tell("No se pudo copiar", "Otro programa est\u00E1 usando el portapapeles. Vuelve a intentarlo.", null);
             }
         }
 
