@@ -251,21 +251,21 @@ namespace Stackshot
             fps = s.CineFps == 30 ? 30 : 60;
             if (!EncoderAvailable(ffmpeg))
             {
-                MessageBox.Show("Esta versi\u00F3n de FFmpeg no incluye el codificador sin p\u00E9rdidas (libx264rgb), que la calidad Cine necesita.\n\n" +
+                Dialogs.Show("Esta versi\u00F3n de FFmpeg no incluye el codificador sin p\u00E9rdidas (libx264rgb), que la calidad Cine necesita.\n\n" +
                                 "Actual\u00EDzalo desde los ajustes de Stackshot o elige otra calidad.", "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             long free = FreeBytes(Settings.TempDir);
             if (free >= 0 && free < MinFreeBytes)
             {
-                MessageBox.Show("No hay espacio suficiente en el disco para grabar sin p\u00E9rdidas: quedan " + (free / 1048576.0 / 1024).ToString("0.0", CultureInfo.InvariantCulture) +
+                Dialogs.Show("No hay espacio suficiente en el disco para grabar sin p\u00E9rdidas: quedan " + (free / 1048576.0 / 1024).ToString("0.0", CultureInfo.InvariantCulture) +
                                 " GB y hacen falta al menos " + (MinFreeBytes >> 30) + " GB (un minuto ocupa desde unos MB hasta varios GB seg\u00FAn el movimiento).",
                                 "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             if (fps == 60 && (long)r.Width * r.Height * 60 > RealtimePixelRate)
             {
-                DialogResult d = MessageBox.Show("El \u00E1rea de " + r.Width + " \u00D7 " + r.Height + " es demasiado grande para codificar sin p\u00E9rdidas a 60 fps en la mayor\u00EDa de los equipos.\n\n" +
+                DialogResult d = Dialogs.Show("El \u00E1rea de " + r.Width + " \u00D7 " + r.Height + " es demasiado grande para codificar sin p\u00E9rdidas a 60 fps en la mayor\u00EDa de los equipos.\n\n" +
                                                  "S\u00ED: grabar a 30 fps, sin p\u00E9rdidas.\nNo: probar a 60 fps (si el equipo no puede seguir, la grabaci\u00F3n se detiene y se conserva lo grabado).\nCancelar: no grabar.",
                                                  "Stackshot", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (d == DialogResult.Cancel) return false;

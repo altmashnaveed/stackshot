@@ -119,7 +119,7 @@ namespace Stackshot
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
                 if (!session.Abandon()) return;
                 if (current == session) current = null;
-                MessageBox.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -156,7 +156,7 @@ namespace Stackshot
             string left = "Quedan " + DiskBudget.Gb(free) + " libres en el disco";
             if (e.TypicalMinutes < 1)
             {
-                MessageBox.Show(left + ": no cabe ni un minuto en " + name + ".\n\nLibera espacio o elige una calidad m\u00E1s ligera.", "Stackshot",
+                Dialogs.Show(left + ": no cabe ni un minuto en " + name + ".\n\nLibera espacio o elige una calidad m\u00E1s ligera.", "Stackshot",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
@@ -165,12 +165,12 @@ namespace Stackshot
             int alt = gif ? -1 : q == Cinema || q == Maximum ? High : q == High ? Standard : -1;
             if (alt < 0)
             {
-                DialogResult ok = MessageBox.Show(fits + "\n\nAceptar: grabar igualmente (" + anyway + ").\nCancelar: no grabar.", "Stackshot",
+                DialogResult ok = Dialogs.Show(fits + "\n\nAceptar: grabar igualmente (" + anyway + ").\nCancelar: no grabar.", "Stackshot",
                                                   MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
                 return ok == DialogResult.OK;
             }
             DiskBudget.Estimate ae = DiskBudget.For(alt, false, r.Width, r.Height, TargetFps(s, alt, false, cineFps), tracks, free);
-            DialogResult d = MessageBox.Show(fits + "\n\nS\u00ED: grabar en " + QualityNames[alt] + " (caben " + DiskBudget.Range(ae.HeavyMinutes, ae.TypicalMinutes) + ").\n" +
+            DialogResult d = Dialogs.Show(fits + "\n\nS\u00ED: grabar en " + QualityNames[alt] + " (caben " + DiskBudget.Range(ae.HeavyMinutes, ae.TypicalMinutes) + ").\n" +
                                              "No: grabar en " + name + " igualmente (" + anyway + ").\nCancelar: no grabar.", "Stackshot",
                                              MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
             if (d == DialogResult.Cancel) return false;
@@ -981,7 +981,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("FFmpeg: " + ex.Message);
-                MessageBox.Show("No se pudo arrancar FFmpeg: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show("No se pudo arrancar FFmpeg: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 if (webcam != null) { webcam.Close(); webcam = null; }
                 long none = 0;
                 if (sys != null) sys.Finish(none);
@@ -1043,7 +1043,7 @@ namespace Stackshot
             if (text == null) return true;
             ShotStack.Log("Cine: aviso antes de grabar: " + source.Description);
             asking = true;
-            try { return MessageBox.Show(text, "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes; }
+            try { return Dialogs.Show(text, "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes; }
             finally { asking = false; }
         }
 
@@ -1106,7 +1106,7 @@ namespace Stackshot
                 prep.Stop();
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
                 if (Abandon()) Recorder.Ended(this);
-                MessageBox.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -2398,10 +2398,10 @@ namespace Stackshot
             MessageBoxIcon icon = mine ? MessageBoxIcon.Information : MessageBoxIcon.Warning;
             if (rescueDir == null || !Directory.Exists(rescueDir))
             {
-                MessageBox.Show(error, "Stackshot", MessageBoxButtons.OK, icon);
+                Dialogs.Show(error, "Stackshot", MessageBoxButtons.OK, icon);
                 return;
             }
-            if (MessageBox.Show(error + "\n\n\u00BFAbrir la carpeta?", "Stackshot", MessageBoxButtons.YesNo, icon) != DialogResult.Yes) return;
+            if (Dialogs.Show(error + "\n\n\u00BFAbrir la carpeta?", "Stackshot", MessageBoxButtons.YesNo, icon) != DialogResult.Yes) return;
             try { Process.Start(Native.Explorer, "\"" + rescueDir + "\""); }
             catch (Exception ex) { ShotStack.Log("Carpeta: " + ex.Message); }
         }
@@ -2449,7 +2449,7 @@ namespace Stackshot
             if (health != null && health.Bad) text += "\n\n" + health.Text;
             else if (stopReason != null && stopReason.StartsWith("El equipo no ha podido", StringComparison.Ordinal))
                 text += "\n\nPrueba a grabar a 30 fps, un \u00E1rea m\u00E1s peque\u00F1a o con m\u00E1s memoria para picos de movimiento (Grabaci\u00F3n > Cine).";
-            MessageBox.Show(text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Dialogs.Show(text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         string Tail()

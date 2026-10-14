@@ -574,9 +574,9 @@ namespace Stackshot
                 {
                     if (!AsksAboutRecording(kind, Recorder.Recording)) return true;
                     string text = kind == QuitKind.Session
-                        ? "Windows quiere cerrar la sesi\u00F3n y hay una grabaci\u00F3n en marcha.\n\nStackshot la detiene y la guarda en tu carpeta antes de salir. \u00BFDetenerla ahora?"
-                        : "Hay una grabaci\u00F3n en marcha.\n\nStackshot la detiene y la guarda en tu carpeta antes de salir. \u00BFSalir ahora?";
-                    return MessageBox.Show(text, "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+                        ? "Windows quiere cerrar la sesi\u00F3n y hay una grabaci\u00F3n en marcha.\n\nStackshot la detiene y la guarda en tu carpeta antes de salir."
+                        : "Hay una grabaci\u00F3n en marcha.\n\nStackshot la detiene y la guarda en tu carpeta antes de salir.";
+                    return Dialogs.Ask(null, text, MessageBoxIcon.Question, new string[] { "Detener y salir", "Seguir grabando" }, 1, 1) == 0;
                 };
                 steps.ConfirmEditors = Editor.ConfirmCloseAll;
                 steps.ConfirmDocuments = MarkdownWindow.ConfirmCloseAll;

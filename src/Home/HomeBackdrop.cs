@@ -122,7 +122,7 @@ namespace Stackshot
         {
             if (Backdrop.CustomCount >= Backdrop.MaxCustom)
             {
-                WF.MessageBox.Show(Win32, "Ya tienes " + Backdrop.MaxCustom + " fondos propios. Quita uno para a\u00F1adir otro.", "Stackshot", WF.MessageBoxButtons.OK, WF.MessageBoxIcon.Information);
+                Dialogs.Show(Win32, "Ya tienes " + Backdrop.MaxCustom + " fondos propios. Quita uno para a\u00F1adir otro.", "Stackshot", WF.MessageBoxButtons.OK, WF.MessageBoxIcon.Information);
                 return;
             }
             using (WF.OpenFileDialog d = new WF.OpenFileDialog())
@@ -137,7 +137,7 @@ namespace Stackshot
                 finally { Mouse.OverrideCursor = null; }
                 if (i < 0)
                 {
-                    WF.MessageBox.Show(Win32, "No se ha podido abrir esa imagen.", "Stackshot", WF.MessageBoxButtons.OK, WF.MessageBoxIcon.Warning);
+                    Dialogs.Show(Win32, "No se ha podido abrir esa imagen.", "Stackshot", WF.MessageBoxButtons.OK, WF.MessageBoxIcon.Warning);
                     return;
                 }
                 swatches.Clear();

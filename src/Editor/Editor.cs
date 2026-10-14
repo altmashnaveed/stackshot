@@ -714,7 +714,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Guardar: " + ex.Message);
-                MessageBox.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
         }
@@ -830,7 +830,7 @@ namespace Stackshot
         void SaveFailed(Exception ex)
         {
             ShotStack.Log("Guardar como: " + ex.Message);
-            MessageBox.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         // A short message in the hint strip (null: back to the usual help); timed ones fade back on their own.
@@ -874,7 +874,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Copiar (editor): " + ex.Message);
-                MessageBox.Show(this, "No se pudo copiar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo copiar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -919,7 +919,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Guardar (editor): " + ex.Message);
-                MessageBox.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1021,7 +1021,7 @@ namespace Stackshot
             {
                 if (v.Failure != null)
                 {
-                    if (v.Failure.Length > 0) MessageBox.Show("No se pudo abrir la grabaci\u00F3n.\n\n" + v.Failure, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (v.Failure.Length > 0) Dialogs.Show("No se pudo abrir la grabaci\u00F3n.\n\n" + v.Failure, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return null;
                 }
                 double dur = v.Duration;
@@ -1537,7 +1537,7 @@ namespace Stackshot
                     foreach (KeyValuePair<string, MediaInfo> g in good) AppendClip(g.Key, g.Value);
                     Flash(good.Count > 0 ? "A\u00F1adido: " + (good.Count == 1 ? Path.GetFileName(good[0].Key) : good.Count + " v\u00EDdeos") : null, true);
                     if (bad.Count > 0)
-                        MessageBox.Show(this, "No se pudo abrir como v\u00EDdeo:\n\n" + string.Join("\n", bad.ToArray()), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Dialogs.Show(this, "No se pudo abrir como v\u00EDdeo:\n\n" + string.Join("\n", bad.ToArray()), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 });
             });
         }
@@ -1631,7 +1631,7 @@ namespace Stackshot
             List<double[]> keep = trimmed || cuts || joined ? timeline.Keep() : null;
             if (keep != null && keep.Count == 0)
             {
-                MessageBox.Show(this, "No queda ning\u00FAn tramo dentro del recorte.", "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Dialogs.Show(this, "No queda ning\u00FAn tramo dentro del recorte.", "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             double speed = timeline != null ? Timeline.SpeedValues[timeline.Speed] : 1;
@@ -1668,7 +1668,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Presentar: " + ex.Message);
-                MessageBox.Show(this, "No se pudo preparar el v\u00EDdeo: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo preparar el v\u00EDdeo: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1759,7 +1759,7 @@ namespace Stackshot
         void Tell(string text)
         {
             ExportNote = text;
-            if (!Quiet) MessageBox.Show(this, text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (!Quiet) Dialogs.Show(this, text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         bool StartPass(int index)
@@ -1809,7 +1809,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 p.Dispose();
-                MessageBox.Show(this, "No se pudo iniciar FFmpeg: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo iniciar FFmpeg: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             export = p;
@@ -1863,7 +1863,7 @@ namespace Stackshot
                 try { if (File.Exists(exportOut)) File.Delete(exportOut); } catch { }
                 Unlock();
                 UpdateUi();
-                MessageBox.Show(this, "No se pudo crear el v\u00EDdeo.\n\n" + Tail(err), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, "No se pudo crear el v\u00EDdeo.\n\n" + Tail(err), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             BeginCheck();
@@ -1936,7 +1936,7 @@ namespace Stackshot
                 ShotStack.Log("Presentar: no se pudo renombrar: " + ex.Message);
             }
             UpdateUi();
-            MessageBox.Show(this, rep.Summary + "\n\nEl archivo no se ha a\u00F1adido a la pila. Queda en:\n" + kept + "\n\nEl editor sigue abierto: puedes volver a exportar.",
+            Dialogs.Show(this, rep.Summary + "\n\nEl archivo no se ha a\u00F1adido a la pila. Queda en:\n" + kept + "\n\nEl editor sigue abierto: puedes volver a exportar.",
                             "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
@@ -2072,7 +2072,8 @@ namespace Stackshot
             if (Exporting)
             {
                 if (e.CloseReason == CloseReason.UserClosing &&
-                    MessageBox.Show(this, "\u00BFCancelar la exportaci\u00F3n?", "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    Dialogs.Ask(this, "\u00BFCancelar la exportaci\u00F3n?\n\nEl v\u00EDdeo a medio crear se descarta.", MessageBoxIcon.Question,
+                                new string[] { "Cancelar la exportaci\u00F3n", "Seguir exportando" }, 1, 1) != 0)
                 {
                     e.Cancel = true;
                     return;
@@ -2086,15 +2087,15 @@ namespace Stackshot
             if (playing) PausePlay();
             if (IsVideo)
             {
-                DialogResult v = MessageBox.Show(this, "\u00BFExportar la grabaci\u00F3n con los cambios?", "Stackshot",
-                                                 MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-                if (v == DialogResult.Cancel) e.Cancel = true;
-                else if (v == DialogResult.Yes) { e.Cancel = true; ExportVideo(); }
+                int v = Dialogs.Ask(this, "\u00BFExportar la grabaci\u00F3n con los cambios?\n\nSi la descartas, los cambios se pierden; el v\u00EDdeo original no cambia.", MessageBoxIcon.Question,
+                                    new string[] { "Exportar", "Descartar cambios", "Seguir editando" }, 0, 2);
+                if (v == 2) e.Cancel = true;
+                else if (v == 0) { e.Cancel = true; ExportVideo(); }
                 return;
             }
-            DialogResult r = MessageBox.Show(this, "\u00BFConservar los cambios en la captura?", "Stackshot",
-                                             MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-            if (r == DialogResult.Cancel || (r == DialogResult.Yes && !Apply())) e.Cancel = true;
+            int r = Dialogs.Ask(this, "\u00BFConservar los cambios en la captura?", MessageBoxIcon.Question,
+                                new string[] { "Conservar", "Descartar cambios", "Seguir editando" }, 0, 2);
+            if (r == 2 || (r == 0 && !Apply())) e.Cancel = true;
         }
 
         static List<Editor> OpenEditors()
@@ -2148,25 +2149,24 @@ namespace Stackshot
             canvas.CommitText();
             if (Exporting)
             {
-                if (MessageBox.Show(this, "Se est\u00E1 exportando " + name + ".\n\n\u00BFCancelar la exportaci\u00F3n y salir?", "Stackshot",
-                                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return false;
+                if (Dialogs.Ask(this, "Se est\u00E1 exportando " + name + ".\n\nSi sales ahora, el v\u00EDdeo a medio crear se descarta.", MessageBoxIcon.Question,
+                                new string[] { "Cancelar y salir", "Seguir exportando" }, 1, 1) != 0) return false;
                 CancelExport();
                 return true;
             }
             if (!Unsaved) return true; // a save still finishing only needs a moment: waited for afterwards
             if (IsVideo)
             {
-                DialogResult v = MessageBox.Show(this, "Hay cambios sin exportar en " + name + ".\n\n\u00BFExportarlo ahora? Stackshot no se cerrar\u00E1: " +
-                                                 "vuelve a salir cuando termine. Con No, sale sin exportar.",
-                                                 "Stackshot", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-                if (v == DialogResult.Cancel) return false;
-                if (v == DialogResult.Yes) { ExportVideo(); return false; }
+                int v = Dialogs.Ask(this, "Hay cambios sin exportar en " + name + ".\n\nCon Exportar, Stackshot crea el v\u00EDdeo y no se cierra: sal de nuevo cuando termine.",
+                                    MessageBoxIcon.Question, new string[] { "Exportar", "Salir sin exportar", "Seguir editando" }, 0, 2);
+                if (v == 2) return false;
+                if (v == 0) { ExportVideo(); return false; }
                 return true;
             }
-            DialogResult r = MessageBox.Show(this, "\u00BFGuardar los cambios en " + name + " antes de salir?", "Stackshot",
-                                             MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-            if (r == DialogResult.Cancel) return false;
-            if (r == DialogResult.Yes)
+            int r = Dialogs.Ask(this, "\u00BFGuardar los cambios en " + name + " antes de salir?", MessageBoxIcon.Question,
+                                new string[] { "Guardar", "No guardar", "Seguir editando" }, 0, 2);
+            if (r == 2) return false;
+            if (r == 0)
             {
                 if (!Apply()) return false;
                 // A capture still in the temporary folder would be swept: keep it in the save folder.
@@ -2176,7 +2176,7 @@ namespace Stackshot
                     catch (Exception ex)
                     {
                         ShotStack.Log("Guardar (editor): " + ex.Message);
-                        MessageBox.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return false;
                     }
                 }

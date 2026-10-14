@@ -138,7 +138,7 @@ namespace Stackshot
             Func<string, bool> ask = AskLongGif;
             if (ask != null) return ask(text);
             if (Quiet) return true;
-            return MessageBox.Show(this, text, "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return Dialogs.Show(this, text, "Stackshot", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         // G, the bar's GIF button or Mas opciones: a GIF of the marked piece, next to the MP4 export and like it (progress,

@@ -244,6 +244,46 @@ namespace Stackshot
             return w.result;
         }
 
+        // The same for any window of the app (a WinForms one passes its handle): with its own icon, centered on the
+        // owner, or always on top when there is none, so it never hides behind the capture and recording overlays.
+        internal static int Ask(IntPtr owner, string title, string message, string[] buttons, int primary, int cancel, string icon, Color c1, Color c2)
+        {
+            Func<string, string, string[], int> a = Answer;
+            if (a != null) return a(title, message, buttons);
+            DocAlert w = new DocAlert(title, message, buttons, primary, cancel);
+            try
+            {
+                w.UseIcon(icon, c1, c2);
+                if (owner != IntPtr.Zero)
+                {
+                    new System.Windows.Interop.WindowInteropHelper(w).Owner = owner;
+                    w.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                }
+                else
+                {
+                    w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    w.Topmost = true;
+                }
+                w.ShowDialog();
+            }
+            catch (Exception ex) { ShotStack.Log("Aviso: " + ex.Message); return cancel; }
+            return w.result;
+        }
+
+        Grid grid;
+        IconTile tile;
+
+        void UseIcon(string icon, Color c1, Color c2)
+        {
+            int at = grid.Children.IndexOf(tile);
+            if (at < 0) return;
+            IconTile t = new IconTile(icon, 40, c1, c2) { VerticalAlignment = VerticalAlignment.Top, Margin = tile.Margin };
+            Grid.SetRowSpan(t, 2);
+            grid.Children.RemoveAt(at);
+            grid.Children.Insert(at, t);
+            tile = t;
+        }
+
         DocAlert(string title, string message, string[] buttons, int primary, int cancel)
         {
             this.cancel = cancel;
@@ -265,7 +305,8 @@ namespace Stackshot
             g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            IconTile tile = new IconTile("markdown", 40, Ds.Rgb(140, 150, 255), Ds.Rgb(88, 86, 214)) { VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 16, 0) };
+            grid = g;
+            tile = new IconTile("markdown", 40, Ds.Rgb(140, 150, 255), Ds.Rgb(88, 86, 214)) { VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 16, 0) };
             Grid.SetRowSpan(tile, 2);
             g.Children.Add(tile);
             TextBlock head = new TextBlock { Text = title, FontFamily = Ds.Display, FontWeight = FontWeights.SemiBold, FontSize = 15.5, Foreground = Ds.Brush(pal.Label), TextWrapping = TextWrapping.Wrap };

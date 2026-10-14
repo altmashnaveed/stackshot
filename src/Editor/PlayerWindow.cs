@@ -748,7 +748,7 @@ namespace Stackshot
         {
             exportNote = text;
             if (Quiet) Flash(text.Replace("\n", " "));
-            else MessageBox.Show(this, text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            else Dialogs.Show(this, text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         static string Tail(string t)

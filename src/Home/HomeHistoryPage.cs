@@ -807,7 +807,7 @@ namespace Stackshot
         void ClearHistoryIndex()
         {
             string again = settings.HistorySearch ? " Mientras la b\u00FAsqueda siga activada, Stackshot volver\u00E1 a leerlas poco a poco." : "";
-            if (MessageBox.Show(this, "\u00BFBorrar el \u00EDndice de texto? Tus capturas no se tocan." + again, "Stackshot", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (DocAlert.Ask(this, "\u00BFBorrar el \u00EDndice de texto?", "Tus capturas no se tocan." + again, new string[] { "Borrar el \u00EDndice", "Cancelar" }, 0, 1) != 0) return;
             HistoryIndex.Delete();
             SyncRows();
         }

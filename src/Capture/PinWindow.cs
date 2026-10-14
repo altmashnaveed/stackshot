@@ -164,7 +164,7 @@ namespace Stackshot
                     catch (Exception ex)
                     {
                         ShotStack.Log("Guardar como " + d.FileName + ": " + ex);
-                        MessageBox.Show(this, "No se pudo guardar la imagen.\n\n" + ShotStack.Explain(ex, d.FileName),
+                        Dialogs.Show(this, "No se pudo guardar la imagen.\n\n" + ShotStack.Explain(ex, d.FileName),
                                         "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }

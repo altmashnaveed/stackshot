@@ -877,9 +877,9 @@ namespace Stackshot
             if (!FileAssoc.Enable(k)) return;
             if (FileAssoc.IsDefault(k)) return;
             string ext = k.Exts[0];
-            MessageBox.Show(this, "Stackshot ya aparece entre las aplicaciones que pueden abrir " + ext + "." + "\n\n" +
-                                  "Elige Stackshot para " + ext + " en la ventana de Windows que se abre ahora: Windows pide que esa decisi\u00F3n la tomes t\u00FA.",
-                            "Stackshot", MessageBoxButton.OK, MessageBoxImage.Information);
+            DocAlert.Ask(this, "Stackshot ya aparece entre las aplicaciones que pueden abrir " + ext + ".",
+                         "Elige Stackshot para " + ext + " en la ventana de Windows que se abre ahora: Windows pide que esa decisi\u00F3n la tomes t\u00FA.",
+                         new string[] { "Abrir esa ventana" }, 0, 0);
             FileAssoc.OpenDefaultApps();
         }
 
@@ -904,7 +904,7 @@ namespace Stackshot
 
         void ClearRecent()
         {
-            if (MessageBox.Show(this, "\u00BFBorrar las capturas temporales? Las guardadas en tu carpeta no se tocan.", "Stackshot", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (DocAlert.Ask(this, "\u00BFBorrar las capturas temporales?", "Las guardadas en tu carpeta no se tocan.", new string[] { "Borrar", "Cancelar" }, 0, 1) != 0) return;
             owner.ClearTemp();
             HistoryIndex.RequestScan();
             Rebuild();
