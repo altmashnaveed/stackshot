@@ -175,9 +175,9 @@ namespace Stackshot
 
         static bool Is(string path, string[] exts) { return Array.IndexOf(exts, Path.GetExtension(path).ToLowerInvariant()) >= 0; }
 
-        public static bool CanTake(string path) { return Is(path, Pictures) || Is(path, Videos) || Is(path, Docs); }
+        public static bool CanTake(string path) { return Is(path, Pictures) || Is(path, Videos) || Is(path, Docs) || Directory.Exists(path); }
 
-        // Each file to where it opens (at most five); what the mascot says about it.
+        // Each file to where it opens (at most five), a folder to the quick links; what the mascot says about it.
         public string OpenDropped(string[] files)
         {
             int pics = 0, vids = 0, docs = 0;
@@ -185,6 +185,11 @@ namespace Stackshot
             foreach (string f in files)
             {
                 if (pics + vids + docs >= 5) break;
+                if (Directory.Exists(f))
+                {
+                    string why = AddLink(null, f);
+                    return why ?? "¡Apuntada! «" + LinkName(f) + "» ya está en mis accesos rápidos.";
+                }
                 if (!File.Exists(f)) continue;
                 if (Is(f, Docs)) { OpenViewerFile(f); docs++; }
                 else if (Is(f, Pictures) || Is(f, Videos)) { OpenMedia(f); if (Is(f, Videos)) vids++; else pics++; }

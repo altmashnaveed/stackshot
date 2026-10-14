@@ -228,10 +228,21 @@ namespace Stackshot
                               delegate { QuickWindow.Remind(owner); }),
                 new ButtonRow("Notas", "\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas.", "note", Mac.Orange, Mac.Pink, "Ver",
                               delegate { owner.OpenNotes(); }),
+                new ButtonRow("Accesos rápidos", LinksSub(), "open", Mac.Indigo, Mac.Blue, "Editar…", delegate { LinksWindow.Show(owner); }),
                 new ToggleRow("Avisarme de los XML con fallo", "Cuando llega a la carpeta vigilada un XML con SOAP Fault, te lo dice con un bot\u00F3n para abrirlo.", "warning", Mac.Red, Mac.Orange,
                               delegate { return settings.XmlFaultAlert; }, delegate(bool v) { settings.XmlFaultAlert = v; }));
-            Note("Tambi\u00E9n puedes soltar encima de la mascota una imagen (va al editor), un v\u00EDdeo (al reproductor), un XML o un Markdown (al visor) " +
-                 "o un texto (a tus notas). Los recordatorios esperan a que est\u00E9s delante, y si el ordenador estaba apagado a su hora, te avisa al volver.");
+            Note("Tambi\u00E9n puedes soltar encima de la mascota una imagen (va al editor), un v\u00EDdeo (al reproductor), un XML o un Markdown (al visor), " +
+                 "un texto (a tus notas) o una carpeta (a tus accesos r\u00E1pidos). Los recordatorios esperan a que est\u00E9s delante, y si el ordenador estaba apagado a su hora, te avisa al volver.");
+        }
+
+        // "Intranet, Proyectos y 2 m\u00E1s en el men\u00FA de la mascota."
+        string LinksSub()
+        {
+            List<QuickLink> l = owner.Links;
+            if (l.Count == 0) return "Webs, carpetas, archivos o programas que la mascota te abre desde su men\u00FA. Tambi\u00E9n puedes soltarle una carpeta encima.";
+            string names = l.Count == 1 ? "\u00AB" + l[0].Name + "\u00BB" : l.Count == 2 ? "\u00AB" + l[0].Name + "\u00BB y \u00AB" + l[1].Name + "\u00BB"
+                         : "\u00AB" + l[0].Name + "\u00BB, \u00AB" + l[1].Name + "\u00BB y " + (l.Count - 2) + " m\u00E1s";
+            return names + " en el men\u00FA de la mascota.";
         }
 
         // A row of chips that each turn one bit of a setting on or off (lit: included).

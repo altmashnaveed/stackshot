@@ -190,12 +190,12 @@ namespace Stackshot
             error.Visibility = Visibility.Visible;
         }
 
-        static TextBlock Text(string s, Typeface face, double size, Color c, Thickness m)
+        internal static TextBlock Text(string s, Typeface face, double size, Color c, Thickness m)
         {
             return new TextBlock { Text = s, FontFamily = face.FontFamily, FontWeight = face.Weight, FontSize = size, Foreground = Ds.Brush(c), Margin = m, VerticalAlignment = VerticalAlignment.Center };
         }
 
-        static TextBox Field(string text, bool multi, double height, string name)
+        internal static TextBox Field(string text, bool multi, double height, string name)
         {
             Palette pal = Ds.Brushes;
             TextBox b = new TextBox
@@ -212,7 +212,7 @@ namespace Stackshot
         }
 
         // The field's box; hint: grey text shown while it is empty (null: none).
-        static Border Frame(TextBox box, string hint)
+        internal static Border Frame(TextBox box, string hint)
         {
             Palette pal = Ds.Brushes;
             Grid inside = new Grid();

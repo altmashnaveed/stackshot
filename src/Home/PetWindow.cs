@@ -696,6 +696,15 @@ namespace Stackshot
             Add("clock", "Ahora no", null, delegate { m.Say("Vale. Si luego te apetece, aquí estoy.", 2600); });
         }
 
+        static readonly string[] Opening = { "¡Marchando!", "¡Te lo abro!", "¡Ahí va!", "¡Hecho!" };
+
+        void OpenLink(QuickLink l)
+        {
+            string why = owner.OpenLink(l);
+            if (why != null) { m.Say(why, 3600); return; }
+            if (settings.MascotTalks) m.Say(Opening[rnd.Next(Opening.Length)] + " «" + l.Name + "»", 2200);
+        }
+
         // "Mi actividad": the watch is read now and the mascot tells how the day goes.
         void TellActivity()
         {
@@ -767,7 +776,9 @@ namespace Stackshot
             m.WakeUp();
             m.Hop(0.7);
             bool files = e.Data.GetDataPresent(DataFormats.FileDrop);
-            m.Say(files ? "\u00A1Su\u00E9ltalo aqu\u00ED y te lo abro!" : "\u00A1Su\u00E9ltalo y lo apunto en tus notas!", 2000);
+            string[] dropped = files ? e.Data.GetData(DataFormats.FileDrop) as string[] : null;
+            bool folder = dropped != null && dropped.Length > 0 && System.IO.Directory.Exists(dropped[0]);
+            m.Say(folder ? "\u00A1Su\u00E9ltala y la guardo en mis accesos r\u00E1pidos!" : files ? "\u00A1Su\u00E9ltalo aqu\u00ED y te lo abro!" : "\u00A1Su\u00E9ltalo y lo apunto en tus notas!", 2000);
         }
 
         protected override void OnDragOver(DragEventArgs e)
@@ -1534,6 +1545,18 @@ namespace Stackshot
             Add("video", Recorder.Recording ? "Parar la grabaci\u00F3n" : "Grabar un v\u00EDdeo", null, delegate { owner.Run("video"); });
             Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
             Add("folder", "Abrir mis capturas", null, delegate { owner.OpenFolder(); });
+            AddSep();
+            // Quick links: each one opens with a word from it; the last row adds or tidies them.
+            // A few fit above the mascot (fewer with the focus rows on top); the rest open from their window.
+            List<QuickLink> links = owner.Links;
+            int room = f.On ? 3 : 5;
+            for (int i = 0; i < links.Count && i < room; i++)
+            {
+                QuickLink it = links[i];
+                Add(it.Icon, it.Name, null, delegate { OpenLink(it); });
+            }
+            Add("plus", links.Count == 0 ? "Añadir un acceso rápido…" : "Accesos rápidos…", links.Count > room ? (links.Count - room) + " más" : null,
+                delegate { LinksWindow.Show(owner); });
             AddSep();
             // What it helps with: reminders, notes, focus, breaks and the day.
             int pending = owner.Reminders.Count;

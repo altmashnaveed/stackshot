@@ -1,0 +1,155 @@
+// Stackshot - Quick links: web addresses, folders, files and programs the mascot opens from its menu. Kept in
+// accesos.txt (name, tab, target, one per line) next to the reminders.
+// MIT License - https://github.com/rubenitx/stackshot
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+
+namespace Stackshot
+{
+    public sealed class QuickLink
+    {
+        public string Name, Target;
+
+        public bool Web { get { return Target.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Target.StartsWith("https://", StringComparison.OrdinalIgnoreCase); } }
+
+        // The glyph for its kind: a page, a folder, a program or a file.
+        public string Icon
+        {
+            get
+            {
+                if (Web) return "open";
+                string ext = Path.GetExtension(Target).ToLowerInvariant();
+                if (ext == ".exe" || ext == ".lnk" || ext == ".bat" || ext == ".cmd") return "app";
+                // A network share isn't asked (it could take long to answer): no extension means a folder.
+                bool folder = Target.StartsWith("\\\\") ? ext.Length == 0 || Target.EndsWith("\\") : Directory.Exists(Target);
+                return folder ? "folder" : "doc";
+            }
+        }
+    }
+
+    public partial class ShotStack
+    {
+        public const int MaxLinks = 12;
+        List<QuickLink> links;
+
+        static string LinksFile { get { return Path.Combine(Settings.DataDir, "accesos.txt"); } }
+
+        public List<QuickLink> Links
+        {
+            get
+            {
+                if (links == null) LoadLinks();
+                return new List<QuickLink>(links);
+            }
+        }
+
+        // What was typed made into something that opens: a web address (https:// added when missing) or a path (with
+        // %VARIABLES% expanded). error: why it can't be used.
+        public static string LinkTarget(string typed, out string error)
+        {
+            error = null;
+            string t = (typed ?? "").Trim().Trim('"').Trim();
+            if (t.Length == 0) { error = "Escribe una direcci\u00F3n web o la ruta de una carpeta o un archivo."; return null; }
+            Uri u;
+            if (Uri.TryCreate(t, UriKind.Absolute, out u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps)) return u.AbsoluteUri;
+            string path = Environment.ExpandEnvironmentVariables(t);
+            if (path.StartsWith("\\\\")) return path;   // a network share: not checked (it could take long to answer)
+            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            {
+                if (Directory.Exists(path) || File.Exists(path)) return path;
+                error = "No encuentro esa carpeta o ese archivo.";
+                return null;
+            }
+            if (t.IndexOf(' ') < 0 && t.IndexOf('.') > 0 && Uri.TryCreate("https://" + t, UriKind.Absolute, out u)) return u.AbsoluteUri;
+            error = "Escribe una direcci\u00F3n web (como intranet.empresa.es) o una ruta completa (como C:\\Proyectos).";
+            return null;
+        }
+
+        // The name shown when none is given: the site without "www.", or the folder or file name.
+        public static string LinkName(string target)
+        {
+            Uri u;
+            if (Uri.TryCreate(target, UriKind.Absolute, out u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps))
+            {
+                string host = u.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? u.Host.Substring(4) : u.Host;
+                return host.Length > 0 ? host : target;
+            }
+            string name = Path.GetFileName(target.TrimEnd('\\', '/'));
+            if (Path.GetExtension(name).ToLowerInvariant() == ".lnk") name = Path.GetFileNameWithoutExtension(name);
+            return name.Length > 0 ? name : target;
+        }
+
+        // Null when added, or why not.
+        public string AddLink(string name, string typed)
+        {
+            string error;
+            string target = LinkTarget(typed, out error);
+            if (target == null) return error;
+            if (links == null) LoadLinks();
+            if (links.Count >= MaxLinks) return "Ya tienes " + MaxLinks + " accesos: quita alguno para a\u00F1adir otro.";
+            name = LinkText(name);
+            if (name.Length == 0) name = LinkText(LinkName(target));
+            if (name.Length > 40) name = name.Substring(0, 40).Trim();
+            links.Add(new QuickLink { Name = name, Target = target });
+            SaveLinks();
+            Log("Acceso r\u00E1pido a\u00F1adido");
+            return null;
+        }
+
+        public void RemoveLink(QuickLink l)
+        {
+            if (links == null) LoadLinks();
+            links.RemoveAll(delegate(QuickLink x) { return x.Name == l.Name && x.Target == l.Target; });
+            SaveLinks();
+        }
+
+        // Opens it the way Windows would (the browser, Explorer, the program); null when it opened, or why not.
+        public string OpenLink(QuickLink l)
+        {
+            try
+            {
+                if (!l.Web && l.Icon == "folder") Process.Start(Native.Explorer, "\"" + l.Target + "\"");
+                else Process.Start(new ProcessStartInfo(l.Target) { UseShellExecute = true });
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log("Acceso r\u00E1pido: " + ex.Message);
+                return l.Web ? "No he podido abrir el navegador." : "No he podido abrir \u00AB" + l.Name + "\u00BB: puede que ya no exista.";
+            }
+        }
+
+        static string LinkText(string s) { return (s ?? "").Replace("\t", " ").Replace("\r", " ").Replace("\n", " ").Trim(); }
+
+        void LoadLinks()
+        {
+            links = new List<QuickLink>();
+            try
+            {
+                if (!File.Exists(LinksFile)) return;
+                foreach (string line in File.ReadAllLines(LinksFile, Encoding.UTF8))
+                {
+                    string[] p = line.Split(new char[] { '\t' }, 2);
+                    if (p.Length == 2 && p[0].Trim().Length > 0 && p[1].Trim().Length > 0 && links.Count < MaxLinks)
+                        links.Add(new QuickLink { Name = p[0].Trim(), Target = p[1].Trim() });
+                }
+            }
+            catch (Exception ex) { Log("Accesos r\u00E1pidos: " + ex.Message); }
+        }
+
+        void SaveLinks()
+        {
+            try
+            {
+                StringBuilder b = new StringBuilder();
+                foreach (QuickLink l in links) b.Append(l.Name).Append('\t').Append(l.Target).Append('\n');
+                Directory.CreateDirectory(Settings.DataDir);
+                File.WriteAllText(LinksFile, b.ToString(), new UTF8Encoding(false));
+            }
+            catch (Exception ex) { Log("Accesos r\u00E1pidos: " + ex.Message); }
+        }
+    }
+}
