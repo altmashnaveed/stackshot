@@ -9,6 +9,7 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 
 - **Avisa de un problema o propón una idea desde la app.** En Inicio > Acerca de > Informar de un problema lo cuentas sin salir de Stackshot y sin cuenta de GitHub, y en «Mis reportes» ves cómo va cada uno y las respuestas.
 - **Pausas saludables con tu mascota.** Te recuerda beber agua, descansar la vista, moverte y respirar, y si quieres hace la pausa contigo. Se ajusta en Mascota > Ajustes; siempre te dice qué ha hecho con tu respuesta.
+- **Modo concentración con tu mascota.** Bloques de trabajo con descansos entre medias (la técnica Pomodoro): la mascota lee a tu lado sin hacer ruido y lleva el reloj encima de la cabeza, las pausas saludables esperan al descanso y, si te levantas, el reloj se para hasta que vuelves. Empieza desde su menú («Concentrarme») o en Mascota > Ajustes.
 - **Más rápida y más fluida.** Los XML grandes se abren antes, y las miniaturas, el panel de la bandeja, el editor y el reproductor de vídeo van más suaves y gastan menos.
 - **Te confirma lo que haces.** Al copiar, guardar, ordenar o insertar un índice, el botón o un aviso te dice que está hecho; y si algo falla, te explica qué ha pasado.
 - **Los .md y .xml se abren al instante.** La ventana aparece ya con el documento, sin pantallas intermedias.
