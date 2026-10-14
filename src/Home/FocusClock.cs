@@ -3,7 +3,7 @@
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
 using System.IO;
-using System.Media;
+using System.Runtime.InteropServices;
 
 namespace Stackshot
 {
@@ -132,7 +132,11 @@ namespace Stackshot
     {
         public enum Cue { Start, Pause, Resume, End, Break, Stop }
 
-        static readonly SoundPlayer[] players = new SoundPlayer[6];
+        // Each sound in memory that never moves (an asynchronous PlaySound reads it while it plays), kept for the app's life.
+        static readonly IntPtr[] sounds = new IntPtr[6];
+
+        [DllImport("winmm.dll")] static extern bool PlaySound(IntPtr sound, IntPtr module, int flags);
+        const int SndAsync = 0x1, SndNoDefault = 0x2, SndMemory = 0x4;
 
         // Notes (Hz) and when each starts (s): rising for starting, falling for resting and ending, a bell for "time's up".
         static readonly double[][] Notes =
@@ -150,13 +154,14 @@ namespace Stackshot
             try
             {
                 int i = (int)cue;
-                if (players[i] == null)
+                if (sounds[i] == IntPtr.Zero)
                 {
-                    SoundPlayer p = new SoundPlayer(new MemoryStream(Build(Notes[i], cue == Cue.Pause || cue == Cue.Resume ? 0.6 : 1)));
-                    p.Load();
-                    players[i] = p;
+                    byte[] wav = Build(Notes[i], cue == Cue.Pause || cue == Cue.Resume ? 0.8 : 1);
+                    IntPtr p = Marshal.AllocHGlobal(wav.Length);
+                    Marshal.Copy(wav, 0, p, wav.Length);
+                    sounds[i] = p;
                 }
-                players[i].Play();
+                if (!PlaySound(sounds[i], IntPtr.Zero, SndMemory | SndAsync | SndNoDefault)) ShotStack.Log("Sonido de concentraci\u00F3n: Windows no lo ha reproducido (" + cue + ")");
             }
             catch (Exception ex) { ShotStack.Log("Sonido de concentraci\u00F3n: " + ex.Message); }
         }
@@ -164,19 +169,28 @@ namespace Stackshot
         // Kept for the settings switch: rising plays Start, otherwise Break.
         public static void Play(bool rising) { Play(rising ? Cue.Start : Cue.Break); }
 
+        // Silence before the notes: Bluetooth and USB headsets asleep after a quiet while drop the first moment of a sound.
+        const double Lead = 0.3;
+
         static byte[] Build(double[] notes, double level)
         {
             const int rate = 44100;
             double last = 0;
             for (int k = 1; k < notes.Length; k += 2) last = Math.Max(last, notes[k]);
-            int n = (int)(rate * (last + 1.0));
-            short[] pcm = new short[n];
-            for (int i = 0; i < n; i++)
+            int lead = (int)(rate * Lead), n = lead + (int)(rate * (last + 1.0));
+            double[] wave = new double[n];
+            double peak = 0;
+            for (int i = lead; i < n; i++)
             {
-                double t = i / (double)rate, v = 0;
+                double t = (i - lead) / (double)rate, v = 0;
                 for (int k = 0; k < notes.Length; k += 2) v += Note(t, notes[k + 1], notes[k]);
-                pcm[i] = (short)Math.Max(-32767, Math.Min(32767, v * 8000 * level));
+                wave[i] = v;
+                peak = Math.Max(peak, Math.Abs(v));
             }
+            // Every cue peaks at the same level, whatever its chord.
+            double gain = peak > 0 ? 18000 * level / peak : 0;
+            short[] pcm = new short[n];
+            for (int i = 0; i < n; i++) pcm[i] = (short)Math.Max(-32767, Math.Min(32767, wave[i] * gain));
             using (MemoryStream ms = new MemoryStream())
             using (BinaryWriter w = new BinaryWriter(ms))
             {
