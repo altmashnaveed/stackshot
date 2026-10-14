@@ -191,18 +191,33 @@ namespace Stackshot
 
         public static string WellDone(Settings s, int kind, int today)
         {
-            string count = kind == WellKind.Water ? (today == 1 ? "Tu primer vaso de hoy." : "Ya van " + today + " vasos hoy.")
-                         : kind == WellKind.Eyes ? (today == 1 ? "Primer descanso de vista de hoy." : today + " descansos de vista hoy.")
-                         : kind == WellKind.Move ? (today == 1 ? "Primera pausa para moverte." : today + " pausas para moverte hoy.")
-                         : (today == 1 ? "Primera respiraci\u00F3n de hoy." : today + " respiraciones hoy.");
             return By(s.MascotPersonality, new string[] { "\u00A1Genial! ", "\u00A1Muy bien! ", "\u00A1As\u00ED me gusta! " }, new string[] { "Bien hecho. ", "Perfecto. ", "Qu\u00E9 bien. " },
-                      new string[] { "Mira t\u00FA qu\u00E9 disciplina. ", "No est\u00E1 mal. ", "Ole. " }) + count;
+                      new string[] { "Mira t\u00FA qu\u00E9 disciplina. ", "No est\u00E1 mal. ", "Ole. " }) + WellCount(kind, today);
         }
 
+        // How many of that break today, said plainly (also when the mascot doesn't chat).
+        public static string WellCount(int kind, int today)
+        {
+            return kind == WellKind.Water ? (today == 1 ? "Tu primer vaso de hoy." : "Ya van " + today + " vasos hoy.")
+                 : kind == WellKind.Eyes ? (today == 1 ? "Primer descanso de vista de hoy." : today + " descansos de vista hoy.")
+                 : kind == WellKind.Move ? (today == 1 ? "Primera pausa para moverte." : today + " pausas para moverte hoy.")
+                 : (today == 1 ? "Primera respiraci\u00F3n de hoy." : today + " respiraciones hoy.");
+        }
+
+        // Answers to "Recu\u00E9rdamelo en 10 min" and "Hoy no": they always say what was decided, chatty or not.
         public static string WellLater(Settings s)
         {
-            return By(s.MascotPersonality, new string[] { "\u00A1Vale! Te aviso en un rato.", "\u00A1De acuerdo! Luego te lo recuerdo." }, new string[] { "Sin problema, luego.", "Te lo recuerdo en un rato." },
-                      new string[] { "Vale, pero no te escapas.", "Luego no hay excusas, \u00BFeh?" });
+            if (!s.MascotTalks) return "Te lo recuerdo en 10 minutos.";
+            return By(s.MascotPersonality, new string[] { "\u00A1Vale! Te aviso en 10 minutos.", "\u00A1De acuerdo! En 10 minutos te lo recuerdo." }, new string[] { "Sin problema: en 10 minutos te aviso.", "Te lo recuerdo en 10 minutos." },
+                      new string[] { "Vale, 10 minutos y no te escapas.", "En 10 minutos vuelvo, \u00BFeh?" });
+        }
+
+        public static string WellToday(Settings s, int kind)
+        {
+            string what = kind == WellKind.Water ? "lo del agua" : kind == WellKind.Eyes ? "lo de la vista" : kind == WellKind.Move ? "lo de moverte" : "lo de respirar";
+            if (!s.MascotTalks) return "Hoy no te recuerdo m\u00E1s " + what + ".";
+            return By(s.MascotPersonality, new string[] { "\u00A1Vale! Hoy no te recuerdo m\u00E1s " + what + "." }, new string[] { "De acuerdo, por hoy no te recuerdo m\u00E1s " + what + "." },
+                      new string[] { "Vale, hoy te libras de " + what + "." });
         }
 
         // What it says when told to do something (-1: woken up on request).

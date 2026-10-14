@@ -536,8 +536,8 @@ namespace Stackshot
             int k = kind;
             Add(WellKind.Glyphs[kind], go, null, delegate { StartSession(k); });
             Add("check", "Ya lo he hecho", null, delegate { Finish(k, true); });
-            Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { owner.WellLater(k, 600000); if (settings.MascotTalks) m.Say(MascotTalk.WellLater(settings), 2600); });
-            Add("close", "Hoy no", null, delegate { owner.WellLater(k, -1); });
+            Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { owner.WellLater(k, 600000); m.Say(MascotTalk.WellLater(settings), 3200); });
+            Add("close", "Hoy no", null, delegate { owner.WellLater(k, -1); m.Say(MascotTalk.WellToday(settings, k), 3200); });
             menuAt = menuSeen = Anim.Now;
             menuArmed = false;
             menuRect = RectangleF.Empty;
@@ -626,7 +626,7 @@ namespace Stackshot
                 m.Guided = false;
                 nextIdea = now + 6000;
                 if (whole) Finish(k, false);
-                else { owner.WellLater(k, 600000); m.Bubble = null; }
+                else { owner.WellLater(k, 600000); m.Say("Lo dejamos para dentro de 10 minutos.", 2600); }
                 return;
             }
             // Said again every frame, so a line that lasts longer than the bubble never blinks.
@@ -667,8 +667,9 @@ namespace Stackshot
             int today = owner.WellDone(kind, out levelUp);
             if (alone) m.Perform(MascotCmd.Cheer);
             m.Celebrate(null);
-            if (settings.MascotTalks || levelUp != null)
-                m.Say(settings.MascotTalks ? MascotTalk.WellDone(settings, kind, today) + (levelUp != null ? " " + levelUp : "") : levelUp, 4600);
+            // Always said, chatty or not: it is the answer to what the user chose.
+            string line = settings.MascotTalks ? MascotTalk.WellDone(settings, kind, today) : MascotTalk.WellCount(kind, today);
+            m.Say(line + (levelUp != null ? " " + levelUp : ""), 4600);
         }
 
         // The desktop mascot stays out even with the main window open: it is switched on from there, and hiding it

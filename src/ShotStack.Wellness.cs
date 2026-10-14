@@ -63,8 +63,8 @@ namespace Stackshot
                 Notify(settings.MascotName + ": " + WellKind.Names[kind].ToLowerInvariant(), text, NoticeKind.Info, "Hecho", delegate
                 {
                     string up;
-                    WellDone(k, out up);
-                    if (up != null) Notify(settings.MascotName, up);
+                    int today = WellDone(k, out up);
+                    Notify(settings.MascotName, MascotTalk.WellCount(k, today) + (up != null ? " " + up : ""));
                 });
             }
         }
