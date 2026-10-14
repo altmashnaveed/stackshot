@@ -753,7 +753,13 @@ namespace Stackshot
 
         public static void OpenPage()
         {
-            try { Process.Start(Available != null ? Available.Page : Program.RepoUrl + "/releases"); } catch { }
+            string page = Available != null ? Available.Page : Program.RepoUrl + "/releases";
+            try { Process.Start(page); }
+            catch (Exception ex)
+            {
+                ShotStack.Log("P\u00E1gina de la versi\u00F3n: " + ex.Message);
+                if (owner != null) owner.Notify("No se pudo abrir el navegador", page);
+            }
         }
 
         // ---- Moments

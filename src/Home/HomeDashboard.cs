@@ -116,12 +116,21 @@ namespace Stackshot
 
             if (Installer.RunningInstalled)
             {
-                TextBlock un = LinkLabel("Desinstalar Stackshot\u2026", Ds.Regular, 12.5, pal.Error, new Thickness(0, 22, 0, 0), delegate { try { Process.Start(Settings.InstalledExe, "--uninstall"); } catch { } });
+                Action uninstall = delegate
+                {
+                    try { Process.Start(Settings.InstalledExe, "--uninstall"); }
+                    catch (Exception ex)
+                    {
+                        ShotStack.Log("Desinstalar desde Acerca de: " + ex.Message);
+                        owner.Notify("No se pudo abrir el desinstalador", "Desinstala Stackshot desde Configuraci\u00f3n > Aplicaciones de Windows.");
+                    }
+                };
+                TextBlock un = LinkLabel("Desinstalar Stackshot\u2026", Ds.Regular, 12.5, pal.Error, new Thickness(0, 22, 0, 0), uninstall);
                 un.HorizontalAlignment = HorizontalAlignment.Center;
                 un.Cursor = Cursors.Hand;
                 un.MouseEnter += delegate { un.TextDecorations = TextDecorations.Underline; };
                 un.MouseLeave += delegate { un.TextDecorations = null; };
-                un.MouseLeftButtonUp += delegate { try { Process.Start(Settings.InstalledExe, "--uninstall"); } catch { } };
+                un.MouseLeftButtonUp += delegate { uninstall(); };
                 Add(un);
             }
         }
