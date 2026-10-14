@@ -70,6 +70,15 @@ namespace Stackshot
     {
         static readonly Dictionary<int, StringFormat> formats = new Dictionary<int, StringFormat>();
         [ThreadStatic] static Graphics measurer;
+        // Single-line sizes, asked for again on every repaint (timeline, player bar): text, font and padding decide them.
+        [ThreadStatic] static Dictionary<Font, Dictionary<string, Size>> measured;
+        [ThreadStatic] static int measuredCount;
+
+        sealed class SameFont : IEqualityComparer<Font>
+        {
+            public bool Equals(Font a, Font b) { return ReferenceEquals(a, b); }
+            public int GetHashCode(Font f) { return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(f); }
+        }
 
         const TextFormatFlags Relevant = TextFormatFlags.HorizontalCenter | TextFormatFlags.Right | TextFormatFlags.VerticalCenter |
                                          TextFormatFlags.Bottom | TextFormatFlags.WordBreak | TextFormatFlags.SingleLine |
@@ -182,14 +191,33 @@ namespace Stackshot
         {
             text = Clean(text, flags);
             if (text.Length == 0) return Size.Empty;
+            bool wrap = (flags & TextFormatFlags.WordBreak) != 0 && (flags & TextFormatFlags.SingleLine) == 0 && proposed.Width > 0;
+            Dictionary<string, Size> known = null;
+            string key = null;
+            if (!wrap && font != null)
+            {
+                if (measured == null) measured = new Dictionary<Font, Dictionary<string, Size>>(new SameFont());
+                if (!measured.TryGetValue(font, out known)) measured[font] = known = new Dictionary<string, Size>();
+                int bits = ((flags & TextFormatFlags.NoPadding) != 0 ? 1 : 0) | ((flags & TextFormatFlags.LeftAndRightPadding) != 0 ? 2 : 0) | ((flags & Crisp) != 0 ? 4 : 0);
+                key = (char)('0' + bits) + text;
+                Size seen;
+                if (known.TryGetValue(key, out seen)) return seen;
+            }
             int l, r;
             Margins(font, flags, out l, out r);
             if (measurer == null) measurer = Graphics.FromImage(new Bitmap(1, 1));
             measurer.TextRenderingHint = (flags & Crisp) != 0 ? System.Drawing.Text.TextRenderingHint.AntiAliasGridFit : System.Drawing.Text.TextRenderingHint.AntiAlias;
-            bool wrap = (flags & TextFormatFlags.WordBreak) != 0 && (flags & TextFormatFlags.SingleLine) == 0 && proposed.Width > 0;
             float width = wrap ? Math.Max(1, proposed.Width - l - r) : 100000f;
             SizeF s = measurer.MeasureString(text, font, new SizeF(width, 100000f), Format(wrap ? TextFormatFlags.WordBreak : TextFormatFlags.Default));
-            return new Size((int)Math.Ceiling(s.Width) + l + r, (int)Math.Ceiling(s.Height));
+            Size size = new Size((int)Math.Ceiling(s.Width) + l + r, (int)Math.Ceiling(s.Height));
+            if (known != null)
+            {
+                // Fonts made for one paint would otherwise pile up.
+                if (measuredCount >= 2000) { measured.Clear(); measuredCount = 0; measured[font] = known = new Dictionary<string, Size>(); }
+                known[key] = size;
+                measuredCount++;
+            }
+            return size;
         }
     }
 
