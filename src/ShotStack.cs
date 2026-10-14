@@ -212,6 +212,7 @@ namespace Stackshot
             Updater.Start(this);
             StartWellness();
             StartNews(justInstalled);
+            StartReportWatch();
         }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.
