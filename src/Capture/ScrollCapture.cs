@@ -58,16 +58,27 @@ namespace Stackshot
 
     // Stitches consecutive frames of a scrolling area. Each row is hashed; the shift is the offset most unique rows
     // agree on (voting), confirmed by comparing the whole overlap. Static rows at the top (header) and bottom (footer)
-    // are excluded.
+    // are excluded. When exact rows don't match (content resampled by a fractional scroll), row brightness profiles
+    // decide instead. Floating elements that stay put while the page moves (a chat button) are found per cell and
+    // painted over with the content that later shows from under them.
     public class Stitcher
     {
-        public enum Result { First, Same, Added, Lost, Full }
+        public enum Result { First, Same, Added, Lost, Full, Up }
 
-        readonly int w, h, hashW, maxRows;
+        const int UpShift = -2;           // BestShift: the content moved down (scrolled up)
+        const int Bins = 32;              // brightness bands per row for the tolerant match
+        const int Cell = 8;               // floating elements are tracked in cells of this size
+
+        readonly int w, h, hashW, maxRows, bins, cw, ch;
         readonly List<int[]> rows = new List<int[]>();
+        readonly List<int> src = new List<int>();     // per stitched row, the frame row it was copied from
+        readonly HashSet<long> cleaned = new HashSet<long>(); // stitched row * cw + cell column, repainted from under a float
+        readonly byte[] still;            // per cell: scrolls in a row it stayed put while the page moved
         int[] prev;
         ulong[] prevHash;
         bool[] prevFlat;
+        float[] prevFeat, curFeat;
+        int[] curFeatOf;
         volatile int height;
 
         public Stitcher(int width, int height, int ignoreRight, int maxRows)
@@ -76,7 +87,13 @@ namespace Stackshot
             h = height;
             hashW = Math.Max(1, width - Math.Max(0, ignoreRight));
             this.maxRows = Math.Max(height, maxRows);
+            bins = Math.Min(Bins, hashW);
+            cw = (w + Cell - 1) / Cell;
+            ch = (h + Cell - 1) / Cell;
+            still = new byte[cw * ch];
         }
+
+        bool Floating(int cx, int cy) { return still[cy * cw + cx] >= 2; }
 
         public int Height { get { return height; } }
         public int Width { get { return w; } }
@@ -92,7 +109,7 @@ namespace Stackshot
             HashRows(px, hs, flat);
             if (prev == null)
             {
-                for (int y = 0; y < h; y++) rows.Add(Row(px, y));
+                for (int y = 0; y < h; y++) { rows.Add(Row(px, y)); src.Add(y); }
                 height = rows.Count;
                 Keep(px, hs, flat);
                 added = h;
@@ -108,16 +125,31 @@ namespace Stackshot
             while (bot < h - top && hs[h - 1 - bot] == prevHash[h - 1 - bot]) bot++;
 
             int d = BestShift(hs, flat, top, h - bot);
+            if (d == UpShift) { result = h - top - bot < h / 6 ? Result.Same : Result.Up; return px; }
+            if (d < 0)
+            {
+                // A small changed band (blinking caret, video) means no scroll.
+                if (h - top - bot < h / 6) { result = Result.Same; return px; }
+                d = Tolerant(px, flat, top, h - bot);
+                if (d < 0) { result = Result.Lost; return px; }
+            }
             if (d == 0) { result = Result.Same; return px; }       // something animates, but nothing scrolled
-            // No match: a small changed band (blinking caret, video) means no scroll; otherwise it jumped too far or
-            // went up.
-            if (d < 0) { result = h - top - bot < h / 6 ? Result.Same : Result.Lost; return px; }
             if (IsFull) { result = Result.Full; return px; }
 
             int n = Math.Min(d, maxRows - rows.Count);
             List<int[]> fresh = new List<int[]>(n);
-            for (int y = h - bot - d; y < h - bot - d + n; y++) fresh.Add(Row(px, y));
-            lock (rows) rows.InsertRange(rows.Count - bot, fresh);
+            List<int> from = new List<int>(n);
+            for (int y = h - bot - d; y < h - bot - d + n; y++) { fresh.Add(Row(px, y)); from.Add(y); }
+            lock (rows)
+            {
+                rows.InsertRange(rows.Count - bot, fresh);
+                src.InsertRange(src.Count - bot, from);
+                if (n == d)
+                {
+                    LearnFloats(px, d, top, h - bot);
+                    Uncover(px, top, h - bot, bot);
+                }
+            }
             height = rows.Count;
             added = n;
             result = IsFull ? Result.Full : Result.Added;
@@ -131,6 +163,138 @@ namespace Stackshot
             prev = px;
             prevHash = hs;
             prevFlat = flat;
+            prevFeat = curFeatOf == px ? curFeat : null;
+            curFeat = null;
+            curFeatOf = null;
+        }
+
+        // Per cell of the overlap: pixels that stayed where they were although the page moved by d, and that the page
+        // itself would have changed, belong to something floating over it. Two such scrolls in a row mark the cell.
+        void LearnFloats(int[] px, int d, int from, int to)
+        {
+            for (int cy = from / Cell; cy * Cell < to - d && cy < ch; cy++)
+            {
+                for (int cx = 0; cx < cw; cx++)
+                {
+                    int informative = 0, stayed = 0, samples = 0;
+                    for (int y = Math.Max(from, cy * Cell); y < Math.Min(to - d, cy * Cell + Cell); y++)
+                    {
+                        int o = y * w, os = (y + d) * w;
+                        for (int x = cx * Cell; x < Math.Min(w, cx * Cell + Cell); x++)
+                        {
+                            samples++;
+                            int now = px[o + x] & 0xFFFFFF, same = prev[o + x] & 0xFFFFFF, moved = prev[os + x] & 0xFFFFFF;
+                            if (same == moved) continue;          // flat there: tells nothing
+                            informative++;
+                            if (now == same) stayed++;
+                        }
+                    }
+                    int k = cy * cw + cx;
+                    if (samples == 0 || informative * 5 < samples) continue;
+                    if (stayed * 2 >= informative) { if (still[k] < 10) still[k]++; }
+                    else still[k] = 0;
+                }
+            }
+        }
+
+        // Stitched rows whose copy came from under a floating cell get that cell repainted from this frame, where the
+        // same content now shows clear of it. Frame row i is stitched row rows.Count - h + i (the footer stays last).
+        // The cells around a floating one count too: its edges rarely fall on cell lines, and repainting plain page
+        // content from another frame changes nothing.
+        void Uncover(int[] px, int from, int to, int bot)
+        {
+            bool[] near = new bool[cw * ch];
+            bool any = false;
+            for (int cy = 0; cy < ch; cy++)
+                for (int cx = 0; cx < cw; cx++)
+                {
+                    if (!Floating(cx, cy)) continue;
+                    any = true;
+                    for (int ny2 = Math.Max(0, cy - 1); ny2 <= Math.Min(ch - 1, cy + 1); ny2++)
+                        for (int nx = Math.Max(0, cx - 1); nx <= Math.Min(cw - 1, cx + 1); nx++) near[ny2 * cw + nx] = true;
+                }
+            if (!any) return;
+            int offset = rows.Count - h;
+            for (int i = from; i < to; i++)
+            {
+                int c = offset + i;
+                if (c < 0 || c >= rows.Count - bot) continue;
+                int sy = src[c] / Cell, ny = i / Cell;
+                if (sy >= ch) continue;
+                for (int cx = 0; cx < cw; cx++)
+                {
+                    if (!near[sy * cw + cx] || near[ny * cw + cx]) continue;
+                    long key = (long)c * cw + cx;
+                    if (cleaned.Contains(key)) continue;
+                    int[] r = rows[c];
+                    int o = i * w;
+                    for (int x = cx * Cell; x < Math.Min(w, cx * Cell + Cell); x++) r[x] = px[o + x] | unchecked((int)0xFF000000);
+                    cleaned.Add(key);
+                }
+            }
+        }
+
+        // Fallback when no shift matches exactly: compares per-row brightness profiles for every shift and takes the
+        // one that is clearly and uniquely best (a repeating pattern is refused). 0 nothing scrolled, -1 not found.
+        int Tolerant(int[] px, bool[] flat, int from, int to)
+        {
+            int n = to - from;
+            if (n < 32) return -1;
+            if (prevFeat == null) prevFeat = Features(prev);
+            curFeat = Features(px);
+            curFeatOf = px;
+            int maxD = n - Math.Max(24, n / 8), step = n > 600 ? 2 : 1; // tall areas: every other row is enough
+            double[] err = new double[maxD + 1];
+            for (int d = 0; d <= maxD; d++)
+            {
+                double sum = 0;
+                int considered = 0;
+                for (int i = from; i < to - d; i += step)
+                {
+                    if (flat[i] && prevFlat[i + d]) continue;
+                    int a = i * bins, b = (i + d) * bins;
+                    double e = 0;
+                    for (int k = 0; k < bins; k++) e += Math.Abs(curFeat[a + k] - prevFeat[b + k]);
+                    sum += e / bins;
+                    considered++;
+                }
+                err[d] = considered >= 16 ? sum / considered : double.MaxValue;
+            }
+            int best = -1, counted = 0;
+            double bestErr = double.MaxValue, total = 0;
+            for (int d = 0; d <= maxD; d++)
+            {
+                if (err[d] == double.MaxValue) continue;
+                total += err[d];
+                counted++;
+                if (err[d] < bestErr) { bestErr = err[d]; best = d; }
+            }
+            if (best < 0 || counted < 8) return -1;
+            if (bestErr > 20 || bestErr > total / counted * 0.3) return -1;
+            for (int d = 0; d <= maxD; d++)
+                if (Math.Abs(d - best) > 2 && err[d] < bestErr * 1.5 + 1) return -1;
+            return best;
+        }
+
+        // Per row, the average brightness of each of the bins bands across the compared width.
+        float[] Features(int[] px)
+        {
+            float[] f = new float[h * bins];
+            for (int y = 0; y < h; y++)
+            {
+                int o = y * w;
+                for (int b = 0; b < bins; b++)
+                {
+                    int x0 = b * hashW / bins, x1 = (b + 1) * hashW / bins, sum = 0;
+                    for (int x = x0; x < x1; x++)
+                    {
+                        int p = px[o + x];
+                        sum += ((p >> 16) & 255) * 3 + ((p >> 8) & 255) * 6 + (p & 255);
+                    }
+                    f[y * bins + b] = sum / (10f * Math.Max(1, x1 - x0));
+                }
+            }
+            return f;
         }
 
         int[] Row(int[] px, int y)
@@ -181,7 +345,7 @@ namespace Stackshot
             }
             if (bestVotes < 3) return Scan(hs, flat, from, to);
             if (best == 0) return 0;
-            if (best < 0) return -1;
+            if (best < 0) return UpShift;
 
             // Confirmation: almost every non-flat row in the overlap must match.
             int considered = 0, matched = 0;
@@ -229,6 +393,43 @@ namespace Stackshot
             return d;
         }
 
+        // A small copy of what is stitched so far, fitting maxW x maxH, for the live preview (any thread). Each pixel
+        // averages a few samples of its block, so text stays a soft gray instead of noise. Null when nothing is there.
+        public int[] Thumb(int maxW, int maxH, out int tw, out int th)
+        {
+            tw = th = 0;
+            lock (rows)
+            {
+                int n = rows.Count;
+                if (n == 0 || maxW < 1 || maxH < 1) return null;
+                double k = Math.Min(1.0, Math.Min((double)maxW / w, (double)maxH / n));
+                tw = Math.Max(1, (int)(w * k));
+                th = Math.Max(1, (int)(n * k));
+                int[] t = new int[tw * th];
+                double step = 1 / k;
+                for (int y = 0; y < th; y++)
+                {
+                    for (int x = 0; x < tw; x++)
+                    {
+                        int r = 0, g = 0, b = 0, count = 0;
+                        for (int sy = 0; sy < 3; sy++)
+                        {
+                            int[] row = rows[Math.Min(n - 1, (int)((y + (sy + 0.5) / 3) * step))];
+                            if (row == null) return null;
+                            for (int sx = 0; sx < 3; sx++)
+                            {
+                                int p = row[Math.Min(w - 1, (int)((x + (sx + 0.5) / 3) * step))];
+                                r += (p >> 16) & 255; g += (p >> 8) & 255; b += p & 255;
+                                count++;
+                            }
+                        }
+                        t[y * tw + x] = unchecked((int)0xFF000000) | (r / count << 16) | (g / count << 8) | (b / count);
+                    }
+                }
+                return t;
+            }
+        }
+
         public Bitmap Compose()
         {
             Bitmap b;
@@ -250,6 +451,8 @@ namespace Stackshot
                 }
                 catch { b.Dispose(); throw; }
                 rows.Clear();
+                src.Clear();
+                cleaned.Clear();
             }
             return b;
         }
@@ -269,10 +472,14 @@ namespace Stackshot
         readonly Stopwatch clock = Stopwatch.StartNew();
         readonly System.Windows.Forms.Timer ui = new System.Windows.Forms.Timer();
         ScrollCaptureBar bar;
+        ScrollPreview preview;
+        int previewFor = -1;
+        long previewAt;
         ScrollEdge[] edges;
         Thread worker;
         volatile bool stopping, cancelled;
         volatile int lost;
+        long upAt = -1;                   // last frame that had scrolled up (clock ms)
         long lastGrowth;
         bool auto, escDown = true, enterDown = true, ended;
         double nextWheel;
@@ -302,6 +509,7 @@ namespace Stackshot
         public bool Auto { get { return auto; } }
         public bool Full { get { return stitcher.IsFull; } }
         public bool Losing { get { return lost >= 3; } }
+        public bool WentUp { get { long t = Interlocked.Read(ref upAt); return t >= 0 && clock.ElapsedMilliseconds - t < 1500; } }
         public bool EscArmed { get { return escArmed >= 0 && clock.ElapsedMilliseconds - escArmed < EscAgainMs; } }
 
         // Keys typed into another app (a chat, a terminal) are not meant for the capture.
@@ -319,6 +527,7 @@ namespace Stackshot
         {
             edges = ScrollEdge.Around(area);
             bar = new ScrollCaptureBar(this, area);
+            preview = ScrollPreview.Beside(area);
             Interlocked.Exchange(ref lastGrowth, clock.ElapsedMilliseconds);
             worker = new Thread(Loop);
             worker.IsBackground = true;
@@ -406,6 +615,12 @@ namespace Stackshot
                 }
             }
             if (bar != null) bar.Poll();
+            if (preview != null && !stopping && stitcher.Height != previewFor && clock.ElapsedMilliseconds - previewAt > 300)
+            {
+                previewFor = stitcher.Height;
+                previewAt = clock.ElapsedMilliseconds;
+                preview.Update(stitcher);
+            }
         }
 
         // Capture thread: grabs and stitches at a fixed rate, then composes the result.
@@ -456,6 +671,7 @@ namespace Stackshot
                     }
                     if (added > 0) { lost = 0; Interlocked.Exchange(ref lastGrowth, clock.ElapsedMilliseconds); }
                     else if (r == Stitcher.Result.Lost) lost++;
+                    else if (r == Stitcher.Result.Up) Interlocked.Exchange(ref upAt, clock.ElapsedMilliseconds);
                     lastAdded = added;
                     Interlocked.Exchange(ref doneT0, t0);
                     int wait = Interval - (int)(clock.ElapsedMilliseconds - t0);
@@ -521,6 +737,7 @@ namespace Stackshot
                 if (Math.Abs(p.X - autoAt.X) <= 4 && Math.Abs(p.Y - autoAt.Y) <= 4) Cursor.Position = cursorWas.Value;
             }
             if (bar != null) bar.Close();
+            if (preview != null) preview.Close();
             if (edges != null) foreach (ScrollEdge e in edges) e.Close();
             ScrollCapture.Ended(this);
             if (problem != null) owner.Notify("Captura con desplazamiento", problem);
@@ -602,6 +819,7 @@ namespace Stackshot
             if (saving) return "Componiendo\u2026";
             if (session.EscArmed) return "Esc otra vez para descartar";
             if (session.Full) return "Altura m\u00E1xima";
+            if (session.WentUp) return "Solo hacia abajo";
             if (session.Losing) return "M\u00E1s despacio";
             if (session.Auto) return "Bajando solo\u2026";
             return "Baja con la rueda \u00B7 Enter termina";
@@ -648,7 +866,7 @@ namespace Stackshot
             string hs = shownHeight > 0 ? shownHeight.ToString("N0", Es) + " px" : "Preparando\u2026";
             System.Windows.Media.FormattedText ht = Line(hs, Ds.Semibold, P(14), white, tw);
             dc.DrawText(ht, new System.Windows.Point(tx, Math.Round(cy - ht.Height + P(2))));
-            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
+            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed || session.WentUp ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
             System.Windows.Media.FormattedText st = Line(shownState, Ds.Regular, P(11.5f), sc, tw);
             dc.DrawText(st, new System.Windows.Point(tx, Math.Round(cy + P(1))));
             if (!saving)
@@ -714,6 +932,72 @@ namespace Stackshot
             if (AutoRect().Contains(p)) session.ToggleAuto();
             else if (DoneRect().Contains(p)) session.Finish();
             else if (CancelRect().Contains(p)) session.Cancel();
+        }
+    }
+
+    // Live preview beside the area: the whole stitched image so far, shrinking as it grows, on a card. Click-through and
+    // excluded from the capture; left out when there is no room beside the area.
+    class ScrollPreview : FloatWindow
+    {
+        const int CardW = 132;
+        System.Windows.Media.Imaging.BitmapSource image;
+
+        ScrollPreview(Rectangle at, float scale)
+        {
+            s = scale;
+            SetSize(at.Size);
+            JumpTo(at.X, at.Y);
+            ShowQuiet();
+            alpha.Go(1, 200, 0, Ease.OutCubic, null);
+        }
+
+        public static ScrollPreview Beside(Rectangle area)
+        {
+            Screen scr = Screen.FromRectangle(area);
+            float s = ShotStack.ScaleFor(scr);
+            int pw = (int)Math.Round(CardW * s), gap = (int)Math.Round(14 * s);
+            Rectangle wa = scr.WorkingArea;
+            int ph = Math.Min(area.Height, wa.Height - 2 * gap);
+            if (ph < 120 * s) return null;
+            int y = Math.Max(wa.Top + gap, Math.Min(area.Top, wa.Bottom - gap - ph));
+            if (area.Right + gap + pw <= wa.Right) return new ScrollPreview(new Rectangle(area.Right + gap, y, pw, ph), s);
+            if (area.Left - gap - pw >= wa.Left) return new ScrollPreview(new Rectangle(area.Left - gap - pw, y, pw, ph), s);
+            return null;
+        }
+
+        protected override bool PerPixel { get { return true; } }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x20; // WS_EX_TRANSPARENT: never in the way of the page beside it
+                return cp;
+            }
+        }
+
+        public void Update(Stitcher stitcher)
+        {
+            int inset = P(8), tw, th;
+            int[] px = stitcher.Thumb(body.Width - 2 * inset, body.Height - 2 * inset, out tw, out th);
+            if (px == null) return;
+            image = System.Windows.Media.Imaging.BitmapSource.Create(tw, th, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, px, tw * 4);
+            image.Freeze();
+            Redraw();
+        }
+
+        protected override void PaintSurface(System.Windows.Media.DrawingContext dc, int w, int h)
+        {
+            System.Windows.Rect b = new System.Windows.Rect(0, 0, body.Width, body.Height);
+            Ink.Round(dc, Palette.HudBack(Ds.Argb(0.93, 30, 30, 32)), b, P(12));
+            Ink.Hairline(dc, Palette.HudLine, b, P(12));
+            if (image == null) return;
+            double inset = P(8), iw = image.PixelWidth, ih = image.PixelHeight;
+            System.Windows.Rect r = new System.Windows.Rect(inset + (body.Width - 2 * inset - iw) / 2, inset, iw, ih);
+            dc.PushClip(new System.Windows.Media.RectangleGeometry(r, P(4), P(4)));
+            dc.DrawImage(image, r);
+            dc.Pop();
         }
     }
 
