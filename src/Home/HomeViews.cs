@@ -239,10 +239,21 @@ namespace Stackshot
             if (settings.MascotOn)
             {
                 MascotHost host = new MascotHost(mascot, 84, false);
-                host.HorizontalAlignment = HorizontalAlignment.Center;
-                host.Margin = new Thickness(0, -30, 0, -6);
-                Panel.SetZIndex(host, 1);   // its bubble over the greeting, if it has to come down beside the mascot
-                col.Children.Add(host);
+                // The scene's glow, smaller and fainter; it overhangs the mascot without taking room.
+                Grid spot = new Grid { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, -30, 0, -6) };
+                Panel.SetZIndex(spot, 1);   // its bubble over the greeting, if it has to come down beside the mascot
+                if (!pal.High)
+                {
+                    const double gs = 260;
+                    Border halo = MascotHalo(gs, gs, 0.6);
+                    halo.Margin = new Thickness(-gs / 2, -gs / 2, -gs / 2, -gs / 2);
+                    halo.HorizontalAlignment = HorizontalAlignment.Center;
+                    halo.VerticalAlignment = VerticalAlignment.Center;
+                    spot.Children.Add(halo);
+                    HomeEnter(halo, 0, 0, 0, 0.9, 900);
+                }
+                spot.Children.Add(host);
+                col.Children.Add(spot);
                 UseMascot(host);
             }
             FrameworkElement hi = HomeGreeting(13.5, pal.Label2, 260);
@@ -1250,6 +1261,23 @@ namespace Stackshot
 
         const double SceneStage = 430, SceneBack = 680;
 
+        // A soft glow in the mascot's colour; strength scales the scene's own (1).
+        Border MascotHalo(double w, double h, double strength)
+        {
+            Color mc = W(MascotParts.Colors[Math.Max(0, Math.Min(MascotParts.Colors.GetLength(0) - 1, MascotLook.From(settings).Color)), 0]);
+            double a = (Ds.Brushes.Dark ? 0.34 : 0.32) * strength;
+            RadialGradientBrush glow = new RadialGradientBrush();
+            glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a), 0));
+            glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.78), 0.22));
+            glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.45), 0.48));
+            glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.16), 0.74));
+            glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, 0), 1));
+            glow.Freeze();
+            // Cached as a bitmap: the fade and growth then act on a smooth texture (a faint gradient re-rasterized at low
+            // opacity shows rings) and the mascot redrawing in front no longer re-rasterizes it.
+            return new Border { Width = w, Height = h, Background = glow, IsHitTestVisible = false, CacheMode = new BitmapCache() };
+        }
+
         void BuildHomeScene()
         {
             Palette pal = Ds.Brushes;
@@ -1277,22 +1305,11 @@ namespace Stackshot
             {
                 const double box = 170, left = 40, bottom = 34;
                 double cx = left + box * 1.7 / 2, cy = SceneStage - bottom - box * 0.06 - box / 2, feet = SceneStage - bottom - box * 0.06;
-                Color mc = W(MascotParts.Colors[Math.Max(0, Math.Min(MascotParts.Colors.GetLength(0) - 1, MascotLook.From(settings).Color)), 0]);
-                double a = pal.Dark ? 0.34 : 0.32, gw = 600, gh = 620;
-                RadialGradientBrush glow = new RadialGradientBrush();
-                glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a), 0));
-                glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.78), 0.22));
-                glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.45), 0.48));
-                glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, a * 0.16), 0.74));
-                glow.GradientStops.Add(new GradientStop(Ds.WithAlpha(mc, 0), 1));
-                Border halo = new Border
-                {
-                    Width = gw, Height = gh, Background = glow, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(cx - gw / 2, cy - gh / 2, 0, 0)
-                };
-                // Cached as a bitmap: the fade and growth then act on a smooth texture (a faint gradient re-rasterized at low
-                // opacity shows rings) and the mascot redrawing in front no longer re-rasterizes it.
-                halo.CacheMode = new BitmapCache();
+                const double gw = 600, gh = 620;
+                Border halo = MascotHalo(gw, gh, 1);
+                halo.HorizontalAlignment = HorizontalAlignment.Left;
+                halo.VerticalAlignment = VerticalAlignment.Top;
+                halo.Margin = new Thickness(cx - gw / 2, cy - gh / 2, 0, 0);
                 if (!pal.High) back.Children.Add(halo);
                 HomeEnter(halo, 0, 0, 0, 0.9, 900);
 
