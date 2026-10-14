@@ -126,37 +126,56 @@ namespace Stackshot
         }
     }
 
-    // A soft two-note chime at the end of a block or a break, synthesized like the shutter (no audio files).
+    // A soft sound for each moment of focus mode, so it can be told apart without looking; synthesized like the shutter
+    // (no audio files), built once each.
     public static class FocusChime
     {
-        static SoundPlayer up, down;
+        public enum Cue { Start, Pause, Resume, End, Break, Stop }
 
-        // up: a rising pair (back to work); otherwise falling (time to rest).
-        public static void Play(bool rising)
+        static readonly SoundPlayer[] players = new SoundPlayer[6];
+
+        // Notes (Hz) and when each starts (s): rising for starting, falling for resting and ending, a bell for "time's up".
+        static readonly double[][] Notes =
+        {
+            new double[] { 523.25, 0, 659.25, 0.12, 783.99, 0.24 },     // Start: C5 E5 G5, up
+            new double[] { 783.99, 0, 659.25, 0.14 },                   // Pause: G5 E5, down
+            new double[] { 659.25, 0, 783.99, 0.14 },                   // Resume: E5 G5, up
+            new double[] { 1046.5, 0, 1046.5, 0.32 },                   // End: a bell rung twice
+            new double[] { 783.99, 0, 659.25, 0.2, 523.25, 0.4 },      // Break: G5 E5 C5, slowly down
+            new double[] { 523.25, 0, 392.0, 0.16, 261.63, 0.32 }       // Stop: C5 G4 C4, a closing
+        };
+
+        public static void Play(Cue cue)
         {
             try
             {
-                SoundPlayer p = rising ? up : down;
-                if (p == null)
+                int i = (int)cue;
+                if (players[i] == null)
                 {
-                    p = new SoundPlayer(new MemoryStream(Build(rising ? 659.25 : 880.0, rising ? 880.0 : 659.25)));
+                    SoundPlayer p = new SoundPlayer(new MemoryStream(Build(Notes[i], cue == Cue.Pause || cue == Cue.Resume ? 0.6 : 1)));
                     p.Load();
-                    if (rising) up = p; else down = p;
+                    players[i] = p;
                 }
-                p.Play();
+                players[i].Play();
             }
             catch (Exception ex) { ShotStack.Log("Sonido de concentraci\u00F3n: " + ex.Message); }
         }
 
-        static byte[] Build(double f1, double f2)
+        // Kept for the settings switch: rising plays Start, otherwise Break.
+        public static void Play(bool rising) { Play(rising ? Cue.Start : Cue.Break); }
+
+        static byte[] Build(double[] notes, double level)
         {
             const int rate = 44100;
-            int n = rate * 1100 / 1000;
+            double last = 0;
+            for (int k = 1; k < notes.Length; k += 2) last = Math.Max(last, notes[k]);
+            int n = (int)(rate * (last + 1.0));
             short[] pcm = new short[n];
             for (int i = 0; i < n; i++)
             {
-                double t = i / (double)rate, v = Note(t, 0, f1) + Note(t, 0.18, f2);
-                pcm[i] = (short)Math.Max(-32767, Math.Min(32767, v * 9000));
+                double t = i / (double)rate, v = 0;
+                for (int k = 0; k < notes.Length; k += 2) v += Note(t, notes[k + 1], notes[k]);
+                pcm[i] = (short)Math.Max(-32767, Math.Min(32767, v * 8000 * level));
             }
             using (MemoryStream ms = new MemoryStream())
             using (BinaryWriter w = new BinaryWriter(ms))

@@ -151,8 +151,8 @@ namespace Stackshot
                            delegate(int i) { settings.FocusRounds = rounds[Math.Max(0, Math.Min(rounds.Length - 1, i))]; }),
                 new ToggleRow("Seguir solo", "Al acabar un bloque empieza el descanso, y al acabar el descanso el siguiente bloque, sin preguntarte.", "update", Mac.Teal, Mac.Blue,
                               delegate { return settings.FocusAuto; }, delegate(bool v) { settings.FocusAuto = v; }),
-                new ToggleRow("Sonido", "Un aviso suave al empezar y al acabar cada bloque y cada descanso.", "sound", Mac.Pink, Mac.Red,
-                              delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(false); }),
+                new ToggleRow("Sonido", "Un sonido suave y distinto para cada momento: empezar, pausar, reanudar, acabar, descansar y terminar.", "sound", Mac.Pink, Mac.Red,
+                              delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(FocusChime.Cue.Start); }),
                 new ToggleRow("Avisar con notificaciones", "Junto al reloj de Windows: al empezar, pausar, reanudar y terminar cada bloque y cada descanso.", "bell", Mac.Orange, Mac.Red,
                               delegate { return settings.FocusNotices; }, delegate(bool v) { settings.FocusNotices = v; }));
             Note("Empieza desde aqu\u00ED o desde el men\u00FA de la mascota en el escritorio (\u00ABConcentrarme\u00BB). Mientras dura un bloque, la mascota lee a tu lado sin hablar, " +
