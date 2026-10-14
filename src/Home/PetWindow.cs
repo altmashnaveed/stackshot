@@ -481,9 +481,13 @@ namespace Stackshot
             if (dt < 0.016) return;
             tvx = (cur.X - x0) / dt;
             tvy = (cur.Y - y0) / dt;
-            double sp = Math.Sqrt(tvx * tvx + tvy * tvy), cap = 3200 * s;
-            if (sp > cap) { tvx *= cap / sp; tvy *= cap / sp; }
-            if (sp < 160 * s) { tvx = 0; tvy = 0; }
+            double sp = Math.Sqrt(tvx * tvx + tvy * tvy);
+            if (sp < 160 * s) { tvx = 0; tvy = 0; return; }
+            // A normal toss keeps the hand's speed; a harder one goes harder still (each px/s past the knee counts 1.7),
+            // up to a ceiling that keeps it on the monitor's walls and ceiling.
+            double knee = 1200 * s, cap = 7000 * s, boosted = sp <= knee ? sp : Math.Min(cap, knee + (sp - knee) * 1.7);
+            tvx *= boosted / sp;
+            tvy *= boosted / sp;
         }
 
         void HopDown()
