@@ -783,14 +783,14 @@ namespace Stackshot
                     if (loaded) return;
                     gen = generation;
                 }
-                bool broken;
-                List<Entry> read = LoadFile(IndexFile, out broken);
+                bool broken, plain;
+                List<Entry> read = LoadFile(IndexFile, out broken, out plain);
                 lock (gate)
                 {
                     if (loaded || gen != generation) return;
                     foreach (Entry e in read) if (!entries.ContainsKey(e.Path)) entries[e.Path] = e;
                     loaded = true;
-                    if (broken) dirty = true;   // written again, clean, at the next save
+                    if (broken || plain) dirty = true;   // written again, clean and sealed, at the next save
                     version++;
                 }
                 if (attached) CleanLeftovers();
@@ -815,12 +815,55 @@ namespace Stackshot
         // version nothing; broken is true in both cases.
         internal static List<Entry> LoadFile(string path, out bool broken)
         {
+            bool plain;
+            return LoadFile(path, out broken, out plain);
+        }
+
+        // The text of every capture is private: the file is sealed with the user's Windows key (DPAPI), so another
+        // account, or a copy of the file taken elsewhere, can't read it. plain: an older unsealed file, read as it is
+        // and sealed at the next save.
+        static readonly byte[] SealMark = Encoding.ASCII.GetBytes("SSHI1\n");
+        static readonly byte[] SealEntropy = Encoding.ASCII.GetBytes("Stackshot.HistoryIndex.v1");
+
+        static byte[] Seal(byte[] gz)
+        {
+            byte[] sealedData = System.Security.Cryptography.ProtectedData.Protect(gz, SealEntropy, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+            byte[] r = new byte[SealMark.Length + sealedData.Length];
+            Buffer.BlockCopy(SealMark, 0, r, 0, SealMark.Length);
+            Buffer.BlockCopy(sealedData, 0, r, SealMark.Length, sealedData.Length);
+            return r;
+        }
+
+        static bool IsSealed(byte[] b)
+        {
+            if (b.Length < SealMark.Length) return false;
+            for (int i = 0; i < SealMark.Length; i++) if (b[i] != SealMark[i]) return false;
+            return true;
+        }
+
+        internal static List<Entry> LoadFile(string path, out bool broken, out bool plain)
+        {
             broken = false;
+            plain = false;
             List<Entry> r = new List<Entry>();
             try
             {
                 if (!File.Exists(path)) return r;
-                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                byte[] bytes = File.ReadAllBytes(path);
+                if (IsSealed(bytes))
+                {
+                    byte[] body = new byte[bytes.Length - SealMark.Length];
+                    Buffer.BlockCopy(bytes, SealMark.Length, body, 0, body.Length);
+                    try { bytes = System.Security.Cryptography.ProtectedData.Unprotect(body, SealEntropy, System.Security.Cryptography.DataProtectionScope.CurrentUser); }
+                    catch (System.Security.Cryptography.CryptographicException ex)
+                    {
+                        broken = true;
+                        ShotStack.Log("Historial: el \u00EDndice no se puede abrir en esta cuenta y se vuelve a crear (" + ex.Message + ")");
+                        return r;
+                    }
+                }
+                else plain = bytes.Length > 0;
+                using (MemoryStream fs = new MemoryStream(bytes, false))
                 using (GZipStream gz = new GZipStream(fs, CompressionMode.Decompress))
                 using (StreamReader rd = new StreamReader(gz, new UTF8Encoding(false, false)))
                 {
@@ -910,7 +953,7 @@ namespace Stackshot
             using (MemoryStream ms = new MemoryStream())
             {
                 using (GZipStream gz = new GZipStream(ms, CompressionMode.Compress, true)) gz.Write(raw, 0, raw.Length);
-                return ms.ToArray();
+                return Seal(ms.ToArray());
             }
         }
 
