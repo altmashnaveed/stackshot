@@ -248,8 +248,9 @@ namespace Stackshot
             hi.HorizontalAlignment = HorizontalAlignment.Center;
             hi.Margin = new Thickness(0, 8, 0, 0);
             col.Children.Add(hi);
-            TextBlock q = Label("\u00BFQu\u00E9 capturamos?", Ds.Title, 34, pal.Label, new Thickness(0, 2, 0, 0));
+            FrameworkElement q = HomeTitle(34, 0, 420);
             q.HorizontalAlignment = HorizontalAlignment.Center;
+            q.Margin = new Thickness(0, 4, 0, 0);
             col.Children.Add(q);
             Add(col);
             HomeEnter(hi, 30, 0, 8, 1);
@@ -910,7 +911,7 @@ namespace Stackshot
             // The title row is centred on the switch, which keeps the spot it has in the other views.
             Grid head = new Grid { Margin = new Thickness(0, HomeSwitchTop - 3, 0, 16) };
             StackPanel titles = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            titles.Children.Add(Label("Hoy", Ds.Title, 26, pal.Label));
+            titles.Children.Add(HomeMarked("Hoy", 26, 260));
             string date = DateTime.Now.ToString("dddd, d 'de' MMMM", new System.Globalization.CultureInfo("es-ES"));
             titles.Children.Add(Label(char.ToUpper(date[0]) + date.Substring(1), Ds.Regular, 12.5, pal.Label2, new Thickness(12, 8, 0, 0)));
             head.Children.Add(titles);
@@ -1318,7 +1319,9 @@ namespace Stackshot
             StackPanel right = new StackPanel { Width = 300, HorizontalAlignment = settings.MascotOn ? HorizontalAlignment.Right : HorizontalAlignment.Center, Margin = new Thickness(0, 74, 40, 0) };
             FrameworkElement hi = HomeGreeting(13, pal.Label2, 0);
             right.Children.Add(hi);
-            TextBlock q = Label("\u00BFQu\u00E9 capturamos?", Ds.Title, 30, pal.Label, new Thickness(0, 0, 0, 10));
+            FrameworkElement q = HomeTitle(30, 300, 430);
+            q.HorizontalAlignment = HorizontalAlignment.Left;
+            q.Margin = new Thickness(0, 2, 0, 10);
             right.Children.Add(q);
             HomeEnter(hi, 40, 18, 0, 1);
             HomeEnter(q, 90, 18, 0, 1);
