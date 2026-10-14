@@ -821,10 +821,20 @@ namespace Stackshot
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
-            if (swiping || Inside(Local(PointToClient(Control.MousePosition)))) return;
+            // The shadow of the next card lies over this one's edge: the pointer can be inside the body yet on that window.
+            if (swiping || Inside(Local(PointToClient(Control.MousePosition))) && UnderPointer()) return;
             hover = false;
             SetHot(-1);
             UpdateHover();
+        }
+
+        bool UnderPointer()
+        {
+            Point m = Control.MousePosition;
+            Native.POINT pt;
+            pt.X = m.X;
+            pt.Y = m.Y;
+            return Native.GetAncestor(Native.WindowFromPoint(pt), 2) == Handle; // GA_ROOT
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
