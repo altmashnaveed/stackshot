@@ -338,14 +338,18 @@ namespace Stackshot
             return IntPtr.Zero;
         }
 
+        // A window that can be maximized and snapped (Win + Z shows Windows 11's snap layouts, Win + arrows snap it).
+        protected virtual bool Snaps { get { return false; } }
+
         // DWM paints its own minimize/maximize/close over the glass whenever WS_CAPTION is set, even with the Aero buttons off.
         // Dropping the caption (keeping the sizing frame, sysmenu and minimize box for the taskbar) leaves only our buttons.
         void HideNativeCaption()
         {
             if (Environment.OSVersion.Version.Build < 22000) return;
-            const int WS_CAPTION = 0x00C00000, WS_SYSMENU = 0x00080000, WS_THICKFRAME = 0x00040000, WS_MINIMIZEBOX = 0x00020000;
+            const int WS_CAPTION = 0x00C00000, WS_SYSMENU = 0x00080000, WS_THICKFRAME = 0x00040000, WS_MINIMIZEBOX = 0x00020000, WS_MAXIMIZEBOX = 0x00010000;
             int st = Native.GetWindowLong(hwnd, -16);
             int want = (st & ~WS_CAPTION) | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX;
+            if (Snaps) want |= WS_MAXIMIZEBOX;   // without a caption DWM draws no button for it
             if (want == st) return;
             Native.SetWindowLong(hwnd, -16, want);
             Native.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0, 0x27); // NOSIZE | NOMOVE | NOZORDER | FRAMECHANGED

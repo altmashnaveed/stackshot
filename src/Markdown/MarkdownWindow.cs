@@ -231,6 +231,8 @@ namespace Stackshot
             return new IntPtr(hit);
         }
 
+        protected override bool Snaps { get { return true; } }
+
         protected override void ThemeChanged()
         {
             if (editor != null) editor.SetPalette(Ds.Brushes);
