@@ -80,24 +80,29 @@ namespace Stackshot
             head.Children.Add(Text(note ? "\u00BFQu\u00E9 apunto?" : "\u00BFQu\u00E9 te recuerdo?", Ds.Title, 18, pal.Label, new Thickness(12, 0, 0, 0)));
             page.Children.Add(head);
 
-            box = Field(text, note, note ? 90 : 0, note ? "Lo que quieras apuntar" : "Por ejemplo: llamar a Laura");
-            Border frame = Frame(box);
+            string hint = note ? "Lo que quieras apuntar" : "Por ejemplo: llamar a Laura";
+            box = Field(text, note, note ? 90 : 0, hint);
+            Border frame = Frame(box, hint);
             frame.Margin = new Thickness(0, 16, 0, 0);
             page.Children.Add(frame);
 
             if (!note)
             {
                 page.Children.Add(Text("\u00BFCu\u00E1ndo?", Ds.Semibold, 12.5, pal.Label, new Thickness(0, 16, 0, 6)));
-                MacSegmented seg = new MacSegmented(new string[] { "10 min", "30 min", "1 h", "2 h", "Ma\u00F1ana 9:00", "A las\u2026" }, when) { HorizontalAlignment = HorizontalAlignment.Left };
+                // Short labels across the whole width; the line below says exactly when.
+                MacSegmented seg = new MacSegmented(new string[] { "10 min", "30 min", "1 h", "2 h", "Ma\u00F1ana", "A las\u2026" }, when);
+                seg.ClearValue(WidthProperty);
+                seg.HorizontalAlignment = HorizontalAlignment.Stretch;
                 seg.Changed += delegate(int i) { Keep(); when = i; Build(); if (i == 5 && time != null) { time.Focus(); time.SelectAll(); } };
                 page.Children.Add(seg);
+                if (when < 5) page.Children.Add(Text("Te lo recuerdo " + ShotStack.WhenText(Preset()) + ".", Ds.Regular, 12, pal.Label2, new Thickness(2, 8, 0, 0)));
                 if (when == 5)
                 {
                     StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
                     row.Children.Add(Text("Hora", Ds.Regular, 13, pal.Label2, new Thickness(0, 0, 10, 0)));
                     time = Field(at, false, 0, "Hora");
                     time.Width = 70;
-                    row.Children.Add(Frame(time));
+                    row.Children.Add(Frame(time, null));
                     row.Children.Add(Text("(por ejemplo 16:30)", Ds.Regular, 12, pal.Label3, new Thickness(10, 0, 0, 0)));
                     page.Children.Add(row);
                 }
@@ -161,8 +166,7 @@ namespace Stackshot
                 return;
             }
             DateTime due;
-            if (when < 4) due = DateTime.Now.AddMinutes(Minutes[when]);
-            else if (when == 4) due = DateTime.Today.AddDays(1).AddHours(9);
+            if (when < 5) due = Preset();
             else
             {
                 DateTime t;
@@ -175,6 +179,9 @@ namespace Stackshot
             owner.AddReminder(text, due, false);
             Close();
         }
+
+        // The moment a preset choice means (every one but "A las…").
+        DateTime Preset() { return when < 4 ? DateTime.Now.AddMinutes(Minutes[when]) : DateTime.Today.AddDays(1).AddHours(9); }
 
         void Say(string s)
         {
@@ -204,16 +211,32 @@ namespace Stackshot
             return b;
         }
 
-        static Border Frame(TextBox box)
+        // The field's box; hint: grey text shown while it is empty (null: none).
+        static Border Frame(TextBox box, string hint)
         {
             Palette pal = Ds.Brushes;
+            Grid inside = new Grid();
+            if (hint != null)
+            {
+                TextBlock h = Text(hint, Ds.Regular, 13.5, pal.Label3, new Thickness(box.Margin.Left + 2, box.Margin.Top, box.Margin.Right, box.Margin.Bottom));
+                h.VerticalAlignment = box.AcceptsReturn ? VerticalAlignment.Top : VerticalAlignment.Center;
+                h.IsHitTestVisible = false;
+                h.TextTrimming = TextTrimming.CharacterEllipsis;
+                Action show = delegate { h.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Hidden; };
+                box.TextChanged += delegate { show(); };
+                show();
+                inside.Children.Add(h);
+            }
+            inside.Children.Add(box);
             Border f = new Border
             {
                 MinHeight = 34, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Cursor = Cursors.IBeam,
-                BorderBrush = Ds.Brush(pal.Hairline), Background = Ds.Brush(pal.Control), Child = box
+                BorderBrush = Ds.Brush(pal.Hairline), Background = Ds.Brush(pal.Control), Child = inside
             };
             box.GotKeyboardFocus += delegate { f.BorderBrush = Ds.Brush(Ds.WithAlpha(Ds.Brushes.Accent, 0.85)); };
             box.LostKeyboardFocus += delegate { f.BorderBrush = Ds.Brush(Ds.Brushes.Hairline); };
+            // A click on the padding around the text goes to the field too.
+            f.MouseLeftButtonDown += delegate(object o, MouseButtonEventArgs e) { if (!box.IsMouseOver) { box.Focus(); box.CaretIndex = box.Text.Length; e.Handled = true; } };
             return f;
         }
     }
