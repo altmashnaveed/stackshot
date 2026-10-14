@@ -76,6 +76,7 @@ namespace Stackshot
 
         public static void Install(bool startup)
         {
+            SweepParked();
             Directory.CreateDirectory(Settings.InstallDir);
             if (!RunningInstalled)
             {
@@ -397,24 +398,49 @@ namespace Stackshot
             try { if (File.Exists(MenuLink)) File.Delete(MenuLink); } catch { }
             try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
             bool keptRecovered = DeleteData(Settings.DataDir, s.SaveFolder);
-            // A running .exe can't delete itself, so a hidden cmd removes the folder once this process exits.
-            try
-            {
-                // Retries every second for up to 30 s.
-                string dir = Settings.InstallDir.TrimEnd('\\');
-                ProcessStartInfo psi = new ProcessStartInfo(Native.System32("cmd.exe"),
-                    "/d /c for /l %i in (1,1,30) do (ping 127.0.0.1 -n 2 >nul & rmdir /s /q \"" + dir + "\" 2>nul & if not exist \"" + dir + "\" exit)");
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-                psi.WindowStyle = ProcessWindowStyle.Hidden;
-                Process.Start(psi);
-            }
-            catch { }
+            RemoveInstallDir();
             if (quiet) return;
             string done = "Stackshot se ha desinstalado. \u00A1Gracias por probarlo!";
             if (printBack) done += "\n\nLa tecla Impr Pant vuelve a abrir Recortes de Windows.";
             if (keptRecovered) done += "\n\nLas grabaciones recuperadas siguen en " + ShotStack.RecoveredDir + ".";
             MessageBox.Show(done, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        const string ParkedPrefix = "Stackshot-desinstalado-";
+
+        // A running .exe can't be deleted but can be moved: it goes to the temp folder under a name Windows won't run, and
+        // the folder goes at once (no helper process left behind, which security software rightly distrusts). Windows'
+        // temp cleanup, or the next install, removes the parked file. Should the move fail, the folder goes at next sign-in.
+        static void RemoveInstallDir()
+        {
+            string dir = Settings.InstallDir.TrimEnd('\\');
+            try
+            {
+                string self = Path.GetFullPath(ExePath);
+                if (string.Equals(Path.GetDirectoryName(self), dir, StringComparison.OrdinalIgnoreCase))
+                    File.Move(self, Path.Combine(Path.GetTempPath(), ParkedPrefix + Guid.NewGuid().ToString("N") + ".old"));
+            }
+            catch (Exception ex) { ShotStack.Log("Desinstalar, apartar el ejecutable: " + ex.Message); }
+            try { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+            catch (Exception ex) { ShotStack.Log("Desinstalar, carpeta: " + ex.Message); }
+            if (!Directory.Exists(dir)) return;
+            try
+            {
+                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\RunOnce"))
+                    k.SetValue("StackshotCleanup", "\"" + Native.System32("cmd.exe") + "\" /d /c rmdir /s /q \"" + dir + "\"");
+            }
+            catch (Exception ex) { ShotStack.Log("Desinstalar, limpieza al iniciar sesi\u00F3n: " + ex.Message); }
+        }
+
+        // Executables parked by an earlier uninstall.
+        static void SweepParked()
+        {
+            try
+            {
+                foreach (string f in Directory.GetFiles(Path.GetTempPath(), ParkedPrefix + "*.old"))
+                    try { File.Delete(f); } catch (Exception ex) { ShotStack.Log("Instalar, resto de desinstalaci\u00F3n: " + ex.Message); }
+            }
+            catch (Exception ex) { ShotStack.Log("Instalar, resto de desinstalaci\u00F3n: " + ex.Message); }
         }
 
         // Deletes Stackshot's data folder except what can't be made again: recordings in recuperado\ and, should the save
