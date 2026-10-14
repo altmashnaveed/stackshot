@@ -3,6 +3,8 @@
 //
 // POST /report  JSON { kind: "bug" | "idea", title, what, steps, version, windows, screens, log }
 //   -> 201 { ok: true, number, url }   or   4xx/5xx { ok: false, error }
+// GET /status?n=12,15  (the app's "Mis reportes": no GitHub account needed to follow a report)
+//   -> 200 { ok: true, issues: [{ number, state, reason, comments: [{ team, at, text }] }] }
 
 const LIMITS = { title: 120, what: 6000, steps: 4000, version: 32, windows: 64, screens: 64, log: 24000 };
 // Fields cut from the start keep their end instead: the newest log lines are where the problem is.
@@ -11,6 +13,7 @@ const KEEP_END = { log: true };
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/status") return status(request, env, url);
     if (url.pathname !== "/report") return json(404, { ok: false, error: "not found" });
     if (request.method !== "POST") return json(405, { ok: false, error: "method" });
     if (!/^Stackshot\//.test(request.headers.get("User-Agent") || "")) return json(403, { ok: false, error: "client" });
@@ -55,18 +58,48 @@ export default {
   }
 };
 
-function createIssue(env, title, body, labels) {
-  return fetch("https://api.github.com/repos/" + env.REPO + "/issues", {
-    method: "POST",
+// How the reports sent from one computer are doing: their state and the replies, as plain text. Only issues that came
+// from the app, at most 20 per request (each costs one or two calls to GitHub, within a Worker's 50).
+async function status(request, env, url) {
+  if (request.method !== "GET") return json(405, { ok: false, error: "method" });
+  if (!/^Stackshot\//.test(request.headers.get("User-Agent") || "")) return json(403, { ok: false, error: "client" });
+  const ns = [...new Set((url.searchParams.get("n") || "").split(",").map(s => parseInt(s, 10)).filter(n => n > 0))].slice(0, 20);
+  if (!ns.length) return json(400, { ok: false, error: "empty" });
+  const issues = [];
+  for (const n of ns) {
+    const res = await github(env, "/issues/" + n);
+    if (res.status === 404 || res.status === 410) continue;
+    if (!res.ok) return json(502, { ok: false, error: "github " + res.status });
+    const i = await res.json();
+    if (i.pull_request || !(i.labels || []).some(l => l.name === "desde la app")) continue;
+    let comments = [];
+    if (i.comments > 0) {
+      const c = await github(env, "/issues/" + n + "/comments?per_page=50");
+      if (c.ok) comments = (await c.json()).map(x => ({
+        team: ["OWNER", "MEMBER", "COLLABORATOR"].includes(x.author_association),
+        at: x.created_at,
+        text: (x.body || "").slice(0, 4000)
+      }));
+    }
+    issues.push({ number: i.number, state: i.state, reason: i.state_reason || "", comments });
+  }
+  return json(200, { ok: true, issues });
+}
+
+function github(env, path, init) {
+  return fetch("https://api.github.com/repos/" + env.REPO + path, Object.assign({
     headers: {
       "Authorization": "Bearer " + env.GITHUB_TOKEN,
       "Accept": "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       "User-Agent": "stackshot-report-relay",
       "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ title: "[App] " + title, body, labels })
-  });
+    }
+  }, init || {}));
+}
+
+function createIssue(env, title, body, labels) {
+  return github(env, "/issues", { method: "POST", body: JSON.stringify({ title: "[App] " + title, body, labels }) });
 }
 
 // Plain text only: control characters out; @mentions, #123 / owner/repo#123 / GH-123 references and links to GitHub
