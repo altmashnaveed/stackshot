@@ -46,6 +46,33 @@ namespace Stackshot
         }
         public bool CanPlay { get { return HasVideo && Fps > 0; } }
 
+        // Probes kept for a minute (same file, size and time), so the window opened after a background probe doesn't
+        // ask FFmpeg again on the UI thread.
+        static readonly Dictionary<string, KeyValuePair<DateTime, MediaInfo>> recent = new Dictionary<string, KeyValuePair<DateTime, MediaInfo>>(StringComparer.OrdinalIgnoreCase);
+
+        static string CacheKey(string path)
+        {
+            try { FileInfo f = new FileInfo(path); return f.Exists ? path + "|" + f.Length + "|" + f.LastWriteTimeUtc.Ticks : null; }
+            catch (Exception) { return null; }
+        }
+
+        internal static bool IsCached(string path)
+        {
+            string key = CacheKey(path);
+            KeyValuePair<DateTime, MediaInfo> hit;
+            lock (recent) return key != null && recent.TryGetValue(key, out hit) && DateTime.UtcNow - hit.Key < TimeSpan.FromMinutes(1);
+        }
+
+        internal static MediaInfo ProbeCached(string ffmpeg, string path)
+        {
+            string key = CacheKey(path);
+            KeyValuePair<DateTime, MediaInfo> hit;
+            if (key != null) lock (recent) if (recent.TryGetValue(key, out hit) && DateTime.UtcNow - hit.Key < TimeSpan.FromMinutes(1)) return hit.Value;
+            MediaInfo m = Probe(ffmpeg, path);
+            if (key != null) lock (recent) { if (recent.Count > 32) recent.Clear(); recent[key] = new KeyValuePair<DateTime, MediaInfo>(DateTime.UtcNow, m); }
+            return m;
+        }
+
         // Asks FFmpeg about a file. Its text is UTF-8 (the track titles carry accents), so it is read as such.
         internal static MediaInfo Probe(string ffmpeg, string path)
         {

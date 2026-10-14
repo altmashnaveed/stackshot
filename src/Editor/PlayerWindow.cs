@@ -496,7 +496,7 @@ namespace Stackshot
             lock (frameLock) haveFrame = false;
             Text = Path.GetFileName(file) + " \u2013 Stackshot";
             Cursor.Current = Cursors.WaitCursor;
-            try { info = MediaInfo.Probe(ffmpeg, file); }
+            try { info = MediaInfo.ProbeCached(ffmpeg, file); }
             finally { Cursor.Current = Cursors.Default; }
             long bytes = 0;
             try { bytes = new FileInfo(file).Length; }
@@ -943,10 +943,26 @@ namespace Stackshot
 
         void OpenAndPlay(string file)
         {
-            if (exportThread != null) return;
-            Open(file);
-            BeginPlay();
+            if (exportThread != null || probing) return;
+            if (MediaInfo.IsCached(file)) { Open(file); BeginPlay(); return; }
+            // FFmpeg reads it first off the UI thread: the current video keeps playing meanwhile.
+            probing = true;
+            UseWaitCursor = true;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                MediaInfo.ProbeCached(ffmpeg, file);
+                OnUi(delegate
+                {
+                    probing = false;
+                    UseWaitCursor = false;
+                    if (IsDisposed || exportThread != null) return;
+                    Open(file);
+                    BeginPlay();
+                });
+            });
         }
+
+        bool probing;
 
         // ---- export to MP4 ----
 

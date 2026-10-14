@@ -1407,6 +1407,7 @@ namespace Stackshot
         // is told once where they are.
         void RescueOrphans()
         {
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate { SweepWorkTemp(); });
             List<WorkFiles.Rescued> moved = WorkFiles.Rescue(folder, RecoveredDir, TimeSpan.FromSeconds(10), true);
             if (moved.Count == 0) return;
             WorkFiles.Rescued last = moved[moved.Count - 1];
@@ -1415,6 +1416,28 @@ namespace Stackshot
                           " en la carpeta \u00ABrecuperado\u00BB.";
             string dir = moved.Count == 1 ? last.Folder : RecoveredDir;
             sync.BeginInvoke((Action)delegate { if (!exiting) Notify("Grabaci\u00F3n recuperada", text, dir); });
+        }
+
+        // The editor and the player write their work files (first frame, overlay, two-pass logs, strip, GIF palette)
+        // to Windows' temp folder and delete them when done; a crash or a forced close leaves them behind. A day later
+        // nothing can still be using them.
+        static readonly string[] WorkTempPrefixes = { "stackshot-frame-", "stackshot-top-", "stackshot-2pass-", "stackshot-strip-", "stackshot-palette-" };
+
+        internal static void SweepWorkTemp()
+        {
+            DateTime limit = DateTime.Now.AddDays(-1);
+            string temp = Path.GetTempPath();
+            foreach (string prefix in WorkTempPrefixes)
+            {
+                try
+                {
+                    foreach (string f in Directory.GetFiles(temp, prefix + "*"))
+                        try { if (File.GetLastWriteTime(f) < limit) File.Delete(f); } catch (Exception) { }
+                    foreach (string d in Directory.GetDirectories(temp, prefix + "*"))
+                        try { if (Directory.GetLastWriteTime(d) < limit) Directory.Delete(d, true); } catch (Exception) { }
+                }
+                catch (Exception ex) { Log("Limpieza de temporales de trabajo: " + ex.Message); }
+            }
         }
 
         void OpenExplorer(string dir)
@@ -1577,6 +1600,19 @@ namespace Stackshot
             string ff = Recorder.FindFfmpeg(settings);
             if (ff == null) ff = FfmpegSetup.Run(settings);
             if (ff == null) return;
+            // FFmpeg reads the file first, off the UI thread (a network drive or a damaged file can take long); the
+            // window then finds the answer ready.
+            if (MediaInfo.IsCached(path)) { OpenPlayerNow(path, ff); return; }
+            if (!preparing.Add(path)) return;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                MediaInfo.ProbeCached(ff, path);
+                Ui(delegate { preparing.Remove(path); if (!exiting && !Playing(path)) OpenPlayerNow(path, ff); });
+            });
+        }
+
+        void OpenPlayerNow(string path, string ff)
+        {
             PlayerWindow win;
             try { win = new PlayerWindow(this, settings, ff, path, null); }
             catch (Exception ex)
@@ -1761,23 +1797,42 @@ namespace Stackshot
             if (editors.TryGetValue(path, out ed) && !ed.IsDisposed) { ed.BringUp(); return true; }
             if (IsMediaFile(path) || IsVideoFile(path))
             {
-                // Video or GIF: presentation mode (annotations and backdrop over the whole recording).
-                ed = Editor.ForVideo(this, path);
-                if (ed == null) return false;
+                // Video or GIF: presentation mode (annotations and backdrop over the whole recording). FFmpeg reads it
+                // off the UI thread, so a slow drive or a damaged file never freezes the stack; the window follows.
+                if (preparing.Contains(path)) return true;
+                string ff = Recorder.FindFfmpeg(settings);
+                if (ff == null) ff = FfmpegSetup.Run(settings);
+                if (ff == null) return false;
+                preparing.Add(path);
+                System.Threading.ThreadPool.QueueUserWorkItem(delegate
+                {
+                    Editor.VideoPrep v = Editor.PrepareVideo(ff, path);
+                    Ui(delegate
+                    {
+                        preparing.Remove(path);
+                        if (exiting) { Editor.FromPrepared(null, path, ff, new Editor.VideoPrep { Frame = v.Frame, Failure = "" }); return; }
+                        Editor e = Editor.FromPrepared(this, path, ff, v);
+                        if (e != null) ShowEditor(path, e);
+                    });
+                });
+                return true;
             }
-            else
-            {
-                if (OpenWhenChecked(path)) return true;
-                Bitmap img;
-                try { img = LoadFull(path); }
-                catch (Exception ex) { Log("Editor: no se pudo abrir " + path + ": " + ex.Message); return false; }
-                ed = new Editor(this, path, img);
-            }
+            if (OpenWhenChecked(path)) return true;
+            Bitmap img;
+            try { img = LoadFull(path); }
+            catch (Exception ex) { Log("Editor: no se pudo abrir " + path + ": " + ex.Message); return false; }
+            ShowEditor(path, new Editor(this, path, img));
+            return true;
+        }
+
+        readonly HashSet<string> preparing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void ShowEditor(string path, Editor ed)
+        {
             editors[path] = ed;
             ed.FormClosed += delegate { editors.Remove(path); };
             ed.Show();
             ed.BringUp();
-            return true;
         }
 
         // Cascade out, top to bottom.
