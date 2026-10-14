@@ -97,7 +97,9 @@ namespace Stackshot
                 new ToggleRow("Se duerme sola", "Si no le haces caso un rato, bosteza y se echa una siesta.", "moon", Mac.Indigo, Mac.Purple,
                               delegate { return settings.MascotSleepIdle; }, delegate(bool v) { settings.MascotSleepIdle = v; ApplyMascotBehavior(); owner.MascotChanged(); }) { When = shown },
                 new ToggleRow("Recorre todas las pantallas", "En el escritorio pasea de un monitor a otro en vez de quedarse en uno.", "screen", Mac.Teal, Mac.Blue,
-                              delegate { return settings.MascotAllScreens; }, delegate(bool v) { settings.MascotAllScreens = v; owner.MascotChanged(); }) { When = shown });
+                              delegate { return settings.MascotAllScreens; }, delegate(bool v) { settings.MascotAllScreens = v; owner.MascotChanged(); }) { When = shown },
+                new ToggleRow("Se aparta con la pantalla completa", "Se esconde mientras un juego, una presentaci\u00F3n o una ventana a pantalla completa (como una m\u00E1quina virtual) ocupa su monitor. Ap\u00E1galo y se queda siempre delante.", "maximize", Mac.Indigo, Mac.Blue,
+                              delegate { return settings.MascotHideFull; }, delegate(bool v) { settings.MascotHideFull = v; owner.MascotChanged(); }) { When = shown });
             Group("Lo que hace por su cuenta",
                 AloneRow("Saltitos y gestos", "Hops, gui\u00F1os y estiramientos.", "hop", MascotCmd.AloneSmall),
                 AloneRow("Bailes y piruetas", "Bailar, girar, voltereta y pompas.", "sound", MascotCmd.AloneDance),

@@ -87,6 +87,7 @@ namespace Stackshot
         public int MascotChatter = 1;       // how talkative: 0 little, 1 normal, 2 a lot
         public int MascotAlone = 15;        // what it does alone, MascotCmd.Alone* bits
         public bool MascotSleepIdle = true; // dozes off when ignored
+        public bool MascotHideFull = true;  // steps aside for games, presentations and full-screen windows on its monitor
         // Healthy breaks: minutes at the computer between reminders (0 off), notices when the mascot isn't on the desktop,
         // and today's count of each one (WellDay, then water, eyes, move, breathe).
         public bool WellOn = true;
@@ -264,6 +265,7 @@ namespace Stackshot
                         case "mascotchatter": s.MascotChatter = Int(v, s.MascotChatter, 0, 2); break;
                         case "mascotalone": s.MascotAlone = Int(v, s.MascotAlone, 0, 15); break;
                         case "mascotsleepidle": s.MascotSleepIdle = Bool(v, s.MascotSleepIdle); break;
+                        case "mascothidefull": s.MascotHideFull = Bool(v, s.MascotHideFull); break;
                         case "wellon": s.WellOn = Bool(v, s.WellOn); break;
                         case "wellwater": s.WellWater = WellMinutes(v, s.WellWater); break;
                         case "welleyes": s.WellEyes = WellMinutes(v, s.WellEyes); break;
@@ -467,6 +469,7 @@ namespace Stackshot
             b.AppendLine("MascotChatter = " + MascotChatter);
             b.AppendLine("MascotAlone = " + MascotAlone);
             b.AppendLine("MascotSleepIdle = " + (MascotSleepIdle ? "1" : "0"));
+            b.AppendLine("MascotHideFull = " + (MascotHideFull ? "1" : "0"));
             b.AppendLine("# Pausas saludables: minutos delante del ordenador entre avisos (0 = no)");
             b.AppendLine("WellOn = " + (WellOn ? "1" : "0"));
             b.AppendLine("WellWater = " + WellWater);

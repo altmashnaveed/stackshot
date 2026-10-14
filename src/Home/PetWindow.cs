@@ -1098,17 +1098,19 @@ namespace Stackshot
 
         static int IdleMs() { return Native.IdleMs(); }
 
-        // Full-screen apps, games and presentations: hide until they end.
+        // Full-screen apps, games and presentations: hide until they end (unless asked to stay in front always).
         bool FullScreenBusy()
         {
+            if (!settings.MascotHideFull) return false;
             int q;
-            // Games (QUNS_RUNNING_D3D_FULL_SCREEN, 3) and presentations (QUNS_PRESENTATION_MODE, 4) always hide it. QUNS_BUSY (2)
-            // means some app is full screen on any monitor: only hide when it covers the monitor the mascot is on.
+            // Presentations (QUNS_PRESENTATION_MODE, 4) always hide it. Games (QUNS_RUNNING_D3D_FULL_SCREEN, 3; virtual
+            // machines and remote desktops often say so too) and QUNS_BUSY (2) mean something is full screen on some monitor:
+            // only hide when it covers the monitor the mascot is on.
             try
             {
                 if (SHQueryUserNotificationState(out q) != 0) return false;
-                if (q == 3 || q == 4) return true;
-                if (q != 2) return false;
+                if (q == 4) return true;
+                if (q != 2 && q != 3) return false;
                 IntPtr fg = Native.GetForegroundWindow();
                 Native.RECT r;
                 if (fg == IntPtr.Zero || !Native.GetWindowRect(fg, out r)) return false;
@@ -1117,6 +1119,21 @@ namespace Stackshot
             }
             catch { }
             return false;
+        }
+
+        // Why it stepped aside, once per change: which app was full screen.
+        void LogBlocked()
+        {
+            if (!blocked) { ShotStack.Log("Mascota: vuelve al escritorio"); return; }
+            string who = "";
+            try
+            {
+                uint pid;
+                Native.GetWindowPid(Native.GetForegroundWindow(), out pid);
+                using (System.Diagnostics.Process p = System.Diagnostics.Process.GetProcessById((int)pid)) who = " (" + p.ProcessName + ")";
+            }
+            catch { }
+            ShotStack.Log("Mascota: se aparta por una pantalla completa" + who);
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder sb, int max);
@@ -1149,7 +1166,7 @@ namespace Stackshot
             {
                 lastCheck = now;
                 bool b = FullScreenBusy();
-                if (b != blocked) { blocked = b; UpdateVisibility(); }
+                if (b != blocked) { blocked = b; LogBlocked(); UpdateVisibility(); }
                 if (Visible && state != State.Drag)
                 {
                     // Work area changed (taskbar resized or auto-hidden): follow it. Then make sure it is still on top.
