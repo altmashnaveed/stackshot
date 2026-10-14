@@ -281,11 +281,17 @@ namespace Stackshot
         bool waiting;
         int idle, wheelDelta = -120;
         Point autoAt;
+        Point? cursorWas;                 // where Auto took the pointer from; it goes back there unless the user moved it
+        readonly IntPtr target;           // top-level window under the area: Enter and Esc count only while it (or Stackshot) is in front
+        long escArmed = -1;               // first Esc with something stitched: a second one within EscAgainMs discards
+        const int EscAgainMs = 2500;
 
         public ScrollSession(ShotStack owner, Rectangle area)
         {
             this.owner = owner;
             this.area = area;
+            Native.POINT c = new Native.POINT { X = area.X + area.Width / 2, Y = area.Y + area.Height / 2 };
+            target = Native.GetAncestor(Native.WindowFromPoint(c), 2); // GA_ROOT
             float s = ShotStack.ScaleFor(Screen.FromRectangle(area));
             int ignore = Math.Min((int)Math.Round(24 * s), area.Width / 5);
             int maxRows = (int)Math.Min(30000, MaxPixels / Math.Max(1, area.Width));
@@ -296,6 +302,18 @@ namespace Stackshot
         public bool Auto { get { return auto; } }
         public bool Full { get { return stitcher.IsFull; } }
         public bool Losing { get { return lost >= 3; } }
+        public bool EscArmed { get { return escArmed >= 0 && clock.ElapsedMilliseconds - escArmed < EscAgainMs; } }
+
+        // Keys typed into another app (a chat, a terminal) are not meant for the capture.
+        bool KeysAreOurs()
+        {
+            IntPtr fg = Native.GetForegroundWindow();
+            if (fg == IntPtr.Zero) return false;
+            if (target != IntPtr.Zero && Native.GetAncestor(fg, 2) == target) return true;
+            uint pid;
+            Native.GetWindowPid(fg, out pid);
+            return pid == (uint)Process.GetCurrentProcess().Id;
+        }
 
         public void Start()
         {
@@ -331,6 +349,7 @@ namespace Stackshot
             auto = !auto;
             if (!auto) return;
             // Wheel input goes to the window under the cursor, so park it in the middle of the area.
+            if (!cursorWas.HasValue) cursorWas = Cursor.Position;
             autoAt = new Point(area.X + area.Width / 2, area.Y + area.Height / 2);
             Cursor.Position = autoAt;
             Interlocked.Exchange(ref lastGrowth, clock.ElapsedMilliseconds);
@@ -346,8 +365,17 @@ namespace Stackshot
         {
             if (ended) return;
             bool esc = (GetAsyncKeyState(0x1B) & 0x8000) != 0, enter = (GetAsyncKeyState(0x0D) & 0x8000) != 0;
-            if (esc && !escDown) Cancel();
-            if (enter && !enterDown) Finish();
+            bool fresh = (esc && !escDown) || (enter && !enterDown);
+            if (fresh && KeysAreOurs())
+            {
+                if (esc && !escDown)
+                {
+                    // Something already stitched beyond the first screen is not thrown away by a single stray Esc.
+                    if (stitcher.Height > area.Height && !EscArmed && !stopping) { escArmed = clock.ElapsedMilliseconds; if (bar != null) bar.Invalidate(); }
+                    else Cancel();
+                }
+                else if (enter && !enterDown) Finish();
+            }
             escDown = esc;
             enterDown = enter;
             if (auto && !stopping)
@@ -487,6 +515,11 @@ namespace Stackshot
             ended = true;
             ui.Stop();
             ui.Dispose();
+            if (cursorWas.HasValue)
+            {
+                Point p = Cursor.Position;
+                if (Math.Abs(p.X - autoAt.X) <= 4 && Math.Abs(p.Y - autoAt.Y) <= 4) Cursor.Position = cursorWas.Value;
+            }
             if (bar != null) bar.Close();
             if (edges != null) foreach (ScrollEdge e in edges) e.Close();
             ScrollCapture.Ended(this);
@@ -567,10 +600,11 @@ namespace Stackshot
         string State()
         {
             if (saving) return "Componiendo\u2026";
+            if (session.EscArmed) return "Esc otra vez para descartar";
             if (session.Full) return "Altura m\u00E1xima";
             if (session.Losing) return "M\u00E1s despacio";
             if (session.Auto) return "Bajando solo\u2026";
-            return "Baja con la rueda \u00B7 Esc cancela";
+            return "Baja con la rueda \u00B7 Enter termina";
         }
 
         // Layout in body coordinates.
@@ -614,7 +648,7 @@ namespace Stackshot
             string hs = shownHeight > 0 ? shownHeight.ToString("N0", Es) + " px" : "Preparando\u2026";
             System.Windows.Media.FormattedText ht = Line(hs, Ds.Semibold, P(14), white, tw);
             dc.DrawText(ht, new System.Windows.Point(tx, Math.Round(cy - ht.Height + P(2))));
-            System.Windows.Media.Color sc = session.Losing || session.Full ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
+            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
             System.Windows.Media.FormattedText st = Line(shownState, Ds.Regular, P(11.5f), sc, tw);
             dc.DrawText(st, new System.Windows.Point(tx, Math.Round(cy + P(1))));
             if (!saving)
