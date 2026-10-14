@@ -214,6 +214,14 @@ namespace Stackshot
             StartNews(justInstalled);
             StartReportWatch();
             StartHealth();
+            StartAssist();
+        }
+
+        // Something to say to the user right now: the mascot's bubble, or a notice without it on the desktop.
+        public void Told(string text)
+        {
+            if (pet != null) pet.FocusSay(text);
+            else Notify("Stackshot", text);
         }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.
@@ -289,6 +297,7 @@ namespace Stackshot
         void OpenArrivedXml(string path)
         {
             if (exiting) return;
+            CheckArrivedFault(path);
             if (MarkdownWindow.OpenArrived(this, path)) return;
             TellArrivedXml(path);
         }

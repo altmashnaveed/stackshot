@@ -102,6 +102,8 @@ namespace Stackshot
             by = Ground;
             timer.Interval = MascotRate.Look;
             timer.Tick += delegate { SafeTick(false); };
+            // Files and text can be dropped on it (only where it is drawn: the rest of the window lets everything through).
+            AllowDrop = true;
         }
 
         void SafeTick(bool fromPacer)
@@ -213,7 +215,7 @@ namespace Stackshot
                 W = (int)Math.Round(340 * s);
                 // Room above it for the longest menu (focus mode on: its line and choices on top of the rest); only what
                 // is drawn is ever repainted or sent to the screen.
-                H = (int)Math.Round(D * 1.02 + 640 * s);
+                H = (int)Math.Round(D * 1.02 + 720 * s);
                 if (dib != null) dib.Dispose();
                 dib = new Dib(W, H, true);
             }
@@ -680,6 +682,88 @@ namespace Stackshot
             lastTrick = t;
             m.WakeUp();
             m.Perform(t);
+        }
+
+        // ---- Assistant: reminders when they are due, a SOAP fault that arrived, and things dropped on it.
+
+        public void ReminderCard(string text, Action<int> later)
+        {
+            m.Perform(MascotCmd.Wave);
+            FocusPrompt("Recordatorio: " + text);
+            menuFocus = false;
+            Add("check", "Hecho", null, delegate { m.Hop(0.8); });
+            Add("clock", "Recu\u00E9rdamelo en 10 min", null, delegate { later(10); m.Say("Vale, en 10 minutos.", 2600); });
+            Add("clock", "En 1 hora", null, delegate { later(60); m.Say("Vale, dentro de una hora.", 2600); });
+        }
+
+        public void FaultCard(string text, Action open)
+        {
+            m.Hop(1.0);
+            FocusPrompt(text);
+            menuFocus = false;
+            Add("open", "Abrir el XML", null, open);
+            Add("check", "Vale", null, delegate { });
+        }
+
+        static bool Droppable(IDataObject d)
+        {
+            if (d == null) return false;
+            if (d.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = d.GetData(DataFormats.FileDrop) as string[];
+                if (files != null) foreach (string f in files) if (ShotStack.CanTake(f)) return true;
+                return false;
+            }
+            return d.GetDataPresent(DataFormats.UnicodeText) || d.GetDataPresent(DataFormats.Text);
+        }
+
+        bool dragHinted;
+
+        protected override void OnDragEnter(DragEventArgs e)
+        {
+            base.OnDragEnter(e);
+            e.Effect = Droppable(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+            if (e.Effect == DragDropEffects.None || dragHinted) return;
+            dragHinted = true;
+            m.WakeUp();
+            m.Hop(0.7);
+            bool files = e.Data.GetDataPresent(DataFormats.FileDrop);
+            m.Say(files ? "\u00A1Su\u00E9ltalo aqu\u00ED y te lo abro!" : "\u00A1Su\u00E9ltalo y lo apunto en tus notas!", 2000);
+        }
+
+        protected override void OnDragOver(DragEventArgs e)
+        {
+            base.OnDragOver(e);
+            e.Effect = Droppable(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+
+        protected override void OnDragLeave(EventArgs e)
+        {
+            base.OnDragLeave(e);
+            dragHinted = false;
+        }
+
+        protected override void OnDragDrop(DragEventArgs e)
+        {
+            base.OnDragDrop(e);
+            dragHinted = false;
+            try
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    string[] files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                    // Opened once this drop is over (Explorer waits for it to return).
+                    if (files != null) BeginInvoke((Action)delegate
+                    {
+                        string said = owner.OpenDropped(files);
+                        if (said != null) { m.Perform(MascotCmd.Jump); m.Say(said, 2600); }
+                    });
+                    return;
+                }
+                string text = (e.Data.GetData(DataFormats.UnicodeText) ?? e.Data.GetData(DataFormats.Text)) as string;
+                if (!string.IsNullOrEmpty(text) && owner.AddNote(text)) { m.Perform(MascotCmd.Read); m.Say("Apuntado en tus notas.", 2600); }
+            }
+            catch (Exception ex) { ShotStack.Log("Soltar en la mascota: " + ex.Message); }
         }
 
         // Once: whether there is a watch to connect (asked again three days after "Luego").
@@ -1400,15 +1484,19 @@ namespace Stackshot
             Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
             Add("folder", "Abrir mis capturas", null, delegate { owner.OpenFolder(); });
             AddSep();
-            Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
-            Add("play", "Ponte a jugar", null, delegate { m.Perform(MascotCmd.Play); });
-            Add("drop", "Una pausa conmigo", null, OpenBreaks);
+            // What it helps with: reminders, notes, focus, breaks and the day.
+            int pending = owner.Reminders.Count;
+            Add("bell", "Recu\u00E9rdame algo\u2026", pending > 0 ? pending + (pending == 1 ? " pendiente" : " pendientes") : null, delegate { QuickWindow.Remind(owner); });
+            Add("note", "Apunta algo\u2026", null, delegate { QuickWindow.Note(owner); });
             if (!f.On) Add("clock", "Concentrarme " + FocusClock.Minutes(settings.FocusWork), null, owner.FocusStart);
+            Add("drop", "Una pausa conmigo", null, OpenBreaks);
             int water = owner.WaterToday();
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
             if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting)
                 Add("heart", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
+            AddSep();
+            Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
             Add("sparkle", "Haz un truco", null, DoTrick);
             Add("bot", m.Sleeping ? "Despierta" : "Echa una siesta", null, delegate { if (m.Sleeping) { m.WakeUp(); m.Hop(1.2); } else { m.SleepNow(); state = State.Idle; } });
             AddSep();

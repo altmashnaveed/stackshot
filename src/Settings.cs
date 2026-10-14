@@ -106,6 +106,7 @@ namespace Stackshot
         public int WaterGoal = 8, SummaryHour = 18;
         public int SummaryParts = 31;       // what the summary tells, Summary* bits
         public string SummaryDay = "";
+        public bool XmlFaultAlert = true;   // a SOAP fault arriving in the watched folder is told (mascot or notice)
         public string FitbitAsked = "";     // the offer to connect a watch: "" not yet, "no" never again, or the date it was put off
         public const int SummaryWater = 1, SummaryBreaks = 2, SummaryFocus = 4, SummaryCaptures = 8, SummarySteps = 16;
         public bool HealthTalk = true;
@@ -280,6 +281,7 @@ namespace Stackshot
                         case "focusnotices": s.FocusNotices = Bool(v, s.FocusNotices); break;
                         case "summaryparts": s.SummaryParts = Int(v, s.SummaryParts, 0, 31); break;
                         case "fitbitasked": s.FitbitAsked = Cut(v, 10); break;
+                        case "xmlfaultalert": s.XmlFaultAlert = Bool(v, s.XmlFaultAlert); break;
                         case "focusday": s.FocusDay = Cut(v, 10); break;
                         case "focusblocks": s.FocusBlocks = Int(v, 0, 0, 999); break;
                         case "focusminutes": s.FocusMinutes = Int(v, 0, 0, 99999); break;
@@ -489,6 +491,7 @@ namespace Stackshot
             b.AppendLine("SummaryParts = " + SummaryParts);
             b.AppendLine("SummaryDay = " + OneLine(SummaryDay));
             b.AppendLine("FitbitAsked = " + OneLine(FitbitAsked));
+            b.AppendLine("XmlFaultAlert = " + (XmlFaultAlert ? "1" : "0"));
             b.AppendLine("HealthTalk = " + (HealthTalk ? "1" : "0"));
             b.AppendLine("HealthSaid = " + OneLine(HealthSaid));
             b.AppendLine("FitbitLast = " + OneLine(FitbitLast));

@@ -206,6 +206,24 @@ namespace Stackshot
                  "y con el objetivo de agua cumplido, deja de record\u00E1rtelo.");
         }
 
+        // ---- The assistant, in the mascot settings: reminders, notes and SOAP faults.
+
+        void BuildAssist()
+        {
+            List<Reminder> pending = owner.Reminders;
+            string next = pending.Count == 0 ? "Ninguno pendiente." :
+                          pending.Count + (pending.Count == 1 ? " pendiente" : " pendientes") + "; el pr\u00F3ximo " + ShotStack.WhenText(pending[0].DueUtc.ToLocalTime()) + ": \u00AB" + pending[0].Text + "\u00BB.";
+            Group("Ayudante",
+                new ButtonRow("Recordatorios", "\u00ABRecu\u00E9rdame algo\u2026\u00BB en el men\u00FA de la mascota. " + next, "bell", Mac.Blue, Mac.Indigo, "Nuevo\u2026",
+                              delegate { QuickWindow.Remind(owner); }),
+                new ButtonRow("Notas", "\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas.", "note", Mac.Orange, Mac.Pink, "Ver",
+                              delegate { owner.OpenNotes(); }),
+                new ToggleRow("Avisarme de los XML con fallo", "Cuando llega a la carpeta vigilada un XML con SOAP Fault, te lo dice con un bot\u00F3n para abrirlo.", "warning", Mac.Red, Mac.Orange,
+                              delegate { return settings.XmlFaultAlert; }, delegate(bool v) { settings.XmlFaultAlert = v; }));
+            Note("Tambi\u00E9n puedes soltar encima de la mascota una imagen (va al editor), un v\u00EDdeo (al reproductor), un XML o un Markdown (al visor) " +
+                 "o un texto (a tus notas). Los recordatorios esperan a que est\u00E9s delante, y si el ordenador estaba apagado a su hora, te avisa al volver.");
+        }
+
         // A row of chips that each turn one bit of a setting on or off (lit: included).
         public class ChipsRow : Row
         {
