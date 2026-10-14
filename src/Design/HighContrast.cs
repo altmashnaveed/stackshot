@@ -182,6 +182,8 @@ namespace Stackshot
 
         // Coloured text or icons on a heads-up surface (warnings, muted sources): the text colour under a contrast theme.
         public static M.Color HudInk(M.Color normal) { Palette p = Ds.Brushes; return p.High ? p.Label : normal; }
+        // Text and icons that warn on a HUD (muted source, little disk left, a capture that lost its place).
+        public static M.Color HudDanger { get { return HudInk(Ds.Rgb(255, 105, 97)); } }
 
         // A coloured button on a heads-up surface (Detener, a confirmation): Highlight under a contrast theme, with
         // OnHudFill for what is drawn on it.

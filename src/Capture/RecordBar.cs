@@ -561,7 +561,7 @@ namespace Stackshot
             double x = timeX + Math.Ceiling(pt.WidthIncludingTrailingWhitespace) + P(8), end = pauseX - P(8);
             if (diskText != null)
             {
-                WM.FormattedText dt = Ink.Px(diskText, Ds.Semibold, P(12), diskLevel >= 2 ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : amber);
+                WM.FormattedText dt = Ink.Px(diskText, Ds.Semibold, P(12), diskLevel >= 2 ? Palette.HudDanger : amber);
                 dc.DrawText(dt, new System.Windows.Point(x, Math.Round(cy - dt.Height / 2)));
                 return;
             }
@@ -597,7 +597,7 @@ namespace Stackshot
         {
             if (hover) Ink.Round(dc, pressed == (i == 0 ? 3 : 2) ? Palette.HudWash(Ds.Argb(0.26, 255, 255, 255)) : Palette.HudHover, R(r), P(8));
             double gs = 17 * s, cy = r.Y + r.Height / 2.0;
-            Glyph.Draw(dc, icon, r.X + P(4), cy - gs / 2, gs, muted ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : Palette.HudLabel, Math.Max(1.4, 1.6 * s));
+            Glyph.Draw(dc, icon, r.X + P(4), cy - gs / 2, gs, muted ? Palette.HudDanger : Palette.HudLabel, Math.Max(1.4, 1.6 * s));
             int lit = Bars(i);
             for (int k = 0; k < 3; k++)
             {

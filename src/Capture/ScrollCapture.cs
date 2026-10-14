@@ -866,7 +866,7 @@ namespace Stackshot
             string hs = shownHeight > 0 ? shownHeight.ToString("N0", Es) + " px" : "Preparando\u2026";
             System.Windows.Media.FormattedText ht = Line(hs, Ds.Semibold, P(14), white, tw);
             dc.DrawText(ht, new System.Windows.Point(tx, Math.Round(cy - ht.Height + P(2))));
-            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed || session.WentUp ? Palette.HudInk(Ds.Rgb(255, 105, 97)) : dim;
+            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed || session.WentUp ? Palette.HudDanger : dim;
             System.Windows.Media.FormattedText st = Line(shownState, Ds.Regular, P(11.5f), sc, tw);
             dc.DrawText(st, new System.Windows.Point(tx, Math.Round(cy + P(1))));
             if (!saving)

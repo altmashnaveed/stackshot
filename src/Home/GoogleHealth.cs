@@ -166,7 +166,7 @@ namespace Stackshot
                 "h1{margin:0 0 10px;font:600 28px/1.15 'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;letter-spacing:-.015em}" +
                 "h1 span{background:linear-gradient(100deg,var(--g1),var(--g2) 45%,var(--g3));-webkit-background-clip:text;background-clip:text;color:transparent}" +
                 "p{margin:0;color:var(--sub)}footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--sub)}" +
-                "@keyframes in{from{opacity:0;transform:translateY(10px)}}@media (prefers-reduced-motion:reduce){main{animation:none}}</style>" +
+                "@keyframes in{from{opacity:0;transform:translateY(10px)}}@media (prefers-reduced-motion:reduce){main{animation:none}}@media (forced-colors:active){h1 span{background:none;color:CanvasText}}</style>" +
                 "<main><div class='mark" + (mark == Mark.Ok ? " ok" : mark == Mark.Fail ? " fail" : "") + "'><svg width=30 height=30 viewBox='0 0 24 24' fill=none stroke=#fff " +
                 "stroke-width=2.6 stroke-linecap=round stroke-linejoin=round aria-hidden=true><path d='" + icon + "'/></svg></div>" +
                 "<h1>" + WebUtility.HtmlEncode(title) + (word != null ? "<span>" + WebUtility.HtmlEncode(word) + "</span>" : "") + "</h1>" +
