@@ -468,17 +468,12 @@ namespace Stackshot
                 int number = 0;
                 try
                 {
-                    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
                     // The log is read and cleaned here, off the window's thread (or reused if the preview already did).
                     if (body.ContainsKey("log")) body["log"] = cachedLog ?? LogTail();
                     byte[] data = Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(body));
-                    HttpWebRequest req = (HttpWebRequest)WebRequest.Create(Program.ReportUrl);
+                    HttpWebRequest req = Net.Create(Program.ReportUrl, 20000, 20000);
                     req.Method = "POST";
                     req.ContentType = "application/json; charset=utf-8";
-                    req.UserAgent = "Stackshot/" + Installer.MyVersion.ToString(3);
-                    req.Timeout = 20000;
-                    req.ReadWriteTimeout = 20000;
-                    if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials; // corporate proxies
                     req.ContentLength = data.Length;
                     using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                     using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())

@@ -231,13 +231,8 @@ namespace Stackshot
 
         static object Get(string url, string accept)
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-            req.UserAgent = "Stackshot/" + Installer.MyVersion.ToString(3);
+            HttpWebRequest req = Net.Create(url, 15000, 20000);
             if (accept != null) req.Accept = accept;
-            req.Timeout = 15000;
-            req.ReadWriteTimeout = 20000;
-            if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials;
             try
             {
                 using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())

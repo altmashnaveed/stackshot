@@ -388,13 +388,7 @@ namespace Stackshot
 
         static HttpWebRequest Request(string url)
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-            req.UserAgent = "Stackshot/" + Installer.MyVersion.ToString(3);
-            req.Timeout = 30000;
-            req.ReadWriteTimeout = 60000;
-            if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials;
-            return req;
+            return Net.Create(url, 30000, 60000);
         }
 
         // The latest release. tag: the ETag sent (the cached answer still holds if GitHub says "not modified"), then

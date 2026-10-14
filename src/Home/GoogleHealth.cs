@@ -30,6 +30,7 @@ namespace Stackshot
         const string Api = "https://health.googleapis.com/v4/users/me/dataTypes/";
         const string Scopes = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly https://www.googleapis.com/auth/googlehealth.sleep.readonly";
         static readonly object gate = new object();
+        static readonly object refreshing = new object();
         static string access, refresh;
         static DateTime expiresUtc;
         static bool loaded;
@@ -291,9 +292,25 @@ namespace Stackshot
             }
             if (key == null || DateTime.UtcNow >= expiresUtc)
             {
-                error = Token("grant_type=refresh_token&refresh_token=" + Uri.EscapeDataString(refresh));
-                if (error != null) return null;
-                lock (gate) key = access;
+                // One refresh at a time (the mascot and the main window may read together); whoever waited reuses it.
+                lock (refreshing)
+                {
+                    string token;
+                    bool still;
+                    lock (gate)
+                    {
+                        key = access;
+                        token = refresh;
+                        still = key == null || DateTime.UtcNow >= expiresUtc;
+                    }
+                    if (token == null) { error = "Sin conectar."; return null; }
+                    if (still)
+                    {
+                        error = Token("grant_type=refresh_token&refresh_token=" + Uri.EscapeDataString(token));
+                        if (error != null) return null;
+                        lock (gate) key = access;
+                    }
+                }
             }
             Today t = new Today { ReadAt = DateTime.Now, StepsGoal = 10000 };
             try
@@ -381,14 +398,9 @@ namespace Stackshot
 
         static object Send(string method, string url, string type, string body, string key)
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+            HttpWebRequest req = Net.Create(url, 15000, 20000);
             req.Method = method;
-            req.UserAgent = "Stackshot/" + Installer.MyVersion.ToString(3);
             if (key != null) req.Headers[HttpRequestHeader.Authorization] = "Bearer " + key;
-            req.Timeout = 15000;
-            req.ReadWriteTimeout = 20000;
-            if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials;
             if (body != null)
             {
                 byte[] data = Encoding.UTF8.GetBytes(body);
