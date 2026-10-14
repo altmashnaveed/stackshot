@@ -159,6 +159,11 @@ namespace Stackshot
                 d.Filter = "ffmpeg.exe|ffmpeg.exe";
                 d.Title = "\u00BFD\u00F3nde est\u00E1 ffmpeg.exe?";
                 if (d.ShowDialog(Win32) != WF.DialogResult.OK) return;
+                if (!AnswersAsFfmpeg(d.FileName))
+                {
+                    SetStatus("Ese archivo no responde como FFmpeg. Elige el ffmpeg.exe de una versi\u00F3n completa.", true);
+                    return;
+                }
                 settings.Ffmpeg = d.FileName;
                 settings.Save();
                 result = d.FileName;
@@ -166,9 +171,65 @@ namespace Stackshot
             }
         }
 
+        // "ffmpeg -version" answers with its version line within a few seconds.
+        static bool AnswersAsFfmpeg(string exe)
+        {
+            try
+            {
+                using (System.Diagnostics.Process p = new System.Diagnostics.Process())
+                {
+                    p.StartInfo.FileName = exe;
+                    p.StartInfo.Arguments = "-hide_banner -version";
+                    p.StartInfo.UseShellExecute = false;
+                    p.StartInfo.CreateNoWindow = true;
+                    p.StartInfo.RedirectStandardOutput = true;
+                    p.Start();
+                    System.Threading.Tasks.Task<string> first = p.StandardOutput.ReadLineAsync();
+                    bool answered = first.Wait(5000);
+                    if (!p.WaitForExit(answered ? 3000 : 0)) { try { p.Kill(); } catch { } }
+                    return answered && first.Result != null && first.Result.StartsWith("ffmpeg version", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShotStack.Log("FFmpeg elegido: " + ex.Message);
+                return false;
+            }
+        }
+
+        // A download that stops receiving anything for this long is given up (a proxy that holds the connection open).
+        const int StallSeconds = 30;
+        DateTime lastBytes;
+        bool stalled;
+        System.Windows.Threading.DispatcherTimer watch;
+
         void Start()
         {
+            try
+            {
+                DriveInfo drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(Settings.DataDir)));
+                if (drive.IsReady && drive.AvailableFreeSpace < 400L * 1048576)
+                {
+                    SetStatus("Hacen falta unos 400 MB libres en " + drive.Name + " para descargar y preparar FFmpeg.", true);
+                    return;
+                }
+            }
+            catch (Exception ex) { ShotStack.Log("FFmpeg, espacio libre: " + ex.Message); }
             busy = true;
+            stalled = false;
+            lastBytes = DateTime.UtcNow;
+            if (watch == null)
+            {
+                watch = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+                watch.Tick += delegate
+                {
+                    if (!busy || installing || web == null || !web.IsBusy) return;
+                    if ((DateTime.UtcNow - lastBytes).TotalSeconds < StallSeconds) return;
+                    stalled = true;
+                    web.CancelAsync();
+                };
+            }
+            watch.Start();
             failed = false;
             progress = 0;
             shownPermille = -1;
@@ -190,6 +251,7 @@ namespace Stackshot
                 web.DownloadProgressChanged += delegate(object o, DownloadProgressChangedEventArgs e)
                 {
                     // Raised for every few KB read; the window only changes when a visible number does.
+                    lastBytes = DateTime.UtcNow;
                     long total = e.TotalBytesToReceive, mb = e.BytesReceived / 1048576;
                     int permille = total > 0 ? (int)(e.BytesReceived * 1000 / total) : 0;
                     if (permille != shownPermille)
@@ -206,8 +268,10 @@ namespace Stackshot
                 };
                 web.DownloadFileCompleted += delegate(object o, System.ComponentModel.AsyncCompletedEventArgs e)
                 {
+                    if (watch != null) watch.Stop();
+                    if (e.Cancelled && stalled && !IsDisposed) { TryDelete(zipPath); Fail("La descarga se ha quedado parada m\u00E1s de " + StallSeconds + " s. Comprueba la conexi\u00F3n y vuelve a intentarlo."); return; }
                     if (e.Cancelled || IsDisposed) { TryDelete(zipPath); return; }
-                    if (e.Error != null) { TryDelete(zipPath); Fail("No se pudo descargar: " + e.Error.Message); return; }
+                    if (e.Error != null) { TryDelete(zipPath); Fail(DownloadProblem(e.Error)); return; }
                     // Verifying and extracting takes a few seconds; closing is blocked meanwhile.
                     installing = true;
                     cancel.IsEnabled = false;
@@ -231,7 +295,7 @@ namespace Stackshot
                 using (FileStream fs = File.OpenRead(zipPath))
                 using (SHA256 sha = SHA256.Create())
                     actual = BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
-                if (actual != Sha256) error = "La descarga no coincide con la huella esperada; se ha descartado por seguridad.";
+                if (actual != Sha256) error = "El archivo descargado no es el original y se ha descartado por seguridad. Vuelve a intentarlo.";
                 else
                 {
                     bool found = false;
@@ -268,6 +332,32 @@ namespace Stackshot
             };
             try { if (!IsDisposed) Dispatcher.BeginInvoke(done); }
             catch (Exception ex) { ShotStack.Log("FFmpeg: " + ex.Message); }
+        }
+
+        // A download error in plain words; the technical text stays in the log.
+        static string DownloadProblem(Exception ex)
+        {
+            ShotStack.Log("FFmpeg, descarga: " + ex);
+            WebException w = ex as WebException;
+            if (w != null)
+            {
+                switch (w.Status)
+                {
+                    case WebExceptionStatus.NameResolutionFailure:
+                    case WebExceptionStatus.ConnectFailure:
+                    case WebExceptionStatus.ProxyNameResolutionFailure:
+                        return "No hay conexi\u00F3n con el servidor de descarga. Comprueba Internet o pregunta si tu red lo permite.";
+                    case WebExceptionStatus.Timeout:
+                        return "La descarga ha tardado demasiado. Vuelve a intentarlo.";
+                    case WebExceptionStatus.TrustFailure:
+                    case WebExceptionStatus.SecureChannelFailure:
+                        return "No se pudo establecer una conexi\u00F3n segura (quiz\u00E1 un proxy de la empresa). Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.";
+                }
+                HttpWebResponse r = w.Response as HttpWebResponse;
+                if (r != null && (int)r.StatusCode == 407) return "El proxy de tu red pide usuario y contrase\u00F1a. Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.";
+            }
+            if (ex.InnerException is IOException || ex is IOException) return "No se pudo guardar la descarga: quiz\u00E1 no quede espacio en el disco.";
+            return "No se pudo descargar FFmpeg. Vuelve a intentarlo.";
         }
 
         static void TryDelete(string f)
