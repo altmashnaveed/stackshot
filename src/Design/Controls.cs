@@ -410,6 +410,7 @@ namespace Stackshot
         {
             double s = ActualWidth, r = s * 0.25;
             if (Ds.Brushes.High) { HcPaint.IconTile(dc, icon, s, IsEnabled); return; }
+            if (icon == "google") { GoogleTile(dc, s, r); return; }
             LinearGradientBrush b = new LinearGradientBrush(Mix(c1, Colors.White, 0.12), c2, 90);
             dc.DrawRoundedRectangle(b, null, new Rect(0, 0, s, s), r, r);
             Pen hl = new Pen(new SolidColorBrush(Color.FromArgb(46, 255, 255, 255)), 1);
@@ -421,6 +422,33 @@ namespace Stackshot
         static Color Mix(Color a, Color b, double t)
         {
             return Color.FromRgb((byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
+        }
+
+        // Google's four-colour "G" on a white tile, for signing in with Google.
+        static void GoogleTile(DrawingContext dc, double s, double r)
+        {
+            dc.DrawRoundedRectangle(Brushes.White, new Pen(new SolidColorBrush(Color.FromArgb(40, 0, 0, 0)), 1), new Rect(0.5, 0.5, s - 1, s - 1), r - 0.5, r - 0.5);
+            double cx = s / 2, cy = s / 2, t = s * 0.135, rm = s * 0.3 - t / 2;
+            GoogleArc(dc, cx, cy, rm, t, 45, 140, Color.FromRgb(0xEA, 0x43, 0x35));
+            GoogleArc(dc, cx, cy, rm, t, 140, 220, Color.FromRgb(0xFB, 0xBC, 0x05));
+            GoogleArc(dc, cx, cy, rm, t, 220, 315, Color.FromRgb(0x34, 0xA8, 0x53));
+            Color blue = Color.FromRgb(0x42, 0x85, 0xF4);
+            GoogleArc(dc, cx, cy, rm, t, 315, 360, blue);
+            dc.DrawRectangle(new SolidColorBrush(blue), null, new Rect(cx - t * 0.1, cy - t / 2, rm + t / 2 + t * 0.1, t));
+        }
+
+        // A thick arc between two angles (degrees, counter-clockwise from the right), flat ends.
+        static void GoogleArc(DrawingContext dc, double cx, double cy, double rm, double t, double a1, double a2, Color c)
+        {
+            Func<double, Point> at = delegate(double a) { double k = a * Math.PI / 180; return new Point(cx + rm * Math.Cos(k), cy - rm * Math.Sin(k)); };
+            StreamGeometry g = new StreamGeometry();
+            using (StreamGeometryContext x = g.Open())
+            {
+                x.BeginFigure(at(a1), false, false);
+                x.ArcTo(at(a2), new Size(rm, rm), 0, a2 - a1 > 180, SweepDirection.Counterclockwise, true, false);
+            }
+            g.Freeze();
+            dc.DrawGeometry(null, new Pen(new SolidColorBrush(c), t) { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat }, g);
         }
     }
 

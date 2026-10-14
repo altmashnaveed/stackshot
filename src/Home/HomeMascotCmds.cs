@@ -190,7 +190,7 @@ namespace Stackshot
                                        GoogleHealth.Connecting ? "Conectando\u2026 Termina de iniciar sesi\u00F3n en la pesta\u00F1a que se ha abierto en tu navegador y vuelve aqu\u00ED."
                                        : on ? "Conectado. " + (line ?? "Leyendo tus datos\u2026") + " Se lee cada media hora."
                                        : "Pasos, sue\u00F1o, minutos activos y agua de tu reloj, para que la mascota te acompa\u00F1e mejor. Inicias sesi\u00F3n en el navegador, una vez.",
-                                       "heart", Mac.Teal, Mac.Green, GoogleHealth.Connecting ? "Cancelar" : on ? "Desconectar" : "Conectar",
+                                       "google", Mac.Teal, Mac.Green, GoogleHealth.Connecting ? "Cancelar" : on ? "Desconectar" : "Conectar",
                                        delegate
                                        {
                                            if (GoogleHealth.Connecting) GoogleHealth.Cancel();

@@ -772,7 +772,7 @@ namespace Stackshot
             m.Perform(MascotCmd.Wave);
             FocusPrompt(text);
             menuFocus = false;
-            Add("heart", "Conectar mi reloj", null, delegate { connect(); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
+            Add("google", "Conectar mi reloj", null, delegate { connect(); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             Add("clock", "Luego", null, delegate { m.Say("Vale, otro d\u00EDa te lo vuelvo a preguntar.", 3000); });
             Add("close", "No tengo reloj", null, delegate { never(); m.Say("\u00A1Entendido! Sin reloj tambi\u00E9n te acompa\u00F1o.", 3000); });
         }
@@ -1494,7 +1494,7 @@ namespace Stackshot
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
             if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting)
-                Add("heart", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
+                Add("google", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
             Add("sparkle", "Haz un truco", null, DoTrick);
