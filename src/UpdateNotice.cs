@@ -28,6 +28,7 @@ namespace Stackshot
         int armed;                      // clicks count from this tick on (a double click doesn't hit the next state)
         int hot = -1;                   // 0 primary button, 1 secondary button, 2 anywhere else
         Rectangle primary, secondary;   // body coordinates
+        Rectangle news;                 // the "Ver todas las novedades" link (hot 3)
         MI.BitmapSource shadow;
         Size shadowFor;
         static MI.BitmapSource logo;
@@ -105,10 +106,21 @@ namespace Stackshot
                 return Updater.Fraction < 0 ? "Conectando con GitHub\u2026" : (int)Math.Round(Updater.Fraction * 100) + " %  \u00B7  despu\u00E9s se comprueba su firma";
             }
             if (state == "error") return Updater.Problem ?? "";
-            if (Updater.IsReady && Updater.CanInstall) return "Ya est\u00E1 descargada y verificada. Al instalarla, Stackshot se cerrar\u00E1 y volver\u00E1 a abrirse.";
-            if (Updater.CanInstall) return "\u00BFQuieres descargarla? Se comprueba su firma y se instala en unos segundos.";
-            if (Installer.ManagedByMsi) return "En este equipo las actualizaciones las instala inform\u00E1tica. \u00BFQuieres ver la nueva versi\u00F3n?";
-            return "\u00BFQuieres descargarla? Esta versi\u00F3n se descarga desde su p\u00E1gina de GitHub.";
+            // What it brings comes first (the button "Novedades" has the rest).
+            string brings = release.News.Count > 0 ? "Novedades: " + News.Headline(release.News, 2) + ".\n" : "";
+            if (Updater.IsReady && Updater.CanInstall) return brings + "Ya est\u00E1 descargada y verificada. Al instalarla, Stackshot se cerrar\u00E1 y volver\u00E1 a abrirse.";
+            if (Updater.CanInstall) return brings + "\u00BFQuieres descargarla? Se comprueba su firma y se instala en unos segundos.";
+            if (Installer.ManagedByMsi) return brings + "En este equipo las actualizaciones las instala inform\u00E1tica. \u00BFQuieres ver la nueva versi\u00F3n?";
+            return brings + "\u00BFQuieres descargarla? Esta versi\u00F3n se descarga desde su p\u00E1gina de GitHub.";
+        }
+
+        bool HasNews { get { return release.News.Count > 0 || release.Notes.Count > 0; } }
+
+        M.FormattedText LinkText(bool over)
+        {
+            M.FormattedText t = Ink.Px("Ver todas las novedades \u203A", Ds.Medium, F(12.5), Ds.Brushes.Link);
+            if (over) t.SetTextDecorations(W.TextDecorations.Underline);
+            return t;
         }
 
         M.FormattedText TitleText(double width)
@@ -125,7 +137,7 @@ namespace Stackshot
             M.FormattedText t = Ink.Px(Body(), Ds.Regular, F(12.5), Ds.Brushes.Label2);
             t.MaxTextWidth = width;
             t.LineHeight = Math.Round(F(17));
-            t.MaxLineCount = 4;
+            t.MaxLineCount = 5;
             t.Trimming = W.TextTrimming.WordEllipsis;
             return t;
         }
@@ -171,6 +183,14 @@ namespace Stackshot
                 secondaryLabel = "Ahora no";
             }
             double bottom = F(Inset) - F(1) + TitleText(TextWidth).Height + F(2) + BodyText(TextWidth).Height;
+            news = Rectangle.Empty;
+            // A link to everything the version brings, under the text, while it is only offered.
+            if (state == "offer" && HasNews)
+            {
+                M.FormattedText lt = LinkText(false);
+                news = new Rectangle((int)Math.Round(TextLeft), (int)Math.Round(bottom + F(5)), (int)Math.Ceiling(lt.WidthIncludingTrailingWhitespace), (int)Math.Ceiling(lt.Height));
+                bottom += F(5) + lt.Height;
+            }
             if (bar) bottom += F(10) + F(4);
             bottom = Math.Max(F(Inset + IconSize), bottom);
             int h;
@@ -263,6 +283,7 @@ namespace Stackshot
             M.FormattedText bt = BodyText(tw);
             dc.DrawText(bt, new W.Point(tx, Math.Round(ty)));
             ty += bt.Height;
+            if (!news.IsEmpty) dc.DrawText(LinkText(hot == 3), new W.Point(news.X, news.Y));
             if (bar)
             {
                 W.Rect track = new W.Rect(tx, Math.Round(ty + F(10)), tw, Math.Round(F(4)));
@@ -316,6 +337,7 @@ namespace Stackshot
             Point q = new Point(p.X - Pad, p.Y - Pad);
             if (primary.Contains(q)) return 0;
             if (secondary.Contains(q)) return 1;
+            if (!news.IsEmpty && Rectangle.Inflate(news, P(4), P(3)).Contains(q)) return 3;
             return new Rectangle(0, 0, body.Width, body.Height).Contains(q) ? 2 : -1;
         }
 
@@ -349,6 +371,12 @@ namespace Stackshot
                 else { Updater.OpenPage(); Dismiss(); }
             }
             else if (h == 1) Dismiss();
+            else if (h == 3)
+            {
+                // Everything the version brings, with its own button to update.
+                NewsWindow.Open(true);
+                Dismiss();
+            }
             else if (h == 2)
             {
                 owner.ShowHome("about", false);

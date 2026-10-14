@@ -1,6 +1,7 @@
 // Stackshot - Home and About sections.
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -102,7 +103,7 @@ namespace Stackshot
 
             // Quiet links, as in a macOS About window.
             StackPanel links = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) };
-            links.Children.Add(AboutLink("Novedades", Program.RepoUrl + "/releases"));
+            links.Children.Add(AboutAction("Novedades", delegate { NewsWindow.Open(false); }));
             links.Children.Add(Label("\u00B7", Ds.Regular, 12, pal.Label3, new Thickness(8, 0, 8, 0)));
             links.Children.Add(AboutAction("Informar de un problema", ReportWindow.Open));
             links.Children.Add(Label("\u00B7", Ds.Regular, 12, pal.Label3, new Thickness(8, 0, 8, 0)));
@@ -297,10 +298,14 @@ namespace Stackshot
                 np.Children.Add(nt);
                 text.Children.Add(np);
             }
-            if (r != null && !working && r.Notes.Count > 0)
+            // What the new version brings: its Spanish news when the release has them, its headlines otherwise.
+            List<string> heads = new List<string>();
+            if (r != null) { foreach (News.Item it in r.News) if (heads.Count < 5) heads.Add(it.Title); }
+            if (r != null && heads.Count == 0) heads.AddRange(r.Notes);
+            if (r != null && !working && heads.Count > 0)
             {
                 StackPanel notes = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
-                foreach (string n in r.Notes)
+                foreach (string n in heads)
                 {
                     TextBlock nt = Paragraph("\u2022  " + n, 12, pal.Label2);
                     nt.Margin = new Thickness(0, 0, 0, 3);
@@ -311,15 +316,15 @@ namespace Stackshot
             if (link)
             {
                 StackPanel lk = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
-                                               Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Label = "Novedades en GitHub", Do = delegate { Updater.OpenPage(); } };
-                TextBlock lt = Label("Novedades en GitHub", Ds.Medium, 12, pal.Link);
+                                               Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Label = "Ver todas las novedades", Do = delegate { NewsWindow.Open(true); } };
+                TextBlock lt = Label("Ver todas las novedades", Ds.Medium, 12, pal.Link);
                 lk.Children.Add(lt);
-                GlyphView arrow = new GlyphView("open", 12, pal.Link, 1.4);
-                arrow.Margin = new Thickness(4, 1, 0, 0);
+                GlyphView arrow = new GlyphView("right", 12, pal.Link, 1.6);
+                arrow.Margin = new Thickness(3, 1, 0, 0);
                 lk.Children.Add(arrow);
                 lk.MouseEnter += delegate { lt.TextDecorations = TextDecorations.Underline; };
                 lk.MouseLeave += delegate { lt.TextDecorations = null; };
-                lk.MouseLeftButtonUp += delegate { Updater.OpenPage(); };
+                lk.MouseLeftButtonUp += delegate { NewsWindow.Open(true); };
                 text.Children.Add(lk);
             }
             g.Children.Add(text);
@@ -418,16 +423,6 @@ namespace Stackshot
             line.IsEnabled = live;
             if (animate) Glide(line, UIElement.OpacityProperty, live ? 1 : 0.42, 220);
             else line.Opacity = live ? 1 : 0.42;
-        }
-
-        static FrameworkElement AboutLink(string text, string url)
-        {
-            TextBlock t = LinkLabel(text, Ds.Regular, 12, Ds.Brushes.Link, delegate { try { Process.Start(url); } catch (Exception ex) { ShotStack.Log("Enlace: " + ex.Message); } });
-            t.Cursor = Cursors.Hand;
-            t.MouseEnter += delegate { t.TextDecorations = TextDecorations.Underline; };
-            t.MouseLeave += delegate { t.TextDecorations = null; };
-            t.MouseLeftButtonUp += delegate { try { Process.Start(url); } catch (Exception ex) { ShotStack.Log("Enlace: " + ex.Message); } };
-            return t;
         }
 
         static FrameworkElement AboutAction(string text, Action act)

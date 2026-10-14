@@ -55,6 +55,7 @@ namespace Stackshot
             public Version Version;
             public string Tag, Page, ExeUrl, SigUrl, Sha256;
             public List<string> Notes = new List<string>();
+            public List<News.Item> News = new List<News.Item>();   // in Spanish, when the release carries them
         }
 
         public static Release Available;        // newer than this build, or null
@@ -452,10 +453,11 @@ namespace Stackshot
             }
             // Release notes: the changelog bullets, without Markdown emphasis.
             string body = Str(root, "body") ?? "";
+            r.News = global::Stackshot.News.FromRelease(body);
             foreach (string raw in body.Replace("\r", "").Split('\n'))
             {
                 string line = raw.Trim();
-                if (line.StartsWith("###")) break;
+                if (line.StartsWith("###") || line.StartsWith("<details") || line.StartsWith(global::Stackshot.News.Start)) break;
                 if (!line.StartsWith("- ")) continue;
                 line = Regex.Replace(line.Substring(2), @"\*\*|`|<[^>]+>", "");
                 int dot = line.IndexOf(". ");
