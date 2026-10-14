@@ -35,7 +35,7 @@ export default {
     let r;
     try { r = JSON.parse(raw); } catch { return json(400, { ok: false, error: "json" }); }
     const f = {};
-    for (const k of Object.keys(LIMITS)) f[k] = clean(r[k], LIMITS[k], KEEP_END[k]);
+    for (const k of Object.keys(LIMITS)) f[k] = clean(r[k], LIMITS[k], KEEP_END[k], k === "log");
     const kind = r.kind === "idea" ? "idea" : "bug";
     if (f.title.length < 4 || f.what.length < 10) return json(400, { ok: false, error: "empty" });
 
@@ -133,14 +133,23 @@ function createIssue(env, title, body, labels) {
 
 // Plain text only: control characters out; @mentions, #123 / owner/repo#123 / GH-123 references and links to GitHub
 // defused with a zero-width space, so a report can't ping anyone or leave a cross-reference on another project's issues.
-function clean(v, max, keepEnd) {
+// Outside the log's code block, web addresses, Markdown links and images and HTML tags are defused too: the issue is
+// public and opened with the repo's token, so nothing written in the form may become a clickable link or an embedded
+// picture (no phishing, no spam, no tracking pixels).
+function clean(v, max, keepEnd, fenced) {
   if (typeof v !== "string") return "";
-  const s = v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-             .replace(/@(?=\w)/g, "@\u200B")
-             .replace(/#(?=\d)/g, "#\u200B")
-             .replace(/\bGH-(?=\d)/gi, "GH\u200B-")
-             .replace(/github\.com/gi, "github\u200B.com")
-             .trim();
+  let s = v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+           .replace(/@(?=\w)/g, "@\u200B")
+           .replace(/#(?=\d)/g, "#\u200B")
+           .replace(/\bGH-(?=\d)/gi, "GH\u200B-")
+           .replace(/github\.com/gi, "github\u200B.com");
+  if (!fenced)
+    s = s.replace(/:\/\//g, ":\u200B//")
+         .replace(/\bwww\./gi, "www\u200B.")
+         .replace(/\]\(/g, "]\u200B(")
+         .replace(/!\[/g, "!\u200B[")
+         .replace(/</g, "&lt;");
+  s = s.trim();
   return s.length <= max ? s : keepEnd ? s.slice(-max) : s.slice(0, max);
 }
 
