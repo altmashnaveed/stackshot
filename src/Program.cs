@@ -78,7 +78,17 @@ namespace Stackshot
             try { Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException); } catch { }
             Application.ThreadException += delegate(object o, System.Threading.ThreadExceptionEventArgs e) { ShotStack.Log("Error: " + e.Exception); };
             AppDomain.CurrentDomain.UnhandledException += delegate(object o, UnhandledExceptionEventArgs e) { ShotStack.Log("Error grave: " + e.ExceptionObject); };
+            // The WPF windows' own loop (timers, animations) has its own error path: a bug there must not take the tray,
+            // the hotkeys and the stack down with it. Logged (the first ones in full, then now and then) and survived.
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.UnhandledException += delegate(object o, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+            {
+                int n = System.Threading.Interlocked.Increment(ref uiErrors);
+                if (n <= 10 || n % 500 == 0) ShotStack.Log("Error (ventanas, " + n + "): " + e.Exception);
+                e.Handled = true;
+            };
         }
+
+        static int uiErrors;
 
         [STAThread]
         public static int Main(string[] arguments)

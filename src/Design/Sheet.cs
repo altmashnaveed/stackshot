@@ -427,7 +427,19 @@ namespace Stackshot
 
         public float Scale { get { return (float)VisualTreeHelper.GetDpi(this).DpiScaleX; } }
 
+        // WriteableBitmap.Lock waits for WPF's render thread and can run other messages meanwhile (a DPI change, the next
+        // frame): a Refresh reached that way would replace the bitmap under the one in progress. It waits for the next.
+        bool refreshing;
+
         public void Refresh()
+        {
+            if (refreshing) return;
+            refreshing = true;
+            try { RefreshNow(); }
+            finally { refreshing = false; }
+        }
+
+        void RefreshNow()
         {
             if (Painter == null || ActualWidth < 1 || ActualHeight < 1) return;
             float k = Scale;
@@ -468,14 +480,15 @@ namespace Stackshot
                 if (b > right) right = b;
             }
             if (top < 0) return;   // identical to what is on screen: nothing to upload
-            wb.Lock();
+            WriteableBitmap target = wb;   // the one locked is the one unlocked, whatever happens meanwhile
+            target.Lock();
             try
             {
                 for (int y = top; y <= bot; y++)
-                    Marshal.Copy(cur, y * w + left, IntPtr.Add(wb.BackBuffer, y * wb.BackBufferStride + left * 4), right - left + 1);
-                wb.AddDirtyRect(new Int32Rect(left, top, right - left + 1, bot - top + 1));
+                    Marshal.Copy(cur, y * w + left, IntPtr.Add(target.BackBuffer, y * target.BackBufferStride + left * 4), right - left + 1);
+                target.AddDirtyRect(new Int32Rect(left, top, right - left + 1, bot - top + 1));
             }
-            finally { wb.Unlock(); }
+            finally { target.Unlock(); }
             int[] t = prev; prev = cur; cur = t;
         }
 
