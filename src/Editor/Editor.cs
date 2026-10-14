@@ -600,7 +600,7 @@ namespace Stackshot
         {
             if (Exporting)
             {
-                if (keyData == Keys.Escape) { CancelExport(); return true; }
+                if (keyData == Keys.Escape) { StopExport(false); return true; }
                 return base.ProcessCmdKey(ref msg, keyData); // exporting: nothing else is allowed
             }
             if (canvas.Typing) return base.ProcessCmdKey(ref msg, keyData);
@@ -977,22 +977,54 @@ namespace Stackshot
             string ff = Recorder.FindFfmpeg(st);
             if (ff == null) ff = FfmpegSetup.Run(st);
             if (ff == null) return null;
-            string frame = Path.Combine(Path.GetTempPath(), "stackshot-frame-" + Guid.NewGuid().ToString("N") + ".png");
+            return FromPrepared(owner, path, ff, PrepareVideo(ff, path));
+        }
+
+        // What opening a recording needs from FFmpeg (its first frame, length and streams). It can take long on a network
+        // drive or a damaged file, so the stack reads it off the UI thread and builds the window with FromPrepared.
+        internal sealed class VideoPrep { public string Frame, Err, Failure; public double Duration; public MediaInfo Info; }
+
+        internal static VideoPrep PrepareVideo(string ff, string path)
+        {
+            VideoPrep v = new VideoPrep();
+            v.Frame = Path.Combine(Path.GetTempPath(), "stackshot-frame-" + Guid.NewGuid().ToString("N") + ".png");
             try
             {
                 string err;
-                int code = RunFfmpeg(ff, "-hide_banner -y " + Recorder.SafeInput + "-i " + Recorder.Quote(path) + " -frames:v 1 " + Recorder.Quote(frame), out err);
-                if (code != 0 || !File.Exists(frame))
+                int code = RunFfmpeg(ff, "-hide_banner -y " + Recorder.SafeInput + "-i " + Recorder.Quote(path) + " -frames:v 1 " + Recorder.Quote(v.Frame), out err);
+                v.Err = err;
+                if (code != 0 || !File.Exists(v.Frame))
                 {
                     ShotStack.Log("Presentar: no se pudo leer " + path + ": " + Tail(err));
-                    MessageBox.Show("No se pudo abrir la grabaci\u00F3n.\n\n" + Tail(err), "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return null;
+                    v.Failure = Tail(err);
+                    return v;
                 }
-                double dur = 0;
                 Match m = Regex.Match(err, @"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)");
                 if (m.Success)
-                    dur = int.Parse(m.Groups[1].Value) * 3600 + int.Parse(m.Groups[2].Value) * 60 + double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
-                if (dur <= 0) dur = MediaInfo.ScanDuration(ff, path);
+                    v.Duration = int.Parse(m.Groups[1].Value) * 3600 + int.Parse(m.Groups[2].Value) * 60 + double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
+                if (v.Duration <= 0) v.Duration = MediaInfo.ScanDuration(ff, path);
+                v.Info = MediaInfo.Probe(ff, path);
+            }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Presentar: " + ex.Message);
+                v.Failure = "";
+            }
+            return v;
+        }
+
+        // The window for a prepared recording (UI thread); null when it could not be read, after saying so.
+        internal static Editor FromPrepared(ShotStack owner, string path, string ff, VideoPrep v)
+        {
+            string frame = v.Frame, err = v.Err ?? "";
+            try
+            {
+                if (v.Failure != null)
+                {
+                    if (v.Failure.Length > 0) MessageBox.Show("No se pudo abrir la grabaci\u00F3n.\n\n" + v.Failure, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return null;
+                }
+                double dur = v.Duration;
                 Editor e = new Editor(owner, path, ShotStack.LoadFull(frame), ff, dur);
                 // The sound and the frame rate are kept in the export.
                 e.hasAudio = Regex.IsMatch(err, @"Stream #0:\d+[^\n]*: Audio:");
@@ -1006,7 +1038,7 @@ namespace Stackshot
                     e.clips[0].HasAudio = e.hasAudio;
                     e.clips[0].Rgb = e.rgbSource;
                 }
-                e.SetupPlayer(MediaInfo.Probe(ff, path));
+                e.SetupPlayer(v.Info ?? MediaInfo.Probe(ff, path));
                 if (e.IsMaster)
                 {
                     e.Flash("M\u00E1ster sin p\u00E9rdidas: Exportar crea un MP4 para compartir; el m\u00E1ster no cambia.", true);
@@ -1609,7 +1641,7 @@ namespace Stackshot
             // does one to fit in 16 or 25 MB.
             bool fit = !toGif && VideoExport.TargetBytes(timeline != null ? timeline.Quality : bgs.ExportQuality) > 0;
             bool options = speed != 1 || maxH > 0 || joined || fit || VideoExport.NeedsTranscode(path, toGif);
-            if (!bg && !marks && !cropped && !trimmed && !cuts && !options) { closeWithoutAsking = true; Close(); return; }
+            if (!bg && !marks && !cropped && !trimmed && !cuts && !options) { Flash("No hay nada que exportar: el v\u00EDdeo ya est\u00E1 listo para compartir tal cual.", true); return; }
             double span = (keep != null ? timeline.KeptSeconds : duration) / speed;
 
             string topPng = null;
@@ -1879,10 +1911,15 @@ namespace Stackshot
             if (rep.Passed)
             {
                 ShotStack.Log("Presentar: listo " + Path.GetFileName(exportOut));
-                if (owner != null) owner.AddRecording(exportOut);
-                else MessageBox.Show(this, "Listo: " + exportOut, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                closeWithoutAsking = true;
-                Close();
+                // The editor stays open: the same edit can go out again as a GIF or in another size.
+                dirty = false;
+                if (owner != null)
+                {
+                    owner.AddRecording(exportOut);
+                    Flash("Exportado: " + Path.GetFileName(exportOut) + " ya est\u00E1 en la pila.", true);
+                }
+                else Flash("Exportado: " + exportOut, true);
+                UpdateUi();
                 return;
             }
             // Not a normal result: kept under another name so it is never taken for a good export; the editor stays open.
@@ -1904,27 +1941,41 @@ namespace Stackshot
         }
 
         // The file being written or checked, and the work around it, are dropped.
-        void CancelExport()
+        void CancelExport() { StopExport(true); }
+
+        // wait: closing or quitting waits for FFmpeg to let go of the file before it is deleted. Esc in an open window
+        // doesn't: the window is free at once and the leftovers go in the background.
+        void StopExport(bool wait)
         {
             Process p = export;
             ExportAbort ab = checkAbort;
             if (p == null && ab == null) return;
+            System.Threading.Thread check = checkThread;
             if (p != null)
             {
                 export = null;
                 try { if (!p.HasExited) p.Kill(); } catch { }
-                try { p.WaitForExit(3000); } catch { }
             }
             if (ab != null)
             {
                 checkAbort = null;
                 ab.Set = true;
-                try { if (checkThread != null) checkThread.Join(3000); } catch { }
                 checkThread = null;
             }
-            try { if (File.Exists(exportOut)) File.Delete(exportOut); } catch { }
-            ShotStack.Unreserve(exportOut);
-            CleanExportFiles();
+            string output = exportOut, top = exportTop, log = exportLog;
+            exportTop = null;
+            exportLog = null;
+            Action finish = delegate
+            {
+                if (p != null) { try { p.WaitForExit(3000); } catch { } }
+                if (check != null) { try { check.Join(3000); } catch { } }
+                try { if (File.Exists(output)) File.Delete(output); } catch (Exception ex) { ShotStack.Log("Exportar, cancelar: " + ex.Message); }
+                ShotStack.Unreserve(output);
+                if (top != null) { try { File.Delete(top); } catch { } }
+                VideoExport.DeletePassLog(log);
+            };
+            if (wait) finish();
+            else System.Threading.ThreadPool.QueueUserWorkItem(delegate { finish(); });
             Unlock();
             UpdateUi();
         }
