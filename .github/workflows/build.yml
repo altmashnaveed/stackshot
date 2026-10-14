@@ -102,6 +102,20 @@ jobs:
         run: |
           v="${GITHUB_REF_NAME#v}"
           awk -v v="$v" '/^## /{p = index($0, "## " v) == 1; next} p' CHANGELOG.md > notes.md
+          # The same news in Spanish, between markers the app reads to tell what a new version brings before updating.
+          awk -v v="$v" '/^## /{p = $0 == "## " v; next} p' docs/novedades.md > es.md
+          if grep -q '^- ' es.md; then
+            {
+              echo
+              echo "<details><summary>Novedades en español</summary>"
+              echo
+              echo "<!-- novedades -->"
+              cat es.md
+              echo "<!-- /novedades -->"
+              echo
+              echo "</details>"
+            } >> notes.md
+          fi
           base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
           exe=$(cut -d' ' -f1 dist/Stackshot.exe.sha256)
           msi=$(cut -d' ' -f1 dist/Stackshot.msi.sha256)
