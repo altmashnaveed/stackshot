@@ -2,6 +2,7 @@
 // red shades, red cape, shoulder tattoos and katana).
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 
@@ -114,43 +115,88 @@ namespace Stackshot
             Katana(g, D);
         }
 
-        // Held upright at his left side: wrapped grip under the hand, round guard, then the blade past the shoulder.
+        // Held upright at his left side, leaning out: a long wrapped grip with its cap, an oval iron guard with a gold
+        // rim and the gold collar, then a gently curved blade (edge outward, with its wavy temper line and the ridge)
+        // that ends in an angled point above his shoulder.
         static void Katana(Graphics g, float D)
         {
             GraphicsState st = g.Save();
-            g.TranslateTransform(-0.37f * D, 0.22f * D);
-            g.RotateTransform(-8);
-            RectangleF grip = new RectangleF(-0.022f * D, -0.01f * D, 0.044f * D, 0.17f * D);
-            using (GraphicsPath gp = Theme.Round(grip, 0.015f * D))
+            g.TranslateTransform(-0.38f * D, 0.23f * D);
+            g.RotateTransform(-14);
+
+            // Grip: dark wrap with the cream diamond lacing, a dark gold cap at the end.
+            RectangleF grip = new RectangleF(-0.024f * D, -0.012f * D, 0.048f * D, 0.2f * D);
+            using (GraphicsPath gp = Theme.Round(grip, 0.016f * D))
             {
-                Fill(g, gp, grip, Color.FromArgb(60, 46, 60), Color.FromArgb(24, 18, 26), 0f);
+                Fill(g, gp, grip, Color.FromArgb(58, 44, 60), Color.FromArgb(22, 16, 24), 0f);
                 Region old = g.Clip;
                 g.SetClip(gp, CombineMode.Intersect);
-                using (Pen wrap = new Pen(Color.FromArgb(200, 236, 228, 210), Math.Max(0.6f, D * 0.007f)))
-                    for (float y = grip.Y + 0.02f * D; y < grip.Bottom; y += 0.035f * D)
+                using (Pen wrap = new Pen(Color.FromArgb(215, 236, 226, 204), Math.Max(0.6f, D * 0.008f)))
+                    for (float y = grip.Y + 0.018f * D; y < grip.Bottom - 0.01f * D; y += 0.034f * D)
                     {
-                        g.DrawLine(wrap, grip.X, y, grip.Right, y + 0.018f * D);
-                        g.DrawLine(wrap, grip.Right, y, grip.X, y + 0.018f * D);
+                        g.DrawLine(wrap, grip.X, y, grip.Right, y + 0.017f * D);
+                        g.DrawLine(wrap, grip.Right, y, grip.X, y + 0.017f * D);
                     }
                 g.Clip = old;
                 old.Dispose();
+                Stroke(g, gp, Color.FromArgb(150, 10, 6, 12), D * 0.005f);
             }
+            RectangleF cap = new RectangleF(-0.027f * D, grip.Bottom - 0.02f * D, 0.054f * D, 0.032f * D);
+            using (GraphicsPath cp = Theme.Round(cap, 0.012f * D)) { Fill(g, cp, cap, Gold2, Color.FromArgb(120, 84, 18), 90f); Stroke(g, cp, Color.FromArgb(120, 90, 60, 10), D * 0.005f); }
+
+            // Blade: sampled along its length with a gentle curve; the edge (outer side) is on the left.
+            const int n = 16;
+            float baseY = -0.075f * D, topY = -0.79f * D, half = 0.027f * D;
+            PointF[] edge = new PointF[n + 1], back = new PointF[n + 1], temper = new PointF[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float t = i / (float)n, y = baseY + (topY - baseY) * t, bend = 0.075f * D * t * t;
+                float w = half * (1 - 0.18f * t);
+                edge[i] = P(-w + bend, y);
+                back[i] = P(w * 0.85f + bend, y);
+                temper[i] = P(-w + bend + w * 0.55f + (float)Math.Sin(t * 26) * 0.005f * D, y);
+            }
+            // The point: the back runs straight up and the edge sweeps into it.
+            PointF tip = P(back[n].X - 0.004f * D, topY - 0.062f * D);
             using (GraphicsPath blade = new GraphicsPath())
             {
-                blade.AddLine(P(-0.016f * D, -0.03f * D), P(-0.016f * D, -0.6f * D));
-                blade.AddBezier(P(-0.016f * D, -0.6f * D), P(-0.012f * D, -0.66f * D), P(0.004f * D, -0.69f * D), P(0.016f * D, -0.7f * D));
-                blade.AddLine(P(0.016f * D, -0.7f * D), P(0.016f * D, -0.03f * D));
-                blade.CloseFigure();
-                Fill(g, blade, new RectangleF(-0.016f * D, -0.7f * D, 0.032f * D, 0.67f * D), Color.FromArgb(246, 248, 252), Color.FromArgb(150, 160, 178), 0f);
-                Stroke(g, blade, Color.FromArgb(110, 70, 80, 100), D * 0.006f);
+                List<PointF> outline = new List<PointF>(edge);
+                outline.Add(P(edge[n].X + 0.01f * D, topY - 0.04f * D));
+                outline.Add(tip);
+                for (int i = n; i >= 0; i--) outline.Add(back[i]);
+                blade.AddPolygon(outline.ToArray());
+                RectangleF br = new RectangleF(edge[0].X, tip.Y, back[n].X - edge[0].X + 0.01f * D, baseY - tip.Y);
+                Fill(g, blade, br, Color.FromArgb(250, 252, 255), Color.FromArgb(146, 156, 176), 0f);
+                Region old = g.Clip;
+                g.SetClip(blade, CombineMode.Intersect);
+                // The temper line: a soft frosted band along the edge with a wavy border.
+                using (GraphicsPath hamon = new GraphicsPath())
+                {
+                    List<PointF> hp = new List<PointF>(edge);
+                    for (int i = n; i >= 0; i--) hp.Add(temper[i]);
+                    hamon.AddPolygon(hp.ToArray());
+                    FillSolid(g, hamon, Color.FromArgb(120, 255, 255, 255));
+                }
+                using (Pen ridge = new Pen(Color.FromArgb(120, 96, 106, 128), Math.Max(0.6f, D * 0.005f)))
+                {
+                    PointF[] rp = new PointF[n + 1];
+                    for (int i = 0; i <= n; i++) rp[i] = P(back[i].X - (back[i].X - edge[i].X) * 0.3f, back[i].Y);
+                    g.DrawLines(ridge, rp);
+                }
+                g.Clip = old;
+                old.Dispose();
+                Stroke(g, blade, Color.FromArgb(130, 60, 70, 92), D * 0.006f);
             }
-            Line(g, Color.FromArgb(150, 255, 255, 255), D * 0.006f, -0.005f * D, -0.06f * D, -0.005f * D, -0.58f * D);
-            RectangleF guard = new RectangleF(-0.05f * D, -0.035f * D, 0.1f * D, 0.035f * D);
+
+            // Gold collar just above the guard, then the guard itself: an oval of dark iron with a gold rim.
+            RectangleF collar = new RectangleF(-0.03f * D, -0.085f * D, 0.058f * D, 0.05f * D);
+            using (GraphicsPath cl = Theme.Round(collar, 0.008f * D)) { Fill(g, cl, collar, Gold1, Gold2, 0f); Stroke(g, cl, Color.FromArgb(120, 120, 70, 10), D * 0.005f); }
+            RectangleF guard = new RectangleF(-0.07f * D, -0.045f * D, 0.14f * D, 0.042f * D);
             using (GraphicsPath gd = new GraphicsPath())
             {
                 gd.AddEllipse(guard);
-                Fill(g, gd, guard, Gold1, Gold2, 90f);
-                Stroke(g, gd, Color.FromArgb(120, 120, 70, 10), D * 0.006f);
+                Fill(g, gd, guard, Color.FromArgb(70, 66, 74), Color.FromArgb(24, 22, 28), 90f);
+                Stroke(g, gd, Gold2, D * 0.008f);
             }
             g.Restore(st);
         }
