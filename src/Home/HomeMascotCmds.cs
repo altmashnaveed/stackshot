@@ -176,6 +176,12 @@ namespace Stackshot
                                 new string[] { "No", "17:00", "18:00", "19:00" },
                                 delegate { int i = Array.IndexOf(hours, settings.SummaryHour); return i < 0 ? 2 : i; },
                                 delegate(int i) { settings.SummaryHour = hours[Math.Max(0, Math.Min(hours.Length - 1, i))]; }));
+            // What it tells, there and in "¿Qué tal el día?" of its menu: each part can be left out.
+            rows.Add(SummaryPart("En el resumen: agua", "Los vasos de hoy y tu objetivo.", "drop", Mac.Blue, Mac.Teal, Settings.SummaryWater));
+            rows.Add(SummaryPart("En el resumen: pausas", "Descansos de vista, pausas para moverte y respiraciones.", "eye", Mac.Green, Mac.Teal, Settings.SummaryBreaks));
+            rows.Add(SummaryPart("En el resumen: concentraci\u00F3n", "Bloques y minutos de concentraci\u00F3n.", "clock", Mac.Orange, Mac.Pink, Settings.SummaryFocus));
+            rows.Add(SummaryPart("En el resumen: capturas", "Cu\u00E1ntas capturas has hecho hoy.", "photo", Mac.Indigo, Mac.Purple, Settings.SummaryCaptures));
+            if (Fitbit.Available) rows.Add(SummaryPart("En el resumen: pasos", "Los pasos de tu reloj.", "walk", Mac.Teal, Mac.Green, Settings.SummarySteps));
             if (Fitbit.Available)
             {
                 bool on = Fitbit.Connected;
@@ -198,6 +204,13 @@ namespace Stackshot
                  "las claves se guardan cifradas con tu usuario de Windows y puedes desconectarlo cuando quieras. La mascota no da consejos m\u00E9dicos: " +
                  "solo te anima a moverte, beber y descansar. Si una noche duermes menos de 6 horas, ese d\u00EDa las pausas para la vista y para moverte llegan un poco antes; " +
                  "y con el objetivo de agua cumplido, deja de record\u00E1rtelo.");
+        }
+
+        ToggleRow SummaryPart(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int bit)
+        {
+            return new ToggleRow(title, sub, icon, c1, c2,
+                                 delegate { return (settings.SummaryParts & bit) != 0; },
+                                 delegate(bool v) { settings.SummaryParts = v ? settings.SummaryParts | bit : settings.SummaryParts & ~bit; });
         }
 
         SegRow FocusRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int[] minutes, Func<int> get, Action<int> set)

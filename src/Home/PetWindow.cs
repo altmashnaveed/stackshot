@@ -213,7 +213,7 @@ namespace Stackshot
                 W = (int)Math.Round(340 * s);
                 // Room above it for the longest menu (focus mode on: its line and choices on top of the rest); only what
                 // is drawn is ever repainted or sent to the screen.
-                H = (int)Math.Round(D * 1.02 + 580 * s);
+                H = (int)Math.Round(D * 1.02 + 640 * s);
                 if (dib != null) dib.Dispose();
                 dib = new Dib(W, H, true);
             }
@@ -666,6 +666,17 @@ namespace Stackshot
             menuFocus = false;
             Add(WellKind.Glyphs[WellKind.Move], "Estiramos las piernas", null, delegate { StartSession(WellKind.Move); });
             Add("clock", "Luego", null, delegate { m.Say("Vale, luego nos movemos.", 2600); });
+        }
+
+        // Once: whether there is a watch to connect (asked again three days after "Luego").
+        public void WatchOffer(string text, Action connect, Action never)
+        {
+            m.Perform(MascotCmd.Wave);
+            FocusPrompt(text);
+            menuFocus = false;
+            Add("heart", "Conectar mi reloj", null, delegate { connect(); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
+            Add("clock", "Luego", null, delegate { m.Say("Vale, otro d\u00EDa te lo vuelvo a preguntar.", 3000); });
+            Add("close", "No tengo reloj", null, delegate { never(); m.Say("\u00A1Entendido! Sin reloj tambi\u00E9n te acompa\u00F1o.", 3000); });
         }
 
         void DrinkOne()
@@ -1382,6 +1393,8 @@ namespace Stackshot
             int water = owner.WaterToday();
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
+            if (Fitbit.Available && !Fitbit.Connected && !Fitbit.Connecting)
+                Add("heart", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             Add("sparkle", "Haz un truco", null, delegate
             {
                 int trick = rnd.Next(MascotCmd.Tricks + 1);

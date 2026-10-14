@@ -40,6 +40,27 @@ namespace Stackshot
             if (exiting) return;
             if (Fitbit.Connected && !watchReading && Anim.Now >= nextWatchRead) ReadWatch(null);
             DaySummaryTick();
+            WatchOfferTick();
+        }
+
+        // ---- Offering to connect a watch: once, a while after starting, by the mascot when it is free (or a notice);
+        // "Luego" asks again three days later, "No tengo reloj" never again, and a connected watch is never asked about.
+
+        double startedAt = Anim.Now;
+
+        void WatchOfferTick()
+        {
+            if (!Fitbit.Available || Fitbit.Connected || Fitbit.Connecting || settings.FitbitAsked == "no") return;
+            DateTime put;
+            if (settings.FitbitAsked.Length > 0 && DateTime.TryParseExact(settings.FitbitAsked, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out put) && DateTime.Today < put.AddDays(3)) return;
+            if (Anim.Now - startedAt < 10 * 60 * 1000) return;
+            if (Native.IdleMs() >= Wellness.ActiveIdleMs || WellQuiet() || focus.On) return;
+            if (pet != null && !pet.CanRemind) return;
+            settings.FitbitAsked = Today;
+            settings.Save();
+            string text = "\u00BFTienes un Pixel Watch o un Fitbit? Si lo conectas, te acompa\u00F1o con tus pasos, tu sue\u00F1o y el agua. Los datos no salen de tu equipo.";
+            if (pet != null) pet.WatchOffer(text, delegate { ConnectWatch(null); }, delegate { settings.FitbitAsked = "no"; settings.Save(); });
+            else Notify("\u00BFConectamos tu reloj?", text, NoticeKind.Info, "Conectar", delegate { ConnectWatch(null); });
         }
 
         // ---- Water
@@ -64,19 +85,28 @@ namespace Stackshot
         // "Hoy: 6 de 8 vasos de agua, 3 descansos de vista, 2 bloques de concentración (50 min), 5.400 pasos y 14 capturas."
         public string DaySummary()
         {
+            // Only what the user wants in it (Mascota > Ajustes > Salud y actividad).
+            int want = settings.SummaryParts;
             List<string> parts = new List<string>();
             int water = WaterToday();
-            if (water > 0 || settings.WaterGoal > 0)
+            if ((want & Settings.SummaryWater) != 0 && (water > 0 || settings.WaterGoal > 0))
                 parts.Add(settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal + " vasos de agua" : water + (water == 1 ? " vaso" : " vasos") + " de agua");
-            int eyes = Wellness.Count(settings, WellKind.Eyes), move = Wellness.Count(settings, WellKind.Move), breathe = Wellness.Count(settings, WellKind.Breathe);
-            if (eyes > 0) parts.Add(eyes + (eyes == 1 ? " descanso" : " descansos") + " de vista");
-            if (move > 0) parts.Add(move + (move == 1 ? " pausa" : " pausas") + " para moverte");
-            if (breathe > 0) parts.Add(breathe + " " + (breathe == 1 ? "minuto" : "minutos") + " respirando");
+            if ((want & Settings.SummaryBreaks) != 0)
+            {
+                int[] done = Wellness.Today(settings);
+                int eyes = done[WellKind.Eyes], move = done[WellKind.Move], breathe = done[WellKind.Breathe];
+                if (eyes > 0) parts.Add(eyes + (eyes == 1 ? " descanso" : " descansos") + " de vista");
+                if (move > 0) parts.Add(move + (move == 1 ? " pausa" : " pausas") + " para moverte");
+                if (breathe > 0) parts.Add(breathe + " " + (breathe == 1 ? "minuto" : "minutos") + " respirando");
+            }
             FocusDayCheck();
-            if (settings.FocusBlocks > 0) parts.Add(settings.FocusBlocks + (settings.FocusBlocks == 1 ? " bloque" : " bloques") + " de concentraci\u00F3n (" + FocusClock.Minutes(settings.FocusMinutes) + ")");
-            if (watch != null && watch.ReadAt.Date == DateTime.Today && watch.Steps > 0) parts.Add(watch.Steps.ToString("N0", Es) + " pasos");
+            if ((want & Settings.SummaryFocus) != 0 && settings.FocusBlocks > 0)
+                parts.Add(settings.FocusBlocks + (settings.FocusBlocks == 1 ? " bloque" : " bloques") + " de concentraci\u00F3n (" + FocusClock.Minutes(settings.FocusMinutes) + ")");
+            if ((want & Settings.SummarySteps) != 0 && watch != null && watch.ReadAt.Date == DateTime.Today && watch.Steps > 0)
+                parts.Add(watch.Steps.ToString("N0", Es) + " pasos");
             StatsDayCheck();
-            if (settings.StatsCaptures > 0) parts.Add(settings.StatsCaptures + (settings.StatsCaptures == 1 ? " captura" : " capturas"));
+            if ((want & Settings.SummaryCaptures) != 0 && settings.StatsCaptures > 0)
+                parts.Add(settings.StatsCaptures + (settings.StatsCaptures == 1 ? " captura" : " capturas"));
             if (parts.Count == 0) return null;
             string last = parts[parts.Count - 1];
             parts.RemoveAt(parts.Count - 1);

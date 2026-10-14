@@ -104,7 +104,10 @@ namespace Stackshot
         // the watch ("steps|goal|sleep|active|water|ticks"), a short night's date (breaks come a little more often)
         // and today's captures (StatsDay is their date).
         public int WaterGoal = 8, SummaryHour = 18;
+        public int SummaryParts = 31;       // what the summary tells, Summary* bits
         public string SummaryDay = "";
+        public string FitbitAsked = "";     // the offer to connect a watch: "" not yet, "no" never again, or the date it was put off
+        public const int SummaryWater = 1, SummaryBreaks = 2, SummaryFocus = 4, SummaryCaptures = 8, SummarySteps = 16;
         public bool HealthTalk = true;
         public string HealthSaid = "", FitbitLast = "", ShortSleepDay = "", StatsDay = "";
         public int StatsCaptures;
