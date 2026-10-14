@@ -81,6 +81,7 @@ namespace Stackshot
             Point origin, wordAt;
             Rect box;
             DoubleAnimation marching;
+            bool endless;
 
             // fit: the widest it may be (0: any); a narrower room takes a smaller size instead of cutting the marquee.
             public HomePick(string leadText, string wordText, double size, double fit)
@@ -89,7 +90,8 @@ namespace Stackshot
                 Lay(leadText, wordText, size);
                 if (fit > 0 && box.Right > fit) Lay(leadText, wordText, Math.Floor(size * fit / box.Right * 10) / 10);
                 SnapsToDevicePixels = true;
-                MouseEnter += delegate { if (marching == null) March(0, 2); };
+                MouseEnter += delegate { if (!endless) March(0, 0); };
+                MouseLeave += delegate { Settle(); };
                 IsVisibleChanged += delegate { if (!IsVisible) Still(); };
             }
 
@@ -121,13 +123,27 @@ namespace Stackshot
                 March(delay + 380, 3);
             }
 
+            // times 0: like a live selection, until the mouse leaves.
             void March(double delay, int times)
             {
                 if (Ds.Brushes.High || !HomeMotion()) return;
                 DoubleAnimation a = new DoubleAnimation(0, -Period, TimeSpan.FromMilliseconds(900))
                 {
-                    BeginTime = TimeSpan.FromMilliseconds(delay), RepeatBehavior = new RepeatBehavior(times)
+                    BeginTime = TimeSpan.FromMilliseconds(delay), RepeatBehavior = times > 0 ? new RepeatBehavior(times) : RepeatBehavior.Forever
                 };
+                a.Completed += delegate { if (marching == a) Still(); };
+                marching = a;
+                endless = times <= 0;
+                BeginAnimation(AntsProperty, a);
+            }
+
+            // The mouse left: the ants finish the step they are on and stop (one period on is the same picture as none).
+            void Settle()
+            {
+                if (!endless || marching == null) return;
+                endless = false;
+                double at = Math.Max(-Period, Math.Min(0, (double)GetValue(AntsProperty)));
+                DoubleAnimation a = new DoubleAnimation(at, -Period, TimeSpan.FromMilliseconds(Math.Max(1, 900 * (Period + at) / Period)));
                 a.Completed += delegate { if (marching == a) Still(); };
                 marching = a;
                 BeginAnimation(AntsProperty, a);
@@ -136,6 +152,7 @@ namespace Stackshot
             void Still()
             {
                 marching = null;
+                endless = false;
                 BeginAnimation(AntsProperty, null);
             }
 
