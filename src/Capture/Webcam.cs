@@ -789,8 +789,10 @@ namespace Stackshot
             {
                 if (fresh && latest != null)
                 {
-                    if (image == null || image.Length != latest.Length) image = new byte[latest.Length];
-                    Buffer.BlockCopy(latest, 0, image, 0, latest.Length);
+                    // Swapped, not copied: the reader takes the old frame back as its spare buffer.
+                    byte[] old = image;
+                    image = latest;
+                    latest = old != null && old.Length == image.Length ? old : null;
                     imageSide = latestSide;
                     fresh = false;
                     live = true;
