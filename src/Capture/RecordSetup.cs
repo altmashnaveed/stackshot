@@ -147,15 +147,15 @@ namespace Stackshot
                 {
                     MacSegmented f = new MacSegmented(new string[] { "24", "30", "60" }, Nearest(VideoFpsOptions, videoFps));
                     f.Changed += delegate(int i) { videoFps = VideoFpsOptions[i]; };
-                    Row(rows, "Fotogramas", f, null);
+                    Row(rows, "Fotogramas", f, "por segundo");
                 }
                 else if (quality == Recorder.Cinema)
                 {
                     MacSegmented f = new MacSegmented(new string[] { "30", "60" }, cineFps == 30 ? 0 : 1);
                     f.Changed += delegate(int i) { cineFps = i == 0 ? 30 : 60; };
-                    Row(rows, "Fotogramas", f, null);
+                    Row(rows, "Fotogramas", f, "por segundo");
                 }
-                else Row(rows, "Fotogramas", Text("60 fps", Ds.Regular, 13, pal.Label2), null);
+                else Row(rows, "Fotogramas", Text("60 por segundo", Ds.Regular, 13, pal.Label2), "Alta y M\u00E1xima graban siempre a 60, para que el movimiento sea fluido.");
 
                 MacSwitch ss = new MacSwitch(sys);
                 ss.Toggled += delegate(bool on) { sys = on; };
@@ -172,7 +172,7 @@ namespace Stackshot
             {
                 MacSegmented f = new MacSegmented(new string[] { "10", "15", "20", "25" }, Nearest(GifFpsOptions, gifFps));
                 f.Changed += delegate(int i) { gifFps = GifFpsOptions[i]; };
-                Row(rows, "Fotogramas", f, null);
+                Row(rows, "Fotogramas", f, "por segundo");
             }
             MacSegmented cd = new MacSegmented(new string[] { "No", "3 s", "5 s", "10 s" }, Math.Max(0, Array.IndexOf(Countdowns, countdown)));
             cd.Changed += delegate(int i) { countdown = Countdowns[i]; };
