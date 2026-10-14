@@ -37,7 +37,7 @@ namespace Stackshot
     {
         public const string RepoUrl = "https://github.com/rubenitx/stackshot";
         // The report relay (tools/report-relay), ending in /report; empty: reports open as a new issue in the browser.
-        public const string ReportUrl = "";
+        public const string ReportUrl = "https://stackshot-report.rmartbernabe.workers.dev/report";
 
         static string[] args;
 
