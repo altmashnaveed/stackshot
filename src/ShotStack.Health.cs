@@ -25,6 +25,7 @@ namespace Stackshot
         {
             if (Test) return;
             watch = LastReading();
+            if (watch != null && !watch.Empty && watch.ReadAt.Date == DateTime.Today) Logged(watch);
             nextWatchRead = Anim.Now + 60000;
             healthTimer = new Timer { Interval = 60000 };
             healthTimer.Tick += delegate
@@ -144,7 +145,45 @@ namespace Stackshot
 
         // ---- The watch
 
-        public GoogleHealth.Today Watch { get { return watch != null && watch.ReadAt.Date == DateTime.Today ? watch : null; } }
+        // Today's reading, with the steps goal chosen in the settings.
+        public GoogleHealth.Today Watch
+        {
+            get
+            {
+                if (watch == null || watch.ReadAt.Date != DateTime.Today) return null;
+                watch.StepsGoal = settings.StepsGoal;
+                return watch;
+            }
+        }
+
+        // Today's steps at each reading (to tell a walk from an hour sitting still); kept while the app runs.
+        readonly List<KeyValuePair<DateTime, int>> stepLog = new List<KeyValuePair<DateTime, int>>();
+
+        // "Hoy llevas 4.343 pasos (el 43 % de tu objetivo), anoche dormiste 7 h 10 min y llevas 12 min de actividad intensa."
+        public string ActivityLine()
+        {
+            GoogleHealth.Today w = Watch;
+            if (w == null) return WatchError != null ? "No he podido leer tu reloj: " + WatchError : "Todavía no he leído tu reloj hoy.";
+            if (w.Empty) return "Google aún no tiene datos de hoy. Abre la app de tu reloj en el móvil para que se sincronice y vuelvo a mirarlo.";
+            int goal = w.StepsGoal;
+            string steps = w.Steps >= goal ? "¡Hoy ya llevas " + w.Steps.ToString("N0", Es) + " pasos: objetivo cumplido!"
+                         : "Hoy llevas " + w.Steps.ToString("N0", Es) + " pasos, el " + w.Steps * 100 / goal + " % de tu objetivo de " + goal.ToString("N0", Es) + ".";
+            List<string> more = new List<string>();
+            if (w.SleepMinutes > 0) more.Add("anoche dormiste " + Hours(w.SleepMinutes));
+            if (w.ActiveMinutes > 0) more.Add("llevas " + w.ActiveMinutes + " min de actividad intensa");
+            string extra = more.Count == 0 ? "" : " " + char.ToUpper(more[0][0]) + string.Join(" y ", more.ToArray()).Substring(1) + ".";
+            if (w.Steps < goal && DateTime.Now.Hour >= 12) extra += " Te faltan " + (goal - w.Steps).ToString("N0", Es) + ": unos " + WalkMinutes(goal - w.Steps) + " min andando.";
+            return steps + extra;
+        }
+
+        // About a hundred steps a minute at an easy pace.
+        static int WalkMinutes(int steps) { return Math.Max(5, (int)Math.Ceiling(steps / 100.0 / 5) * 5); }
+
+        // "Voy a dar un paseo": the watch is read again in twenty minutes, to tell how it went.
+        public void WalkStarted()
+        {
+            nextWatchRead = Math.Min(nextWatchRead, Anim.Now + 20 * 60 * 1000);
+        }
 
         static string Hours(int minutes) { return minutes / 60 + " h" + (minutes % 60 > 0 ? " " + minutes % 60 + " min" : ""); }
 
@@ -157,7 +196,10 @@ namespace Stackshot
         public event Action WatchRead;
 
         // Read now (asked from the settings) or on the half-hour; done runs here with the error, or null.
-        public void ReadWatch(Action<string> done)
+        public void ReadWatch(Action<string> done) { ReadWatch(done, false); }
+
+        // quiet: the mascot says nothing about it on its own (whoever asked tells it).
+        public void ReadWatch(Action<string> done, bool quiet)
         {
             if (watchReading) return;
             watchReading = true;
@@ -174,12 +216,14 @@ namespace Stackshot
                     WatchError = t != null ? null : error;
                     if (t != null)
                     {
+                        if (!t.Empty) Logged(t);
                         watch = t;
                         settings.FitbitLast = t.Steps + "|" + t.StepsGoal + "|" + t.SleepMinutes + "|" + t.ActiveMinutes + "|" + t.WaterMl + "|" + t.ReadAt.Ticks + "|" + (t.Empty ? "vacio" : "");
                         settings.Save();
                         Log(t.Empty ? "Google Health: leído, Google aún no tiene pasos de hoy"
                                     : "Google Health: leído, " + t.Steps + " pasos, " + t.SleepMinutes + " min de sueño, " + t.ActiveMinutes + " min activo");
-                        WatchSays();
+                        if (!t.Empty) WatchMoved();
+                        if (!quiet) WatchSays();
                     }
                     else Log("Google Health: " + error);
                     if (done != null) done(error);
@@ -228,14 +272,47 @@ namespace Stackshot
             Log("Google Health: desconectado");
         }
 
-        // A few words about the numbers, once each a day: never in a block, a call, a recording or with nobody there,
-        // and only through the mascot (no notices for this).
+        // Keeps today's readings (a new day starts the list over).
+        void Logged(GoogleHealth.Today t)
+        {
+            stepLog.RemoveAll(delegate(KeyValuePair<DateTime, int> e) { return e.Key.Date != t.ReadAt.Date || e.Value > t.Steps; });
+            stepLog.Add(new KeyValuePair<DateTime, int>(t.ReadAt, t.Steps));
+            if (stepLog.Count > 64) stepLog.RemoveAt(0);
+        }
+
+        // Steps since the latest reading at least `minutes` old (and how long ago that was), or -1 without one.
+        int StepsSince(double minutes, out double ago)
+        {
+            ago = 0;
+            if (stepLog.Count < 2) return -1;
+            KeyValuePair<DateTime, int> last = stepLog[stepLog.Count - 1];
+            for (int i = stepLog.Count - 2; i >= 0; i--)
+            {
+                double m = (last.Key - stepLog[i].Key).TotalMinutes;
+                if (m >= minutes) { ago = m; return last.Value - stepLog[i].Value; }
+            }
+            return -1;
+        }
+
+        // Walking since the last reading counts as the "Moverse" break: its timer starts over, so it doesn't ask you to
+        // move right after a walk.
+        void WatchMoved()
+        {
+            double ago;
+            int walked = StepsSince(1, out ago);
+            if (walked >= 250 && ago <= 50) wellness.Done(WellKind.Move, Anim.Now);
+        }
+
+        // A few words about the numbers, each once a day (or once every few hours): never in a block, a call, a recording
+        // or with nobody there, and only through the mascot (no notices for this). Big news in a card, small in a bubble.
         void WatchSays()
         {
             GoogleHealth.Today w = Watch;
-            if (!settings.HealthTalk || w == null || pet == null || !pet.CanRemind) return;
+            if (!settings.HealthTalk || w == null || w.Empty || pet == null || !pet.CanRemind) return;
             if (Native.IdleMs() >= Wellness.ActiveIdleMs || WellQuiet() || focus.Working) return;
             DateTime now = DateTime.Now;
+            int goal = w.StepsGoal;
+            double ago;
             // Last night, in the morning.
             if (w.SleepMinutes > 0 && now.Hour >= 8 && now.Hour < 13 && Said("sueno"))
             {
@@ -246,20 +323,42 @@ namespace Stackshot
                     pet.HealthTell("Esta noche has dormido " + Hours(w.SleepMinutes) + ". Hoy te propondr\u00E9 las pausas para la vista y para moverte un poco antes.", false);
                 }
                 else if (w.SleepMinutes >= 450) pet.HealthTell("Has dormido " + Hours(w.SleepMinutes) + ". \u00A1Buen d\u00EDa para concentrarse!", false);
+                else pet.FocusSay("Anoche dormiste " + Hours(w.SleepMinutes) + ". \u00A1A por el d\u00EDa!");
                 return;
             }
-            int goal = w.StepsGoal > 0 ? w.StepsGoal : 10000;
+            // The goal: a card, a cheer and a friendship point.
             if (w.Steps >= goal && Said("meta"))
             {
-                pet.HealthTell("\u00A1" + w.Steps.ToString("N0", Es) + " pasos! Has cumplido tu objetivo de hoy.", true);
+                string up = LoveUp();
+                pet.HealthTell("\u00A1" + w.Steps.ToString("N0", Es) + " pasos! Has cumplido tu objetivo de hoy." + (up != null ? " " + up : ""), true);
                 return;
             }
-            // Few steps for the time of day, at most once every three hours between 11:00 and 18:00.
-            if (now.Hour >= 11 && now.Hour < 18)
+            // A good walk since the last reading.
+            int walked = StepsSince(1, out ago);
+            if (walked >= 1000 && ago <= 50 && Said("paseo" + now.Hour / 3))
             {
-                int expected = goal * (now.Hour - 8) / 12;
-                if (w.Steps < expected / 2 && Said("pasos" + now.Hour / 3))
-                    pet.HealthAskMove("Llevas " + w.Steps.ToString("N0", Es) + " pasos hoy. \u00BFEstiramos las piernas un par de minutos?");
+                pet.FocusSay("\u00A1Buen paseo! " + walked.ToString("N0", Es) + " pasos m\u00E1s en " + (int)Math.Round(ago) + " min.");
+                return;
+            }
+            // Halfway there.
+            if (w.Steps >= goal / 2 && w.Steps < goal && Said("mitad"))
+            {
+                pet.FocusSay("\u00A1Ya vas por la mitad! " + w.Steps.ToString("N0", Es) + " de " + goal.ToString("N0", Es) + " pasos.");
+                return;
+            }
+            // An hour sitting still during the working day: a nudge (it stands for the "Moverse" break).
+            int still = StepsSince(55, out ago);
+            if (now.Hour >= 9 && now.Hour < 19 && still >= 0 && still < 150 && ago <= 120 && Said("quieto" + now.Hour / 2))
+            {
+                if (settings.WellOn) WellLater(WellKind.Move, 40 * 60 * 1000);
+                pet.HealthAskMove("En " + (ago >= 90 ? "la \u00FAltima hora y media" : "la \u00FAltima hora") + " solo has dado " + still + " pasos. \u00BFEstiramos las piernas un par de minutos?");
+                return;
+            }
+            // Late in the day and close to the goal: how far it is, and a walk to get there.
+            if (now.Hour >= 16 && now.Hour < 20 && w.Steps >= goal * 6 / 10 && w.Steps < goal && Said("falta"))
+            {
+                int left = goal - w.Steps;
+                pet.HealthAskWalk("Te faltan " + left.ToString("N0", Es) + " pasos para tu objetivo: un paseo de unos " + WalkMinutes(left) + " minutos y lo tienes.");
             }
         }
 

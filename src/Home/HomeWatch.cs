@@ -151,6 +151,24 @@ namespace Stackshot
             });
         }
 
+        // What is coming: more watches and bands, with a "Pronto" tag in the website's gradient.
+        public class SoonRow : Row
+        {
+            public SoonRow() : base("M\u00E1s relojes y pulseras", "Pr\u00F3ximamente podr\u00E1s conectar otros relojes y pulseras, no solo Pixel Watch y Fitbit.", "sparkle", Mac.Purple, Mac.Indigo) { }
+
+            protected override FrameworkElement Control()
+            {
+                Palette pal = Ds.Brushes;
+                Border tag = new Border
+                {
+                    CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 3, 10, 4),
+                    Background = pal.High ? Ds.Brush(pal.Control) : (Brush)new LinearGradientBrush(Ds.Rgb(124, 92, 255), Ds.Rgb(8, 145, 204), 0)
+                };
+                tag.Child = Label("Pronto", Ds.Semibold, 11.5, pal.High ? pal.Label : Colors.White);
+                return tag;
+            }
+        }
+
         // Under Salud y actividad: today's numbers, where they stand and a button to read them now.
         public class WatchRow : Row
         {

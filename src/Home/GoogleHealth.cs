@@ -308,12 +308,7 @@ namespace Stackshot
                 return sum;
             }, "minutos activos");
             t.SleepMinutes = Try(delegate { return LastNight(key); }, "sue\u00F1o");
-            t.WaterMl = Try(delegate
-            {
-                Dictionary<string, object> h = Dict(Dict(Rollup(key, "hydration-log"), "hydrationLog"), "amountConsumed");
-                object ml;
-                return h != null && h.TryGetValue("millilitersSum", out ml) && ml != null ? (int)Math.Round(Convert.ToDouble(ml, System.Globalization.CultureInfo.InvariantCulture)) : 0;
-            }, "agua");
+            // Water is left out: it needs a nutrition permission Stackshot doesn't ask for.
             return t;
         }
 
@@ -351,6 +346,8 @@ namespace Stackshot
         }
 
         // Minutes asleep in the sleep that ended today (the main one; or all of them if none is marked main).
+        static DateTime sleepNoted;
+
         static int LastNight(string key)
         {
             string filter = "sleep.interval.civil_end_time >= \"" + DateTime.Today.ToString("yyyy-MM-dd") + "\"";
@@ -366,6 +363,8 @@ namespace Stackshot
                     Dictionary<string, object> meta = Dict(sleep, "metadata");
                     if (meta != null && meta.ContainsKey("mainSleep") && meta["mainSleep"] is bool && (bool)meta["mainSleep"]) main += m;
                 }
+            int n = points != null ? points.Count : 0;
+            if (n == 0 && sleepNoted != DateTime.Today) { sleepNoted = DateTime.Today; ShotStack.Log("Google Health: sin sue\u00F1o registrado desde anoche"); }
             return main > 0 ? main : all;
         }
 

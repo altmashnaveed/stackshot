@@ -167,8 +167,7 @@ namespace Stackshot
             int[] goals = { 0, 6, 8, 10 }, hours = { 0, 17, 18, 19 };
             List<Row> rows = new List<Row>();
             int water = owner.WaterToday();
-            rows.Add(new SegRow("Objetivo de agua", "Vasos al d\u00EDa. Cuentan los que bebes con la mascota y \u00AB+1 vaso\u00BB en su men\u00FA" +
-                                (GoogleHealth.Available ? ", o el agua que apuntes en Google Health" : "") + ". Hoy: " + water + (water == 1 ? " vaso." : " vasos."),
+            rows.Add(new SegRow("Objetivo de agua", "Vasos al d\u00EDa. Cuentan los que bebes con la mascota y \u00AB+1 vaso\u00BB en su men\u00FA. Hoy: " + water + (water == 1 ? " vaso." : " vasos."),
                                 "drop", Mac.Blue, Mac.Teal, new string[] { "Sin objetivo", "6 vasos", "8 vasos", "10 vasos" },
                                 delegate { int i = Array.IndexOf(goals, settings.WaterGoal); return i < 0 ? 2 : i; },
                                 delegate(int i) { settings.WaterGoal = goals[Math.Max(0, Math.Min(goals.Length - 1, i))]; }));
@@ -196,14 +195,24 @@ namespace Stackshot
                                            else if (GoogleHealth.Connected) { owner.DisconnectWatch(); Rebuild(); }
                                            else { owner.ConnectWatch(delegate { if (IsVisible) Rebuild(); }); Rebuild(); }
                                        }));
-                if (on && !GoogleHealth.Connecting) rows.Add(new WatchRow());
-                rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Una vez al d\u00EDa como mucho por cada cosa: si has dormido poco, si llevas pocos pasos o si cumples tu objetivo.", "sparkle", Mac.Orange, Mac.Pink,
+                if (on && !GoogleHealth.Connecting)
+                {
+                    rows.Add(new WatchRow());
+                    int[] steps = { 6000, 8000, 10000, 12000, 15000 };
+                    rows.Add(new SegRow("Objetivo de pasos", "Lo que cuenta la barra, la mascota y el resumen del d\u00EDa.", "walk", Mac.Green, Mac.Teal,
+                                        new string[] { "6.000", "8.000", "10.000", "12.000", "15.000" },
+                                        delegate { int i = Array.IndexOf(steps, settings.StepsGoal); return i < 0 ? 2 : i; },
+                                        delegate(int i) { settings.StepsGoal = steps[Math.Max(0, Math.Min(steps.Length - 1, i))]; }));
+                }
+                rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Te avisa si llevas una hora quieto, celebra tus paseos, la mitad y el objetivo de pasos, te dice cu\u00E1nto te falta por la tarde y c\u00F3mo has dormido. Cada cosa, pocas veces al d\u00EDa.", "sparkle", Mac.Orange, Mac.Pink,
                                        delegate { return settings.HealthTalk; }, delegate(bool v) { settings.HealthTalk = v; }) { When = delegate { return GoogleHealth.Connected; } });
+                rows.Add(new SoonRow());
             }
             Group("Salud y actividad", rows.ToArray());
             Note("Todo se queda en tu equipo. Con el reloj conectado, los datos van de Google a tu ordenador y no pasan por ning\u00FAn otro sitio; " +
                  "las claves se guardan cifradas con tu usuario de Windows y puedes desconectarlo cuando quieras. La mascota no da consejos m\u00E9dicos: " +
                  "solo te anima a moverte, beber y descansar. Si una noche duermes menos de 6 horas, ese d\u00EDa las pausas para la vista y para moverte llegan un poco antes; " +
+                 "si el reloj ve que acabas de caminar, la pausa para moverte espera; " +
                  "y con el objetivo de agua cumplido, deja de record\u00E1rtelo.");
         }
 

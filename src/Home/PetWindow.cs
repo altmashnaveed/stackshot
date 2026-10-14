@@ -682,6 +682,33 @@ namespace Stackshot
             Add("clock", "Luego", null, delegate { m.Say("Vale, luego nos movemos.", 2600); });
         }
 
+        // Close to the day's goal: a real walk (the watch is read again when you are back) or not now.
+        public void HealthAskWalk(string text)
+        {
+            FocusPrompt(text);
+            menuFocus = false;
+            Add("walk", "Voy a dar un paseo", null, delegate
+            {
+                owner.WalkStarted();
+                m.Perform(MascotCmd.Cheer);
+                m.Say("¡Genial! Cuando vuelvas te digo cuántos pasos has dado.", 3600);
+            });
+            Add("clock", "Ahora no", null, delegate { m.Say("Vale. Si luego te apetece, aquí estoy.", 2600); });
+        }
+
+        // "Mi actividad": the watch is read now and the mascot tells how the day goes.
+        void TellActivity()
+        {
+            if (owner.WatchReading) { HealthTell(owner.ActivityLine(), false); return; }
+            m.Say("Miro tu reloj…", 2200);
+            owner.ReadWatch(delegate
+            {
+                if (IsDisposed || !Visible) return;
+                GoogleHealth.Today w = owner.Watch;
+                HealthTell(owner.ActivityLine(), w != null && !w.Empty && w.Steps >= w.StepsGoal);
+            }, true);
+        }
+
         // "Haz un truco": only real tricks (no props, no just talking), never one of the last two again.
         static readonly int[] TrickSet = { MascotCmd.Juggle, MascotCmd.Dance, MascotCmd.Jump, MascotCmd.Twirl, MascotCmd.Flip, MascotCmd.Cheer, MascotCmd.Bubbles };
         int lastTrick = -1, lastTrick2 = -1;
@@ -1517,6 +1544,11 @@ namespace Stackshot
             int water = owner.WaterToday();
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
+            if (GoogleHealth.Connected)
+            {
+                GoogleHealth.Today w = owner.Watch;
+                Add("walk", "Mi actividad", w != null && !w.Empty ? w.Steps.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("es-ES")) + " pasos" : null, TellActivity);
+            }
             if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting)
                 Add("google", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             AddSep();
