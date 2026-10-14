@@ -235,16 +235,20 @@ namespace Stackshot
             lock (rows)
             {
                 b = new Bitmap(w, Math.Max(1, rows.Count), PixelFormat.Format32bppArgb);
-                BitmapData bd = b.LockBits(new Rectangle(0, 0, b.Width, b.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
                 try
                 {
-                    for (int y = 0; y < rows.Count; y++)
+                    BitmapData bd = b.LockBits(new Rectangle(0, 0, b.Width, b.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+                    try
                     {
-                        Marshal.Copy(rows[y], 0, new IntPtr(bd.Scan0.ToInt64() + (long)y * bd.Stride), w);
-                        rows[y] = null; // release rows as they are copied to lower peak memory
+                        for (int y = 0; y < rows.Count; y++)
+                        {
+                            Marshal.Copy(rows[y], 0, new IntPtr(bd.Scan0.ToInt64() + (long)y * bd.Stride), w);
+                            rows[y] = null; // release rows as they are copied to lower peak memory
+                        }
                     }
+                    finally { b.UnlockBits(bd); }
                 }
-                finally { b.UnlockBits(bd); }
+                catch { b.Dispose(); throw; }
                 rows.Clear();
             }
             return b;
