@@ -225,7 +225,7 @@ namespace Stackshot
         }
 
         // The desktop mascot is out and can be seen (not hidden by a full-screen app): it speaks, and no notice says the same.
-        bool PetShown { get { return pet != null && pet.Visible; } }
+        bool PetShown { get { return pet != null && pet.Visible && !pet.Behind; } }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.
         void After(int ms, Action act)

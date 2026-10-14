@@ -163,7 +163,7 @@ namespace Stackshot
             bool back = focusWasAway && idle < 3000;
             if (idle >= 60000) focusWasAway = true;
             else if (idle < 3000) focusWasAway = false;
-            bool hid = pet != null && !pet.Visible;
+            bool hid = pet != null && (!pet.Visible || pet.Behind);
             if (focusPetHid && !hid) back = true;
             focusPetHid = hid;
             if (back && focus.Asking && PetShown)

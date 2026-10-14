@@ -54,7 +54,7 @@ namespace Stackshot
         int dir = 1, wx, wy;
         State state = State.Idle;
         Point grab, downAt;
-        bool down, homeShown, blocked, asleepForAway;
+        bool down, homeShown, asleepForAway;
         Point lastMouse;
         // Motion: a vsync pacer thread drives frames only while moving; the timer covers the slow cases.
         System.Threading.Thread pacer;
@@ -240,7 +240,7 @@ namespace Stackshot
             Rectangle a = cur.Bounds;
             foreach (Screen sc in Screen.AllScreens)
             {
-                if (sc.DeviceName == cur.DeviceName) continue;
+                if (sc.DeviceName == cur.DeviceName || Busy(sc)) continue;
                 Rectangle b = sc.Bounds;
                 bool touch = side > 0 ? Math.Abs(b.Left - a.Right) <= 8 : Math.Abs(b.Right - a.Left) <= 8;
                 if (touch && b.Top < a.Bottom && b.Bottom > a.Top) return sc;
@@ -263,7 +263,7 @@ namespace Stackshot
             }
             Screen dest = strollDest ?? Screen.FromPoint(new Point((int)(targetX + D / 2.0), (int)(by + D / 2.0)));
             strollDest = null;
-            if (dest.WorkingArea != wa && Math.Sign(targetX - bx) == side)
+            if (dest.WorkingArea != wa && !Busy(dest) && Math.Sign(targetX - bx) == side)
             {
                 Place(dest, targetX + D / 2.0);
                 by = Ground;
@@ -533,7 +533,7 @@ namespace Stackshot
         // Free to bring up a reminder now: on screen, standing still, no menu, nothing being dragged or done.
         public bool CanRemind
         {
-            get { return Visible && !blocked && !leaving && state == State.Idle && menu == null && session < 0 && !down && clicks == 0; }
+            get { return Visible && !behind && !leaving && state == State.Idle && menu == null && session < 0 && !down && clicks == 0; }
         }
 
         public void Remind(int kind, string text)
@@ -1088,52 +1088,110 @@ namespace Stackshot
             homeShown = shown;
         }
 
-        void UpdateVisibility()
-        {
-            bool want = !blocked;
-            if (want && !Visible) { Show(); m.PopIn(); }
-            else if (!want && Visible) { CloseMenu(); StopSession(); Hide(); }
-            if (want && !timer.Enabled) timer.Start();
-        }
-
         static int IdleMs() { return Native.IdleMs(); }
 
-        // Full-screen apps, games and presentations: hide until they end (unless asked to stay in front always).
-        bool FullScreenBusy()
+        // The monitor a full-screen app fills now (a game, a presentation, a remote desktop or a virtual machine), or null;
+        // always null when asked to stay in front.
+        Screen BusyScreen()
         {
-            if (!settings.MascotHideFull) return false;
+            if (!settings.MascotHideFull) { fullWin = IntPtr.Zero; return null; }
             int q;
-            // Presentations (QUNS_PRESENTATION_MODE, 4) always hide it. Games (QUNS_RUNNING_D3D_FULL_SCREEN, 3; virtual
-            // machines and remote desktops often say so too) and QUNS_BUSY (2) mean something is full screen on some monitor:
-            // only hide when it covers the monitor the mascot is on.
+            // QUNS_BUSY (2) and QUNS_RUNNING_D3D_FULL_SCREEN (3; virtual machines and remote desktops often say so too):
+            // the foreground window must cover its whole monitor. QUNS_PRESENTATION_MODE (4): the monitor it is shown on.
             try
             {
-                if (SHQueryUserNotificationState(out q) != 0) return false;
-                if (q == 4) return true;
-                if (q != 2 && q != 3) return false;
                 IntPtr fg = Native.GetForegroundWindow();
-                Native.RECT r;
-                if (fg == IntPtr.Zero || !Native.GetWindowRect(fg, out r)) return false;
-                Rectangle mon = Screen.FromRectangle(wa).Bounds;
-                return r.Left <= mon.Left && r.Top <= mon.Top && r.Right >= mon.Right && r.Bottom >= mon.Bottom;
+                if (SHQueryUserNotificationState(out q) == 0 && q >= 2 && q <= 4 && fg != IntPtr.Zero)
+                {
+                    if (q == 4) { fullWin = fg; return Screen.FromHandle(fg); }
+                    if (Fills(fg)) { fullWin = fg; return Screen.FromHandle(fg); }
+                }
+                // Windows only says so while that app is in front: a click on another monitor leaves it filling its own,
+                // so the window found last still counts while it is there, shown and full screen.
+                if (fullWin != IntPtr.Zero && IsWindowVisible(fullWin) && !Native.IsIconic(fullWin) && Fills(fullWin)) return Screen.FromHandle(fullWin);
             }
             catch { }
-            return false;
+            fullWin = IntPtr.Zero;
+            return null;
         }
 
-        // Why it stepped aside, once per change: which app was full screen.
-        void LogBlocked()
+        IntPtr fullWin;               // the full-screen window found last
+
+        static bool Fills(IntPtr w)
         {
-            if (!blocked) { ShotStack.Log("Mascota: vuelve al escritorio"); return; }
-            string who = "";
+            Native.RECT r;
+            if (!Native.GetWindowRect(w, out r)) return false;
+            Rectangle b = Screen.FromHandle(w).Bounds;
+            return r.Left <= b.Left && r.Top <= b.Top && r.Right >= b.Right && r.Bottom >= b.Bottom;
+        }
+
+        string busyName;              // the monitor a full-screen app fills, or null
+        bool behind;                  // below that app: its only monitor is taken
+
+        // Below a full-screen app it is not "on show": what it would say goes to a notice, reminders wait.
+        public bool Behind { get { return behind; } }
+
+        bool Busy(Screen sc) { return busyName != null && sc.DeviceName == busyName; }
+
+        // Every second and a half: a full-screen app on its monitor sends it to another one that is free (where it pops
+        // in), or, with none, behind that app until it ends.
+        void CheckFullScreen()
+        {
+            Screen busy = BusyScreen();
+            string name = busy != null ? busy.DeviceName : null;
+            bool changed = name != busyName;
+            busyName = name;
+            bool here = busy != null && cur != null && cur.DeviceName == busy.DeviceName;
+            if (!here) { SetBehind(false, changed); return; }
+            if (state == State.Drag) return;
+            Screen free = null;
+            foreach (Screen sc in Screen.AllScreens)
+                if (sc.DeviceName != busy.DeviceName && (free == null || sc.Primary)) free = sc;
+            if (free == null) { SetBehind(true, changed); return; }
+            SetBehind(false, false);
+            CloseMenu();
+            perch = IntPtr.Zero;
+            leaving = false;
+            slide = vx = vy = 0;
+            Rectangle fw = free.WorkingArea;
+            Place(free, fw.Left + fw.Width * Math.Max(0.05, Math.Min(0.95, settings.MascotSpot / 1000.0)));
+            by = Ground;
+            targetX = bx;
+            state = State.Idle;
+            nextIdea = Anim.Now + 4000;
+            m.PopIn();
+            ShotStack.Log("Mascota: se cambia de pantalla por una pantalla completa" + FullScreenApp());
+        }
+
+        void SetBehind(bool on, bool log)
+        {
+            if (on == behind) return;
+            behind = on;
+            if (on)
+            {
+                CloseMenu();
+                // Out of the always-on-top band and right under the app that fills the screen.
+                Native.SetWindowPos(Handle, (IntPtr)(-2), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // NOTOPMOST
+                Native.SetWindowPos(Handle, fullWin != IntPtr.Zero ? fullWin : Native.GetForegroundWindow(), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+                ShotStack.Log("Mascota: se queda detr\u00E1s de una pantalla completa" + FullScreenApp());
+            }
+            else
+            {
+                Native.SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // TOPMOST again
+                ShotStack.Log("Mascota: vuelve delante");
+            }
+        }
+
+        // " (mstsc)": the app in front, for the log.
+        static string FullScreenApp()
+        {
             try
             {
                 uint pid;
                 Native.GetWindowPid(Native.GetForegroundWindow(), out pid);
-                using (System.Diagnostics.Process p = System.Diagnostics.Process.GetProcessById((int)pid)) who = " (" + p.ProcessName + ")";
+                using (System.Diagnostics.Process p = System.Diagnostics.Process.GetProcessById((int)pid)) return " (" + p.ProcessName + ")";
             }
-            catch { }
-            ShotStack.Log("Mascota: se aparta por una pantalla completa" + who);
+            catch { return ""; }
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder sb, int max);
@@ -1165,14 +1223,13 @@ namespace Stackshot
             if (now - lastCheck > 1500)
             {
                 lastCheck = now;
-                bool b = FullScreenBusy();
-                if (b != blocked) { blocked = b; LogBlocked(); UpdateVisibility(); }
+                CheckFullScreen();
                 if (Visible && state != State.Drag)
                 {
                     // Work area changed (taskbar resized or auto-hidden): follow it. Then make sure it is still on top.
                     Screen cur = Screen.FromPoint(new Point((int)(bx + D / 2.0), (int)(by + D / 2.0)));
                     if (cur.WorkingArea != wa) Place(cur, bx + D / 2.0);
-                    if (KeepOnTop && ForeignAbove())
+                    if (KeepOnTop && !behind && ForeignAbove())
                         Native.SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // TOPMOST, NOSIZE | NOMOVE | NOACTIVATE
                 }
                 // Naps while the user is away (if it may doze off at all), only once it stands still.
@@ -1363,7 +1420,7 @@ namespace Stackshot
                     // A stroll to another monitor.
                     Screen os = all[rnd.Next(all.Length)];
                     Rectangle ow = os.WorkingArea;
-                    if (ow != wa)
+                    if (ow != wa && !Busy(os))
                     {
                         targetX = ow.Left + rnd.NextDouble() * Math.Max(1, ow.Width - D);
                         strollDest = os;
