@@ -5,6 +5,9 @@
 //   -> 201 { ok: true, number, url }   or   4xx/5xx { ok: false, error }
 // GET /status?n=12,15  (the app's "Mis reportes": no GitHub account needed to follow a report)
 //   -> 200 { ok: true, issues: [{ number, state, reason, comments: [{ team, at, text }] }] }
+// POST /google/token  form { grant_type: "authorization_code", code, code_verifier, redirect_uri } or
+//   { grant_type: "refresh_token", refresh_token }  -> Google's own answer. Signing in to Google Health (watch data):
+//   the client secret stays here (GOOGLE_CLIENT_SECRET); the health data never passes through, only the keys.
 
 const LIMITS = { title: 120, what: 6000, steps: 4000, version: 32, windows: 64, screens: 64, log: 24000 };
 // Fields cut from the start keep their end instead: the newest log lines are where the problem is.
@@ -14,6 +17,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/status") return status(request, env, url);
+    if (url.pathname === "/google/token") return googleToken(request, env);
     if (url.pathname !== "/report") return json(404, { ok: false, error: "not found" });
     if (request.method !== "POST") return json(405, { ok: false, error: "method" });
     if (!/^Stackshot\//.test(request.headers.get("User-Agent") || "")) return json(403, { ok: false, error: "client" });
@@ -83,6 +87,32 @@ async function status(request, env, url) {
     issues.push({ number: i.number, state: i.state, reason: i.state_reason || "", comments });
   }
   return json(200, { ok: true, issues });
+}
+
+// Google's token exchange with the client secret added. Only the app's own loopback redirect is accepted, and only the
+// two grants it uses; nothing is logged or kept.
+async function googleToken(request, env) {
+  if (request.method !== "POST") return json(405, { ok: false, error: "method" });
+  if (!/^Stackshot\//.test(request.headers.get("User-Agent") || "")) return json(403, { ok: false, error: "client" });
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) return json(503, { ok: false, error: "not configured" });
+  const form = new URLSearchParams(await request.text());
+  const grant = form.get("grant_type");
+  const out = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, grant_type: grant || "" });
+  if (grant === "authorization_code") {
+    const redirect = form.get("redirect_uri") || "";
+    if (!/^http:\/\/127\.0\.0\.1:\d+\/google$/.test(redirect)) return json(400, { ok: false, error: "redirect" });
+    out.set("code", form.get("code") || "");
+    out.set("code_verifier", form.get("code_verifier") || "");
+    out.set("redirect_uri", redirect);
+  } else if (grant === "refresh_token") {
+    out.set("refresh_token", form.get("refresh_token") || "");
+  } else return json(400, { ok: false, error: "grant" });
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: out.toString()
+  });
+  return new Response(await res.text(), { status: res.status, headers: { "Content-Type": "application/json; charset=utf-8" } });
 }
 
 function github(env, path, init) {
