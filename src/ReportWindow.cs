@@ -40,7 +40,7 @@ namespace Stackshot
         StackPanel page;
         TextBox titleBox, whatBox, stepsBox;
         MacButton send;
-        TextBlock statusLabel;
+        TextBlock statusLabel, missing;
 
         public static void Open() { Open(false); }
 
@@ -178,6 +178,12 @@ namespace Stackshot
             send = new MacButton(!Relay ? "Continuar en GitHub" : sending ? "Enviando\u2026" : failed ? "Reintentar" : "Enviar", ButtonKind.Primary, Relay ? "share" : "open", null, 32);
             send.ToolTip = "Ctrl + Intro";
             send.Click += Send;
+            // While the button can't be pressed, it says what is missing.
+            missing = Text("", Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 12, 0));
+            missing.TextAlignment = TextAlignment.Right;
+            missing.TextWrapping = TextWrapping.Wrap;
+            missing.MaxWidth = 250;
+            right.Children.Add(missing);
             right.Children.Add(send);
             buttons.Children.Add(cancel);
             buttons.Children.Add(right);
@@ -397,8 +403,17 @@ namespace Stackshot
         void Validate()
         {
             if (send == null) return;
-            send.IsEnabled = !sending && titleBox.Text.Trim().Length >= 4 && whatBox.Text.Trim().Length >= 10;
+            int t = titleBox.Text.Trim().Length, w = whatBox.Text.Trim().Length;
+            send.IsEnabled = !sending && t >= 4 && w >= 10;
+            if (missing == null) return;
+            string field = kind == 0 ? "\u00AB\u00BFQu\u00E9 ha pasado?\u00BB" : "\u00AB\u00BFQu\u00E9 te gustar\u00EDa?\u00BB";
+            missing.Text = sending ? "" : t == 0 && w == 0 ? "Escribe un t\u00EDtulo y " + field + "."
+                         : t < 4 ? "El t\u00EDtulo necesita " + Letters(4 - t) + " m\u00E1s."
+                         : w < 10 ? field + " necesita " + Letters(10 - w) + " m\u00E1s." : "";
+            missing.Visibility = missing.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        static string Letters(int n) { return n == 1 ? "1 letra" : n + " letras"; }
 
         // ---- Sending
 
