@@ -10,7 +10,7 @@ $src = @(Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | ForEach-O
        (Join-Path $PSScriptRoot 'GifWriter.cs') + (Join-Path $PSScriptRoot 'Reel.cs') + (Join-Path $PSScriptRoot 'Promo.cs')
 & $csc /nologo /optimize+ /codepage:65001 /target:winexe /main:Stackshot.Reel "/out:$out" `
     "/resource:$root\assets\logo-256.png,logo.png" "/resource:$root\assets\stackshot.ico,stackshot.ico" `
-    /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Web.Extensions.dll `
+    /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Web.Extensions.dll /r:System.Security.dll `
     /r:System.Xaml.dll "/r:$wpf\PresentationFramework.dll" "/r:$wpf\PresentationCore.dll" "/r:$wpf\WindowsBase.dll" "/r:$wpf\WindowsFormsIntegration.dll" $src
 if ($LASTEXITCODE -ne 0) { throw 'No compila.' }
 $docs = Join-Path $root 'docs'

@@ -15,7 +15,7 @@ $wpf = Join-Path (Split-Path $csc) 'WPF'
 $src = @(Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | ForEach-Object { $_.FullName })
 $common = @('/nologo', '/codepage:65001', '/optimize+', '/platform:anycpu', "/win32manifest:$(Join-Path $root 'src\app.manifest')",
             '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.IO.Compression.dll', '/r:System.IO.Compression.FileSystem.dll',
-            '/r:System.Web.Extensions.dll', '/r:System.Xaml.dll', '/r:System.Management.dll',
+            '/r:System.Web.Extensions.dll', '/r:System.Security.dll', '/r:System.Xaml.dll', '/r:System.Management.dll',
             "/resource:$(Join-Path $root 'assets\stackshot.ico'),stackshot.ico", "/resource:$(Join-Path $root 'assets\logo-256.png'),logo.png")
 foreach ($dll in 'PresentationFramework.dll', 'PresentationCore.dll', 'WindowsBase.dll', 'WindowsFormsIntegration.dll') { $common += '/r:' + (Join-Path $wpf $dll) }
 foreach ($dll in 'UIAutomationProvider.dll', 'UIAutomationTypes.dll') { $common += '/r:' + (Join-Path $wpf $dll) }

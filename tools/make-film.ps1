@@ -20,7 +20,7 @@ $exe = Join-Path $work 'film.exe'
 $src = @(Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | ForEach-Object { $_.FullName }) +
        @('GifWriter.cs', 'Promo.cs', 'Studio.cs', 'Plates.cs', 'PlatesPro.cs', 'Film.cs', 'FilmScenes.cs', 'FilmParts.cs', 'FilmNew.cs' | ForEach-Object { Join-Path $PSScriptRoot $_ })
 $fw = Split-Path $csc
-$refs = @('/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.IO.Compression.dll', '/r:System.IO.Compression.FileSystem.dll', '/r:System.Web.Extensions.dll', '/r:System.Xaml.dll')
+$refs = @('/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.IO.Compression.dll', '/r:System.IO.Compression.FileSystem.dll', '/r:System.Web.Extensions.dll', '/r:System.Security.dll', '/r:System.Xaml.dll')
 foreach ($dll in 'PresentationFramework.dll', 'PresentationCore.dll', 'WindowsBase.dll', 'WindowsFormsIntegration.dll', 'UIAutomationProvider.dll', 'UIAutomationTypes.dll') { $refs += '/r:' + (Join-Path $wpf $dll) }
 $refs += '/r:' + (Join-Path $fw 'System.Runtime.dll')
 $refs += '/r:' + (Join-Path $fw 'System.Runtime.WindowsRuntime.dll')

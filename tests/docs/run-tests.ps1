@@ -27,7 +27,7 @@ $manifest = Join-Path $srcDir 'app.manifest'
 $cscArgs = @('/nologo', '/codepage:65001', '/target:exe', '/main:Stackshot.Tests.DocTests', '/optimize+', '/warnaserror+',
              '/platform:anycpu', "/out:$exe", "/win32manifest:$manifest",
              '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.IO.Compression.dll', '/r:System.IO.Compression.FileSystem.dll',
-             '/r:System.Web.Extensions.dll', '/r:System.Xaml.dll')
+             '/r:System.Web.Extensions.dll', '/r:System.Security.dll', '/r:System.Xaml.dll')
 $wpf = Join-Path (Split-Path $csc) 'WPF'
 foreach ($dll in 'PresentationFramework.dll', 'PresentationCore.dll', 'WindowsBase.dll', 'WindowsFormsIntegration.dll') { $cscArgs += '/r:' + (Join-Path $wpf $dll) }
 # UI Automation (also part of Windows): what screen readers learn about the controls Stackshot draws itself.
