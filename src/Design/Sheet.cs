@@ -27,6 +27,13 @@ namespace Stackshot
         IntPtr hwnd;
         bool closing;
 
+        void SharpText()
+        {
+            double k = 1;
+            try { k = VisualTreeHelper.GetDpi(this).DpiScaleX; } catch { }
+            TextOptions.SetTextFormattingMode(this, k < 1.2 ? TextFormattingMode.Display : TextFormattingMode.Ideal);
+        }
+
         public Sheet()
         {
             AllowsTransparency = false;
@@ -36,6 +43,10 @@ namespace Stackshot
             FontFamily = Ds.Text;
             FontSize = 13;
             TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
+            // At 100 % the ideal layout leaves small text soft between pixels: text there snaps to whole pixels
+            // (Display). From 125 % up the ideal shapes are sharp and closer to macOS. Chosen again on each monitor.
+            Loaded += delegate { SharpText(); };
+            DpiChanged += delegate { SharpText(); };
             WindowChrome chrome = new WindowChrome();
             chrome.CaptionHeight = 0; // dragging is done by the subclass, so anything near the top stays clickable
             chrome.GlassFrameThickness = new Thickness(-1);
@@ -221,7 +232,7 @@ namespace Stackshot
             s.Setters.Add(new Setter(System.Windows.Controls.ToolTip.HasDropShadowProperty, false));
             s.Setters.Add(new Setter(System.Windows.Controls.ToolTip.HorizontalOffsetProperty, -8.0));
             s.Setters.Add(new Setter(System.Windows.Controls.ToolTip.VerticalOffsetProperty, -2.0));
-            s.Setters.Add(new Setter(TextOptions.TextFormattingModeProperty, TextFormattingMode.Ideal));
+            s.Setters.Add(new Setter(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display));   // small text: on whole pixels
             s.Setters.Add(new Setter(UIElement.SnapsToDevicePixelsProperty, true));
             s.Setters.Add(new Setter(FrameworkElement.UseLayoutRoundingProperty, true));
             // Long text wraps into a short block, as on macOS, instead of one wide line.
