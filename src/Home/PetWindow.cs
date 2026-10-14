@@ -79,6 +79,7 @@ namespace Stackshot
         RectangleF menuRect;
         // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
         int menuWell = -1, session = -1, sessionReps;
+        bool menuSticky;            // the menu stays a minute and ignores clicks elsewhere (news after an update)
         int sessionSerial;
         bool sessionStretch;
 
@@ -568,6 +569,26 @@ namespace Stackshot
             menuHot = -1;
         }
 
+        // Right after an update: it says the version is here and offers what it brings (asked once, by the owner).
+        public void AnnounceNews(string version, string headline, Action open)
+        {
+            m.WakeUp();
+            m.Hop(0.8);
+            m.Bubble = null;
+            bubble = null;
+            menu = new List<Choice>();
+            Header("\u00A1Estrenamos Stackshot " + version + "! \u00BFTe cuento qu\u00E9 trae?" + (headline.Length > 0 ? " Por ejemplo: \u00AB" + headline + "\u00BB." : ""));
+            Add("sparkle", "Ver las novedades", null, open);
+            Add("clock", "Luego", null, delegate { m.Say("Cuando quieras: Inicio, Acerca de, Novedades.", 3600); });
+            menuAt = menuSeen = Anim.Now;
+            // Like a reminder, it stays while you work (clicks elsewhere don't close it) and goes after a minute.
+            menuSticky = true;
+            menuArmed = false;
+            menuRect = RectangleF.Empty;
+            menuHot = -1;
+            nextIdea = Anim.Now + 8000;
+        }
+
         void Header(string text)
         {
             Choice c = new Choice();
@@ -774,7 +795,8 @@ namespace Stackshot
                 // anyway if nobody does); the quick menu stays 9 s.
                 bool pressed = Control.MouseButtons != MouseButtons.None;
                 if (!pressed) menuArmed = true;
-                if ((pressed && menuArmed && !inside && menuWell < 0) || now - menuSeen > (menuWell >= 0 ? 60000 : 9000)) CloseMenu();
+                bool sticky = menuWell >= 0 || menuSticky;
+                if ((pressed && menuArmed && !inside && !sticky) || now - menuSeen > (sticky ? 60000 : 9000)) CloseMenu();
             }
 
             FollowPerch();
@@ -1152,6 +1174,7 @@ namespace Stackshot
             menu = null;
             menuHot = -1;
             menuWell = -1;
+            menuSticky = false;
         }
 
         static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }

@@ -211,6 +211,7 @@ namespace Stackshot
             if (startFile == null) sync.BeginInvoke((Action)delegate { if (!exiting) OpenRequested(null); });
             Updater.Start(this);
             StartWellness();
+            StartNews(justInstalled);
         }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.

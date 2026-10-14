@@ -98,6 +98,7 @@ namespace Stackshot
         public string LastUpdateCheck = "";
         public bool AutoUpdate = false;     // download, verify and install new versions on its own
         public string UpdateNotified = "";  // release tag already announced (each version is announced once)
+        public string NewsSeen = "";        // version whose news were already told after updating to it
         // Recording package: Cine options.
         public int CineFps = 60;            // 60 or 30, for any area
         public int CinePeakMemory = 0;      // memory for motion peaks: 0 normal (min(2 GiB, free/4)), 1 high (min(8 GiB, free/2))
@@ -256,6 +257,7 @@ namespace Stackshot
                         case "lastupdatecheck": s.LastUpdateCheck = v; break;
                         case "autoupdate": s.AutoUpdate = Bool(v, s.AutoUpdate); break;
                         case "updatenotified": s.UpdateNotified = v; break;
+                        case "newsseen": s.NewsSeen = v; break;
                         case "video": s.HotVideo = v; break;
                         case "gif": s.HotGif = v; break;
                         case "markdown": s.HotMarkdown = v; break;
@@ -435,6 +437,7 @@ namespace Stackshot
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("AutoUpdate = " + (AutoUpdate ? "1" : "0"));
             b.AppendLine("UpdateNotified = " + OneLine(UpdateNotified));
+            b.AppendLine("NewsSeen = " + OneLine(NewsSeen));
             b.AppendLine("# Cine: fotogramas por segundo (60 o 30) y memoria para picos de movimiento (0 normal, 1 alta)");
             b.AppendLine("CineFps = " + (CineFps == 30 ? 30 : 60));
             b.AppendLine("CinePeakMemory = " + CinePeakMemory);
