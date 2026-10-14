@@ -623,27 +623,37 @@ namespace Stackshot
         public string Label { get { return label; } set { if (label == value) return; label = value; Width = Measure(); InvalidateVisual(); } }
 
         string done;
+        double doneWidth = double.NaN;    // the width before a confirmation had to widen the button
         System.Windows.Threading.DispatcherTimer doneTimer;
 
         // A check and a short word ("Copiado") in place of the label for a moment, so an action with nothing else to see
-        // still shows it happened. An icon-only button shows just the check.
+        // still shows it happened. An icon-only button shows just the check. The button only widens if the word doesn't fit,
+        // so its neighbours stay put.
         public void Confirm(string word)
         {
             done = word;
-            if (label.Length > 0) Width = Math.Max(Width, Measure(word));
+            if (label.Length > 0)
+            {
+                double need = Math.Ceiling(fontSize + 9 + Text(word, Ds.Semibold, fontSize, Colors.Black).WidthIncludingTrailingWhitespace + 12);
+                if (need > Width) { if (double.IsNaN(doneWidth)) doneWidth = Width; Width = need; }
+            }
             if (doneTimer == null)
             {
                 doneTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
-                doneTimer.Tick += delegate { doneTimer.Stop(); done = null; Width = Measure(); InvalidateVisual(); };
+                doneTimer.Tick += delegate
+                {
+                    doneTimer.Stop();
+                    done = null;
+                    if (!double.IsNaN(doneWidth)) { Width = doneWidth; doneWidth = double.NaN; }
+                    InvalidateVisual();
+                };
             }
             doneTimer.Stop();
             doneTimer.Start();
             InvalidateVisual();
         }
 
-        double Measure() { return Measure(label); }
-
-        double Measure(string label)
+        double Measure()
         {
             double w = Text(label, Ds.Semibold, fontSize, Colors.Black).WidthIncludingTrailingWhitespace + (Height >= 38 ? 40 : 26);
             if (icon != null) w += fontSize + 7;
