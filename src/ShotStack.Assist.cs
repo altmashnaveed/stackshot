@@ -162,14 +162,34 @@ namespace Stackshot
         }
 
         // A note as Notas.md keeps it: its first line (to find it again), when, the text on one line and whether it is done.
+        // Key is that first line without its tick box, so it stays the same when the note is ticked; Body holds the lines
+        // under it as written (a list keeps its items), without their indent.
         public sealed class Note
         {
-            public string Line, When, Text;
+            public string Line, Key, When, Text;
             public bool Done;
+            public readonly List<string> Body = new List<string>();
         }
 
         // The latest notes, newest first.
         public List<Note> LastNotes(int count)
+        {
+            List<Note> all = ReadNotes();
+            all.Reverse();
+            if (all.Count > count) all.RemoveRange(count, all.Count - count);
+            return all;
+        }
+
+        // The newest note with that key, as the file has it now, or null when it is gone.
+        public Note FindNote(string key)
+        {
+            List<Note> all = ReadNotes();
+            for (int i = all.Count - 1; i >= 0; i--) if (all[i].Key == key) return all[i];
+            return null;
+        }
+
+        // Every note in the file, oldest first.
+        List<Note> ReadNotes()
         {
             List<Note> all = new List<Note>();
             try
@@ -185,15 +205,38 @@ namespace Stackshot
                     {
                         int end = rest.IndexOf("**", 2);
                         if (end < 0) continue;
-                        all.Add(new Note { Line = line, When = rest.Substring(2, end - 2), Text = rest.Substring(end + 2).TrimStart(' ', '\u00B7').Trim(), Done = done });
+                        all.Add(new Note { Line = line, Key = rest, When = rest.Substring(2, end - 2), Text = rest.Substring(end + 2).TrimStart(' ', '\u00B7').Trim(), Done = done });
                     }
-                    else if (line.StartsWith("  ") && all.Count > 0 && line.Trim().Length > 0) all[all.Count - 1].Text += " " + line.Trim();
+                    else if (line.StartsWith("  ") && all.Count > 0 && all[all.Count - 1] != null && line.Trim().Length > 0)
+                    {
+                        Note last = all[all.Count - 1];
+                        last.Text += " " + line.Trim();
+                        last.Body.Add(line.Substring(2).TrimEnd());
+                    }
+                    else if (line.Trim().Length > 0) all.Add(null);   // anything else ends the note above
                 }
             }
             catch (Exception ex) { Log("Notas: " + ex.Message); }
-            all.Reverse();
-            if (all.Count > count) all.RemoveRange(count, all.Count - count);
+            all.RemoveAll(delegate(Note n) { return n == null; });
             return all;
+        }
+
+        // Ticks or unticks one of the note's boxes: 0 is the note itself, 1 on its body lines (only those written as
+        // "- [ ] ..."). False when the note or that line is no longer in the file as it was.
+        public bool NoteLineDone(Note n, int index, bool done)
+        {
+            if (index <= 0) return NoteDone(n, done);
+            bool ok = false;
+            bool edited = EditNote(n, delegate(List<string> lines, int at, int count)
+            {
+                if (index >= count) return;
+                string line = lines[at + index];
+                int box = line.IndexOf("- [");
+                if (box < 0 || line.Length < box + 6 || line.Substring(0, box).Trim().Length > 0 || line[box + 4] != ']') return;
+                lines[at + index] = line.Substring(0, box + 3) + (done ? "x" : " ") + line.Substring(box + 4);
+                ok = true;
+            });
+            return edited && ok;
         }
 
         // What follows "- " and the tick box, if the line is a list item (null otherwise).
