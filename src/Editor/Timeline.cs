@@ -138,7 +138,7 @@ namespace Stackshot
 
         protected override AccessibleObject CreateAccessibilityInstance() { return new Access(this); }
 
-        // A slider for screen readers: "Línea de tiempo", its position and length, and whether it is trimmed or cut.
+        // A slider for screen readers: its name, position and length, and whether it is trimmed or cut.
         sealed class Access : ControlAccessibleObject
         {
             readonly Timeline t;
