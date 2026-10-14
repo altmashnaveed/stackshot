@@ -226,14 +226,13 @@ namespace Stackshot
             }
         }
 
-        public double KeptSeconds
+        public double KeptSeconds { get { return Seconds(Keep()); } }
+
+        static double Seconds(List<double[]> keep)
         {
-            get
-            {
-                double t = 0;
-                foreach (double[] k in Keep()) t += k[1] - k[0];
-                return t;
-            }
+            double t = 0;
+            foreach (double[] k in keep) t += k[1] - k[0];
+            return t;
         }
 
         int P(float v) { return (int)Math.Round(v * S); }
@@ -244,10 +243,12 @@ namespace Stackshot
         float X(double t) { Rectangle r = Strip; return r.X + (float)(r.Width * (Duration > 0 ? t / Duration : 0)); }
         double T(int x) { Rectangle r = Strip; return Math.Max(0, Math.Min(Duration, (x - r.X) / (double)Math.Max(1, r.Width) * Duration)); }
 
+        static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
+
         public static string Clock(double t)
         {
             int m = (int)(t / 60);
-            return m + ":" + (t - m * 60).ToString("00.0", CultureInfo.GetCultureInfo("es-ES"));
+            return m + ":" + (t - m * 60).ToString("00.0", Spanish);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -262,8 +263,9 @@ namespace Stackshot
             using (SolidBrush line = new SolidBrush(EdLook.C(pal.Separator))) g.FillRectangle(line, 0, 0, Width, 1);
             Rectangle r = Strip;
             Font f = Fonts.Get(EdLook.Text, 12f * S);
-            string sel = (playing ? Clock(Playhead) + "  \u00B7  " : "") + (Clips.Count > 1 ? Clips.Count + " v\u00EDdeos  \u00B7  " : "") + "Duraci\u00F3n " + Clock(KeptSeconds / SpeedValues[Speed]) +
-                         (IsTrimmed ? "  \u00B7  de " + Clock(In) + " a " + Clock(Out) : "") + (HasCuts ? "  \u00B7  " + Keep().Count + " tramos" : "");
+            List<double[]> keep = Keep();
+            string sel = (playing ? Clock(Playhead) + "  \u00B7  " : "") + (Clips.Count > 1 ? Clips.Count + " v\u00EDdeos  \u00B7  " : "") + "Duraci\u00F3n " + Clock(Seconds(keep) / SpeedValues[Speed]) +
+                         (IsTrimmed ? "  \u00B7  de " + Clock(In) + " a " + Clock(Out) : "") + (HasCuts ? "  \u00B7  " + keep.Count + " tramos" : "");
             // Never under the options: a long trimmed clip in a narrow window ends in an ellipsis instead.
             int tx = PaintCutButtons(g, pal, r, f);
             int optionsLeft = PaintOptions(g, pal, r, f, tx);
