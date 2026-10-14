@@ -242,7 +242,7 @@ namespace Stackshot
             {
                 if (href.StartsWith("#", StringComparison.Ordinal)) { if (!Scroll(href) && navigate != null) navigate(href); return; }
                 if (navigate != null) navigate(href);
-                else Process.Start(href);
+                else if (MarkdownView.IsSafe(href)) Process.Start(href);
             }
             catch (Exception ex) { ShotStack.Log("Markdown enlace: " + ex.Message); }
         }

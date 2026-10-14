@@ -419,7 +419,7 @@ namespace Stackshot
             try
             {
                 if (href.StartsWith("#", StringComparison.Ordinal)) Scroll(href);
-                else Process.Start(href);
+                else if (MarkdownView.IsSafe(href)) Process.Start(href);
             }
             catch (Exception ex) { ShotStack.Log("Markdown enlace: " + ex.Message); }
         }
