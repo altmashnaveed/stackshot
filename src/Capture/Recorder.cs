@@ -1687,6 +1687,9 @@ namespace Stackshot
             long now = Stopwatch.GetTimestamp();
             if (now < nextDiskCheck) return;
             nextDiskCheck = now + Stopwatch.Frequency;
+            TellAudio(mic, ref micTold);
+            TellAudio(sys, ref sysTold);
+            TellLimits();
             long free = Cine.FreeBytes(Settings.TempDir);
             if (free < 0) return;
             long sysBytes = FileLength(sysPath), micBytes = FileLength(micPath);
@@ -1714,6 +1717,59 @@ namespace Stackshot
             diskMinutes = shownMinutes;
             string text = level == 0 ? null : DiskBudget.Chip(minutes);
             Ui(delegate { if (bar != null && !bar.IsDisposed) bar.Disk(text, level); });
+        }
+
+        int micTold, sysTold;
+        bool limitsTold, inputTold;
+
+        // What makes this take differ from what was asked, once (only the log knew before).
+        void TellLimits()
+        {
+            List<string> lines = new List<string>();
+            if (!limitsTold)
+            {
+                limitsTold = true;
+                if (FloatWindow.AffinityFailed && !ShotStack.Test)
+                    lines.Add("Este equipo no deja ocultar la barra de grabaci\u00F3n: saldr\u00E1 en el v\u00EDdeo si est\u00E1 dentro del \u00E1rea.");
+                // Cine asks before recording this way; the other qualities say it here.
+                if (!source.Gpu && !cine)
+                    lines.Add("Se graba con el m\u00E9todo de reserva: puede ir m\u00E1s lento y no ver v\u00EDdeos, juegos ni algunas apps.");
+            }
+            if (!inputTold && hooks != null && hooks.Failed)
+            {
+                inputTold = true;
+                lines.Add("Windows no deja seguir el rat\u00F3n y el teclado ahora: el v\u00EDdeo sale sin clics ni teclas.");
+            }
+            if (lines.Count == 0) return;
+            string text = string.Join("\n", lines.ToArray());
+            Ui(delegate { owner.Notify("Grabando con limitaciones", text); });
+        }
+
+        // A sound device that drops out mid-take is followed silently by AudioCapture; the user is told each change.
+        void TellAudio(AudioCapture a, ref int told)
+        {
+            if (a == null) return;
+            int t = a.Trouble, was = told;
+            if (t == was) return;
+            told = t;
+            string what = a.Computer ? "sonido del equipo" : "micr\u00F3fono", title, text;
+            if (t == 0)
+            {
+                title = a.Computer ? "Sonido del equipo recuperado" : "Micr\u00F3fono recuperado";
+                text = "Vuelve a grabarse desde \u00AB" + a.DeviceName + "\u00BB.";
+            }
+            else if (t == 1)
+            {
+                title = a.Computer ? "La salida de sonido elegida no est\u00E1" : "El micr\u00F3fono elegido se ha desconectado";
+                text = "Se graba con \u00AB" + a.DeviceName + "\u00BB, el de Windows, hasta que vuelva.";
+            }
+            else
+            {
+                title = a.Computer ? "Sin sonido del equipo" : "Sin micr\u00F3fono";
+                text = "No hay ning\u00FAn dispositivo: esta parte se graba sin " + what + ".";
+            }
+            ShotStack.Log("Grabaci\u00F3n: " + title + (t == 1 ? " (" + a.DeviceName + ")" : ""));
+            Ui(delegate { owner.Notify(title, text); });
         }
 
         // The current size of a file another process may still be writing (the directory entry lags behind).

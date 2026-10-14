@@ -222,6 +222,7 @@ namespace Stackshot
         public string DeviceName = "";
         public string Error;              // why it could not start
         public volatile bool Muted;
+        public volatile int Trouble;      // 0 fine, 1 the chosen device is gone (Windows' one is used), 2 no device at all
         volatile float level;
         volatile bool stopping;
         Thread thread;
@@ -360,6 +361,7 @@ namespace Stackshot
                     Close();
                     Thread.Sleep(200);
                     if (Open() != null) Thread.Sleep(300);
+                    Track();
                     continue;
                 }
                 if (Stopwatch.GetTimestamp() > nextCheck)
@@ -369,6 +371,7 @@ namespace Stackshot
                     // chosen one as soon as it returns.
                     bool onWanted = wantedId != null && capture != null && string.Equals(openId, wantedId, StringComparison.OrdinalIgnoreCase);
                     if (!onWanted && (capture == null || DefaultId() != openId || WantedActive())) { Close(); Open(); }
+                    Track();
                 }
                 Thread.Sleep(4);
             }
@@ -385,6 +388,11 @@ namespace Stackshot
                     }
                     catch { }
                 }
+        }
+
+        void Track()
+        {
+            Trouble = capture == null ? 2 : wantedId != null && !string.Equals(openId, wantedId, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         }
 
         string DefaultId()

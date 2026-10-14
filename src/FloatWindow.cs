@@ -13,6 +13,7 @@ namespace Stackshot
     public abstract class FloatWindow : Form
     {
         public static bool ExcludeFromCapture = true;
+        public static volatile bool AffinityFailed;   // Windows refused to hide a floating window from captures (RDP, some VMs)
         public double LastStep;    // last animation step time (owned by Anim)
         protected float s = 1f;
         protected double x, y, vx, vy, tx, ty;
@@ -67,6 +68,7 @@ namespace Stackshot
             if (ExcludeFromCapture && !Native.SetWindowDisplayAffinity(Handle, 0x11)) // WDA_EXCLUDEFROMCAPTURE
             {
                 ShotStack.Log("SetWindowDisplayAffinity fallo: " + Marshal.GetLastWin32Error());
+                AffinityFailed = true;
             }
             if (PerPixel) Redraw();
         }

@@ -177,6 +177,8 @@ namespace Stackshot
             thread.Name = "Stackshot: clics y teclas";
         }
 
+        public volatile bool Failed;   // a hook was refused: the take goes on without clicks or keys
+
         // Never waits: the thread installs the hooks by itself.
         public static InputHooks Start(InputQueue queue, bool mouse, bool keys)
         {
@@ -193,7 +195,8 @@ namespace Stackshot
                 IntPtr module = GetModuleHandle(null);
                 if (mouse) mouseHook = SetWindowsHookEx(14, mouseProc, module, 0);   // WH_MOUSE_LL
                 if (keys) keyHook = SetWindowsHookEx(13, keyProc, module, 0);        // WH_KEYBOARD_LL
-                if ((mouse && mouseHook == IntPtr.Zero) || (keys && keyHook == IntPtr.Zero))
+                Failed = (mouse && mouseHook == IntPtr.Zero) || (keys && keyHook == IntPtr.Zero);
+                if (Failed)
                     ShotStack.Log("Grabaci\u00F3n: no se pueden mostrar los clics o las teclas (" + Marshal.GetLastWin32Error() + ")");
                 Interlocked.Add(ref live, (mouseHook != IntPtr.Zero ? 1 : 0) + (keyHook != IntPtr.Zero ? 1 : 0));
                 MSG m;
