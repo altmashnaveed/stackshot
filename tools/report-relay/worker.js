@@ -35,16 +35,15 @@ export default {
     const kind = r.kind === "idea" ? "idea" : "bug";
     if (f.title.length < 4 || f.what.length < 10) return json(400, { ok: false, error: "empty" });
 
+    // The computer as one tight list ("screens" already says how many: "1 pantalla: 1920\u00D71080 al 100 %").
+    const machine = ["- Stackshot " + (f.version || "?"), "- Windows " + (f.windows || "?"), f.screens ? "- " + f.screens : ""]
+      .filter(Boolean).join("\n");
     const body = [
-      "### " + (kind === "idea" ? "Idea" : "¿Qué ha pasado?"),
+      "### " + (kind === "idea" ? "Idea" : "\u00BFQu\u00E9 ha pasado?"),
       quote(f.what),
-      f.steps ? "### ¿Cómo se repite?\n" + quote(f.steps) : "",
-      "### Equipo",
-      "- Stackshot " + (f.version || "?"),
-      "- Windows " + (f.windows || "?"),
-      f.screens ? "- Pantallas: " + f.screens : "",
+      f.steps ? "### \u00BFC\u00F3mo se repite?\n" + quote(f.steps) : "",
+      "### Equipo\n" + machine,
       f.log ? "<details><summary>Registro de Stackshot</summary>\n\n" + fence(f.log) + "\n</details>" : "",
-      "",
       "_Enviado desde la app._"
     ].filter(Boolean).join("\n\n");
 
@@ -103,14 +102,14 @@ function createIssue(env, title, body, labels) {
 }
 
 // Plain text only: control characters out; @mentions, #123 / owner/repo#123 / GH-123 references and links to GitHub
-// defused, so a report can't ping anyone or leave a cross-reference on another project's issues.
+// defused with a zero-width space, so a report can't ping anyone or leave a cross-reference on another project's issues.
 function clean(v, max, keepEnd) {
   if (typeof v !== "string") return "";
   const s = v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-             .replace(/@(?=\w)/g, "@​")
-             .replace(/#(?=\d)/g, "#​")
-             .replace(/\bGH-(?=\d)/gi, "GH​-")
-             .replace(/github\.com/gi, "github​.com")
+             .replace(/@(?=\w)/g, "@\u200B")
+             .replace(/#(?=\d)/g, "#\u200B")
+             .replace(/\bGH-(?=\d)/gi, "GH\u200B-")
+             .replace(/github\.com/gi, "github\u200B.com")
              .trim();
   return s.length <= max ? s : keepEnd ? s.slice(-max) : s.slice(0, max);
 }
