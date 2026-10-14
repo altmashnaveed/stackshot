@@ -1518,12 +1518,19 @@ namespace Stackshot
             g.Restore(st);
         }
 
+        // Choices and the menu are laid out on the whole drawing surface, but the window shown on screen is only the part of
+        // it that holds something (it starts at presentAt): a mouse position in the window is moved onto the surface first.
+        Point OnSurface(Point client) { return new Point(client.X + presentAt.X, client.Y + presentAt.Y); }
+
         int ChoiceAt(Point client)
         {
             if (menu == null) return -1;
-            for (int i = 0; i < menu.Count; i++) if (menu[i].R.Contains(client)) return i;
+            Point p = OnSurface(client);
+            for (int i = 0; i < menu.Count; i++) if (menu[i].R.Contains(p)) return i;
             return -1;
         }
+
+        bool InMenu(Point client) { return menu != null && menuRect.Contains(OnSurface(client)); }
 
         // ---- Mouse: click opens the menu, drag moves it, choices run on release.
 
@@ -1534,7 +1541,7 @@ namespace Stackshot
         {
             base.OnMouseDown(e);
             if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
-            if (ChoiceAt(e.Location) >= 0 || (menu != null && menuRect.Contains(e.Location))) return;
+            if (ChoiceAt(e.Location) >= 0 || InMenu(e.Location)) return;
             if (e.Button != MouseButtons.Left) return;
             down = true;
             Capture = true;
@@ -1578,7 +1585,7 @@ namespace Stackshot
                 BeginInvoke(act);
                 return;
             }
-            if (menu != null && menuRect.Contains(e.Location)) return;
+            if (InMenu(e.Location)) return;
             bool wasDown = down;
             down = false;
             if (state != State.Drag) Capture = false;
