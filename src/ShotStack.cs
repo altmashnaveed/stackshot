@@ -120,7 +120,7 @@ namespace Stackshot
             xmlWatch.Apply(settings);
             // Turned on with no folder (an earlier version had a default one): said once per start, instead of silence.
             if (settings.XmlWatch && XmlWatch.FolderFor(settings) == null && !Test)
-                After(6000, delegate { if (!exiting) NotifyPage("Elige la carpeta de los XML", "La vigilancia de XML está activada pero no tiene carpeta. Elígela en General > Avanzado.", "general"); });
+                After(6000, delegate { if (!exiting) NotifyPage("Elige la carpeta de los XML", "La vigilancia de XML est\u00E1 activada pero no tiene carpeta. El\u00EDgela en General > Avanzado.", "general"); });
 
             // Another instance (an update, the uninstaller) can ask this one to quit cleanly.
             if (!Test)
