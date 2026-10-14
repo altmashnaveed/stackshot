@@ -394,7 +394,9 @@ namespace Stackshot
         void Toggle(Hit h)
         {
             ShotStack.Note n = owner.FindNote(key);
-            if (n == null || !owner.NoteLineDone(n, h.Index, !h.Done)) { StickyNotes.Forget(key); return; }
+            if (n == null) { StickyNotes.Forget(key); return; }
+            // A write that failed (the file held by a sync app) keeps the card; the owner already said why.
+            owner.NoteLineDone(n, h.Index, !h.Done);
             n = owner.FindNote(key);
             if (n == null) { StickyNotes.Forget(key); return; }
             note = n;
@@ -532,8 +534,8 @@ namespace Stackshot
                 open.Remove(w);
                 if (!w.IsDisposed) w.Close();
                 if (open.Count == 0 && timer != null) timer.Stop();
+                Save();
             }
-            Save();
         }
 
         // App exit: the windows go, the file stays.

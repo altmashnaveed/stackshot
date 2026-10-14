@@ -91,13 +91,18 @@ namespace Stackshot
                 {
                     if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None) return;
                     TextBox b = (TextBox)o;
-                    TextEdit ed = EditCommands.Enter(b.Text, b.SelectionStart, b.SelectionLength);
+                    // The box writes "\r\n"; the list commands count "\n" only, so they work on the text without "\r".
+                    string raw = b.Text;
+                    int s0 = b.SelectionStart, s1 = s0 + b.SelectionLength;
+                    string t = raw.Replace("\r\n", "\n");
+                    int a = s0 - Crs(raw, 0, s0), z = s1 - Crs(raw, 0, s1);
+                    TextEdit ed = EditCommands.Enter(t, a, z - a);
                     if (ed.None) return;
                     e.Handled = true;
-                    b.Select(ed.Start, ed.Remove);
-                    b.SelectedText = ed.Insert;
-                    int p = Math.Max(0, Math.Min(b.Text.Length, ed.SelStart));
-                    b.Select(p, Math.Max(0, Math.Min(b.Text.Length - p, ed.SelLength)));
+                    string after = ed.ApplyTo(t);
+                    b.Text = after;
+                    int p = Math.Max(0, Math.Min(after.Length, ed.SelStart));
+                    b.Select(p, Math.Max(0, Math.Min(after.Length - p, ed.SelLength)));
                 };
                 page.Children.Add(Text("Empieza una l\u00EDnea con \u00AB- [ ] \u00BB para una lista de tareas.", Ds.Regular, 11.5, pal.Label3, new Thickness(2, 6, 0, 0)));
             }
@@ -265,6 +270,14 @@ namespace Stackshot
         }
 
         // Saves the note and pins it on the desktop.
+        // How many "\r" of "\r\n" pairs come before end in s, from start.
+        static int Crs(string s, int start, int end)
+        {
+            int n = 0;
+            for (int i = start; i < end && i < s.Length; i++) if (s[i] == '\r' && i + 1 < s.Length && s[i + 1] == '\n') n++;
+            return n;
+        }
+
         void SavePin()
         {
             Keep();

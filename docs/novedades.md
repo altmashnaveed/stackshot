@@ -7,6 +7,10 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 
 ## 2.2.0
 
+- **Notas en el escritorio.** Fija una nota y queda como una tarjeta de color encima de todo (o no), bloqueada si quieres; marca sus tareas con un clic y vuelve al reiniciar. Al escribirla, Intro sigue la lista.
+- **Ventanas que no se cortan.** Mis reportes, las novedades o los avisos ya no se salen de la pantalla al crecer, y se mueven arrastrando desde cualquier hueco.
+- **Un MD largo, en PDF.** Si un documento es demasiado largo para una imagen, te ofrece guardarlo como PDF.
+- **Solo lo que usas.** El menú de la mascota y el resumen del día solo hablan del agua, las pausas o los pasos si los tienes activados.
 - **Avisa de un problema o propón una idea desde la app.** En Inicio > Acerca de > Informar de un problema lo cuentas sin salir de Stackshot y sin cuenta de GitHub, y en «Mis reportes» ves cómo va cada uno y las respuestas.
 - **Pausas saludables con tu mascota.** Te recuerda beber agua, descansar la vista, moverte y respirar, y si quieres hace la pausa contigo. Se ajusta en Mascota > Ajustes; siempre te dice qué ha hecho con tu respuesta.
 - **Tu mascota, también ayudante.** Desde su menú te recuerda lo que le pidas («Recuérdame algo…», y si el ordenador estaba apagado te avisa al volver), apunta lo que quieras en tu Notas.md («Apunta algo…»), y si le sueltas encima una imagen, un vídeo, un XML, un Markdown o un texto, lo abre donde toca o lo apunta. Con la carpeta de XML vigilada, te avisa cuando llega uno con fallo.

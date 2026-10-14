@@ -147,8 +147,10 @@ namespace Stackshot
             {
                 Directory.CreateDirectory(settings.SaveFolder);
                 bool fresh = !File.Exists(NotesPath);
-                // A note of several lines keeps them, indented under its bullet.
-                string body = text.Replace("\n", "\n  ");
+                // A note of several lines keeps them, indented under its bullet. Blank lines go: one would end the note.
+                List<string> kept = new List<string>();
+                foreach (string l in text.Split('\n')) if (l.Trim().Length > 0) kept.Add(l.TrimEnd());
+                string body = string.Join("\n  ", kept.ToArray());
                 string entry = (fresh ? "# Notas\n\n" : "") + "- [ ] **" + DateTime.Now.ToString("d/M/yyyy H:mm", CultureInfo.GetCultureInfo("es-ES")) + "** \u00B7 " + body + "\n";
                 File.AppendAllText(NotesPath, entry, new UTF8Encoding(false));
                 Log("Nota apuntada");
@@ -214,7 +216,7 @@ namespace Stackshot
                         last.Text += " " + line.Trim();
                         last.Body.Add(line.Substring(2).TrimEnd());
                     }
-                    else if (line.Trim().Length > 0) all.Add(null);   // anything else ends the note above
+                    else all.Add(null);   // anything else, a blank line too, ends the note above (as EditNote counts it)
                 }
             }
             catch (Exception ex) { Log("Notas: " + ex.Message); }
