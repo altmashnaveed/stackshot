@@ -284,6 +284,40 @@ namespace Stackshot
             ApplyDwm();
             HideNativeCaption();
             src.AddHook(MaxHook);
+            FitWorkArea();
+        }
+
+        // A page that scrolls only when the window can't show all of it; the bar appears just then.
+        protected static ScrollViewer Scrolling(FrameworkElement content)
+        {
+            return new ScrollViewer
+            {
+                Content = content,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Focusable = false,
+                Background = Brushes.Transparent,
+                Resources = HomeWindow.ScrollStyle()
+            };
+        }
+
+        // Never larger than the work area of the screen it opens on (CenterScreen uses the one under the pointer): a
+        // 1366 x 768 laptop at 150 % leaves about 480 px of height. Windows that size to their content scroll inside.
+        void FitWorkArea()
+        {
+            try
+            {
+                System.Windows.Forms.Screen scr = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Control.MousePosition);
+                double s = Math.Max(1f, ShotStack.ScaleFor(scr));
+                double w = Math.Max(320, scr.WorkingArea.Width / s - 16), h = Math.Max(240, scr.WorkingArea.Height / s - 16);
+                if (MinWidth > w) MinWidth = w;
+                if (MinHeight > h) MinHeight = h;
+                if (!double.IsNaN(Width) && Width > w) Width = w;
+                if (!double.IsNaN(Height) && Height > h) Height = h;
+                if (MaxWidth > w) MaxWidth = w;
+                if (MaxHeight > h) MaxHeight = h;
+            }
+            catch (Exception ex) { ShotStack.Log("Ventana al \u00E1rea de trabajo: " + ex.Message); }
         }
 
         [StructLayout(LayoutKind.Sequential)] struct MINMAXINFO { public int rx, ry, sx, sy, mx, my, px, py, tx, ty; }

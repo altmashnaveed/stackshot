@@ -17,6 +17,7 @@ namespace Stackshot
         readonly ShotStack owner;
         string name = "", target = "";
         StackPanel page;
+        ScrollViewer pageHost;   // scrolls the page when the window is cut to the work area
         TextBox nameBox, targetBox;
         TextBlock error;
 
@@ -59,10 +60,11 @@ namespace Stackshot
         void Build()
         {
             Palette pal = Ds.Brushes;
-            if (page != null) Root.Children.Remove(page);
+            if (pageHost != null) Root.Children.Remove(pageHost);
             Root.Background = HasMica ? Brushes.Transparent : Ds.Brush(pal.Window);
             page = new StackPanel { Margin = new Thickness(26, 26, 26, 22) };
-            Root.Children.Add(page);
+            pageHost = Scrolling(page);
+            Root.Children.Add(pageHost);
             KeepCaptionsOnTop();
 
             StackPanel head = new StackPanel { Orientation = Orientation.Horizontal };

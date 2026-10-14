@@ -41,6 +41,7 @@ namespace Stackshot
         readonly System.Windows.Threading.DispatcherTimer autoRefresh = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
 
         StackPanel page;
+        ScrollViewer pageHost;   // scrolls the page when the window is cut to the work area
         TextBox titleBox, whatBox, stepsBox;
         MacButton send;
         TextBlock statusLabel, missing, titleNeed, whatNeed;
@@ -77,7 +78,16 @@ namespace Stackshot
             KeyDown += delegate(object o, KeyEventArgs e)
             {
                 if (e.Handled || e.IsRepeat) return;
-                if (e.Key == Key.Escape) { e.Handled = true; if (!sending) Close(); }
+                if (e.Key == Key.Escape)
+                {
+                    e.Handled = true;
+                    if (sending) return;
+                    // Something written and not sent is not thrown away by one key.
+                    Keep();
+                    bool written = !mine && !sent && ((title ?? "").Trim().Length > 0 || (what ?? "").Trim().Length > 0 || (steps ?? "").Trim().Length > 0);
+                    if (written && DocAlert.Ask(this, "\u00BFDescartar el reporte?", "Lo que has escrito no se ha enviado.", new string[] { "Descartar", "Seguir escribiendo" }, 1, 1) != 0) return;
+                    Close();
+                }
                 else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control) { e.Handled = true; Send(); }
             };
             Closing += delegate(object o, System.ComponentModel.CancelEventArgs e) { if (sending) e.Cancel = true; };
@@ -99,10 +109,11 @@ namespace Stackshot
         void Build()
         {
             Palette pal = Ds.Brushes;
-            if (page != null) Root.Children.Remove(page);
+            if (pageHost != null) Root.Children.Remove(pageHost);
             Root.Background = HasMica ? Brushes.Transparent : Ds.Brush(pal.Window);
             page = new StackPanel { Margin = new Thickness(30, 30, 30, 26) };
-            Root.Children.Add(page);
+            pageHost = Scrolling(page);
+            Root.Children.Add(pageHost);
             KeepCaptionsOnTop();
             Title = mine ? "Mis reportes" : "Informar de un problema";
             if (mine) { BuildMine(pal); return; }

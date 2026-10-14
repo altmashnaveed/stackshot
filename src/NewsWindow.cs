@@ -15,6 +15,7 @@ namespace Stackshot
         static NewsWindow open;
         readonly bool upcoming;     // the version available, not the one running
         StackPanel page;
+        ScrollViewer pageHost;   // scrolls the page when the window is cut to the work area
 
         // upcoming: the version available to update to, when there is one (otherwise the one running).
         public static void Open(bool upcoming)
@@ -51,10 +52,11 @@ namespace Stackshot
         void Build()
         {
             Palette pal = Ds.Brushes;
-            if (page != null) Root.Children.Remove(page);
+            if (pageHost != null) Root.Children.Remove(pageHost);
             Root.Background = HasMica ? Brushes.Transparent : Ds.Brush(pal.Window);
             page = new StackPanel { Margin = new Thickness(30, 30, 30, 26) };
-            Root.Children.Add(page);
+            pageHost = Scrolling(page);
+            Root.Children.Add(pageHost);
             KeepCaptionsOnTop();
 
             Updater.Release r = upcoming ? Updater.Available : null;
