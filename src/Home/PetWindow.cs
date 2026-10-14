@@ -1160,7 +1160,7 @@ namespace Stackshot
             state = State.Idle;
             nextIdea = Anim.Now + 4000;
             m.PopIn();
-            ShotStack.Log("Mascota: se cambia de pantalla por una pantalla completa" + FullScreenApp());
+            ShotStack.Log("Mascota: se cambia de pantalla por una pantalla completa");
         }
 
         void SetBehind(bool on, bool log)
@@ -1173,25 +1173,13 @@ namespace Stackshot
                 // Out of the always-on-top band and right under the app that fills the screen.
                 Native.SetWindowPos(Handle, (IntPtr)(-2), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // NOTOPMOST
                 Native.SetWindowPos(Handle, fullWin != IntPtr.Zero ? fullWin : Native.GetForegroundWindow(), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
-                ShotStack.Log("Mascota: se queda detr\u00E1s de una pantalla completa" + FullScreenApp());
+                ShotStack.Log("Mascota: se queda detr\u00E1s de una pantalla completa");
             }
             else
             {
                 Native.SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // TOPMOST again
                 ShotStack.Log("Mascota: vuelve delante");
             }
-        }
-
-        // " (mstsc)": the app in front, for the log.
-        static string FullScreenApp()
-        {
-            try
-            {
-                uint pid;
-                Native.GetWindowPid(Native.GetForegroundWindow(), out pid);
-                using (System.Diagnostics.Process p = System.Diagnostics.Process.GetProcessById((int)pid)) return " (" + p.ProcessName + ")";
-            }
-            catch { return ""; }
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder sb, int max);

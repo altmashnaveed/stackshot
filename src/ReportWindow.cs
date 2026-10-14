@@ -163,7 +163,7 @@ namespace Stackshot
                 f.Margin = new Thickness(0, 8, 0, 0);
                 page.Children.Add(f);
             }
-            page.Children.Add(Para("Siempre se a\u00F1ade: " + Machine().Replace("\n", " \u00B7 ") + ". Del registro se quitan tu usuario, el nombre del equipo, correos, DNI y NIE, cuentas, tarjetas y tel\u00E9fonos.",
+            page.Children.Add(Para("Siempre se a\u00F1ade: " + Machine().Replace("\n", " \u00B7 ") + ". De lo que escribes y del registro se quitan tu usuario, el nombre del equipo, correos, DNI y NIE, cuentas, tarjetas y tel\u00E9fonos.",
                                    pal.Label3, new Thickness(0, 10, 0, 0)));
 
             statusLabel = Text(status, Ds.Regular, 12, failed ? pal.Error : pal.Label3, new Thickness(0, 14, 0, 0));
@@ -530,9 +530,9 @@ namespace Stackshot
         {
             Dictionary<string, object> d = new Dictionary<string, object>();
             d["kind"] = kind == 1 ? "idea" : "bug";
-            d["title"] = title.Trim();
-            d["what"] = what.Trim();
-            d["steps"] = kind == 0 ? steps.Trim() : "";
+            d["title"] = Scrub(title.Trim());
+            d["what"] = Scrub(what.Trim());
+            d["steps"] = kind == 0 ? Scrub(steps.Trim()) : "";
             d["version"] = Installer.MyVersion.ToString(3);
             d["windows"] = WindowsVersion();
             d["screens"] = Screens();
@@ -544,8 +544,8 @@ namespace Stackshot
         void OpenInBrowser()
         {
             StringBuilder b = new StringBuilder();
-            b.Append(what.Trim());
-            if (kind == 0 && steps.Trim().Length > 0) b.Append("\n\n### \u00BFC\u00F3mo se repite?\n").Append(steps.Trim());
+            b.Append(Scrub(what.Trim()));
+            if (kind == 0 && steps.Trim().Length > 0) b.Append("\n\n### \u00BFC\u00F3mo se repite?\n").Append(Scrub(steps.Trim()));
             b.Append("\n\n---\n").Append(Machine().Replace("\n", " \u00B7 "));
             if (withLog)
             {
@@ -555,7 +555,7 @@ namespace Stackshot
                 b.Append("\n\n<details><summary>Registro</summary>\n\n~~~text\n").Append(log.Replace("~~~", "~ ~ ~")).Append("\n~~~\n</details>");
             }
             // Browsers and GitHub cut long addresses: the text is shortened before escaping, never mid-escape.
-            string body = b.ToString(), head = Program.RepoUrl + "/issues/new?title=" + Uri.EscapeDataString(title.Trim()) + "&body=";
+            string body = b.ToString(), head = Program.RepoUrl + "/issues/new?title=" + Uri.EscapeDataString(Scrub(title.Trim())) + "&body=";
             string url = head + Uri.EscapeDataString(body);
             while (url.Length > 7000 && body.Length > 200)
             {
