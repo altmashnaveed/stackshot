@@ -84,7 +84,7 @@ namespace Stackshot
         public int WellDone(int kind, out string levelUp)
         {
             wellness.Done(kind, Anim.Now);
-            int today = Wellness.Count(settings, kind);
+            int today = Wellness.AddOne(settings, kind);
             levelUp = LoveUp();
             return today;
         }

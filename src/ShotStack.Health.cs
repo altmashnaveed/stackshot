@@ -47,7 +47,7 @@ namespace Stackshot
         // Glasses today: the ones done with the mascot or "+1 vaso", or the water logged on the watch if that is more.
         public int WaterToday()
         {
-            int app = Wellness.Count(settings, WellKind.Water);
+            int app = Wellness.Today(settings)[WellKind.Water];
             int fromWatch = watch != null && watch.ReadAt.Date == DateTime.Today ? watch.WaterMl / 250 : 0;
             return Math.Max(app, fromWatch);
         }

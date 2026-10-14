@@ -103,7 +103,8 @@ namespace Stackshot
             return n;
         }
 
-        public static int Count(Settings s, int kind)
+        // One more of that break today; returns the new count. (To read it without adding, Today(s)[kind].)
+        public static int AddOne(Settings s, int kind)
         {
             int[] n = Today(s);
             n[kind]++;
