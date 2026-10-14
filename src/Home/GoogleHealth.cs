@@ -45,8 +45,12 @@ namespace Stackshot
 
         // ---- Signing in
 
-        static volatile bool connecting;
+        static volatile bool connecting, cancel;
         public static bool Connecting { get { return connecting; } }
+        public const string Cancelled = "Has cancelado la conexi\u00F3n.";
+
+        // Stops waiting for the browser (the sign-in tab was closed or left half done).
+        public static void Cancel() { if (connecting) cancel = true; }
 
         // Opens Google's sign-in and waits (on another thread) for the browser to come back; done(error) with null when
         // it worked.
@@ -55,6 +59,7 @@ namespace Stackshot
             if (!Available) { done("Falta configurar la conexi\u00F3n con Google Health."); return; }
             if (connecting) return;
             connecting = true;
+            cancel = false;
             Uri back = new Uri(Program.WatchRedirect);
             string verifier = Random(64), state = Random(24);
             string challenge = Base64Url(SHA256.Create().ComputeHash(Encoding.ASCII.GetBytes(verifier)));
@@ -97,6 +102,7 @@ namespace Stackshot
             DateTime until = DateTime.UtcNow.AddMinutes(5);
             while (DateTime.UtcNow < until)
             {
+                if (cancel) return Cancelled;
                 if (!ear.Pending()) { Thread.Sleep(150); continue; }
                 using (TcpClient c = ear.AcceptTcpClient())
                 using (NetworkStream s = c.GetStream())
@@ -108,7 +114,7 @@ namespace Stackshot
                     if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, "No encontrado."); continue; }
                     Dictionary<string, string> q = Query(target);
                     string got;
-                    if (q.TryGetValue("error", out got)) { Answer(s, 200, "Has cancelado la conexi\u00F3n. Puedes cerrar esta pesta\u00F1a."); return got == "access_denied" ? "Has cancelado la conexi\u00F3n." : "Google ha dicho: " + got; }
+                    if (q.TryGetValue("error", out got)) { Answer(s, 200, "Has cancelado la conexi\u00F3n. Puedes cerrar esta pesta\u00F1a."); return got == "access_denied" ? Cancelled :"Google ha dicho: " + got; }
                     string code, st;
                     if (!q.TryGetValue("code", out code) || !q.TryGetValue("state", out st) || st != state) { Answer(s, 400, "Respuesta no v\u00E1lida."); continue; }
                     string error = Token("grant_type=authorization_code&code=" + Uri.EscapeDataString(code) + "&code_verifier=" + verifier +

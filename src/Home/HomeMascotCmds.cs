@@ -187,14 +187,15 @@ namespace Stackshot
                 bool on = GoogleHealth.Connected;
                 string line = owner.WatchLine();
                 rows.Add(new ButtonRow("Pixel Watch o Fitbit",
-                                       GoogleHealth.Connecting ? "Termina de iniciar sesi\u00F3n en el navegador\u2026"
+                                       GoogleHealth.Connecting ? "Conectando\u2026 Termina de iniciar sesi\u00F3n en la pesta\u00F1a que se ha abierto en tu navegador y vuelve aqu\u00ED."
                                        : on ? "Conectado. " + (line ?? "Leyendo tus datos\u2026") + " Se lee cada media hora."
                                        : "Pasos, sue\u00F1o, minutos activos y agua de tu reloj, para que la mascota te acompa\u00F1e mejor. Inicias sesi\u00F3n en el navegador, una vez.",
-                                       "heart", Mac.Teal, Mac.Green, on ? "Desconectar" : "Conectar",
+                                       "heart", Mac.Teal, Mac.Green, GoogleHealth.Connecting ? "Cancelar" : on ? "Desconectar" : "Conectar",
                                        delegate
                                        {
-                                           if (GoogleHealth.Connected) { owner.DisconnectWatch(); Rebuild(); }
-                                           else owner.ConnectWatch(delegate { if (IsVisible) Rebuild(); });
+                                           if (GoogleHealth.Connecting) GoogleHealth.Cancel();
+                                           else if (GoogleHealth.Connected) { owner.DisconnectWatch(); Rebuild(); }
+                                           else { owner.ConnectWatch(delegate { if (IsVisible) Rebuild(); }); Rebuild(); }
                                        }));
                 rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Una vez al d\u00EDa como mucho por cada cosa: si has dormido poco, si llevas pocos pasos o si cumples tu objetivo.", "sparkle", Mac.Orange, Mac.Pink,
                                        delegate { return settings.HealthTalk; }, delegate(bool v) { settings.HealthTalk = v; }) { When = delegate { return GoogleHealth.Connected; } });

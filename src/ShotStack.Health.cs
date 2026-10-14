@@ -207,7 +207,8 @@ namespace Stackshot
             {
                 Ui(delegate
                 {
-                    if (error != null) Notify("No se ha conectado el reloj", error);
+                    if (error == GoogleHealth.Cancelled) { }
+                    else if (error != null) Notify("No se ha conectado el reloj", error);
                     else
                     {
                         Notify("Reloj conectado", "Stackshot leer\u00E1 tus pasos, tu actividad y tu sue\u00F1o cada media hora. Los datos van de Google a tu equipo.");
