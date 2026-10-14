@@ -24,6 +24,7 @@ namespace Stackshot
         {
             public int Steps, StepsGoal, SleepMinutes, ActiveMinutes, WaterMl;
             public DateTime ReadAt;
+            public bool Empty;          // Google had no steps for today at all (the watch hasn't synced yet)
         }
 
         const string Api = "https://health.googleapis.com/v4/users/me/dataTypes/";
@@ -287,8 +288,9 @@ namespace Stackshot
             try
             {
                 // Steps first: if this fails, nothing else will work either.
-                Dictionary<string, object> steps = Rollup(key, "steps");
-                t.Steps = Long(Dict(steps, "steps"), "countSum");
+                Dictionary<string, object> steps = Dict(Rollup(key, "steps"), "steps");
+                t.Empty = steps == null || !steps.ContainsKey("countSum");
+                t.Steps = Long(steps, "countSum");
             }
             catch (WebException ex) { error = Explain(ex); return null; }
             // The rest is best effort: a data type the watch doesn't have, or that Google doesn't let read yet, is left at 0.

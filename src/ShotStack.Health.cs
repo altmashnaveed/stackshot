@@ -146,21 +146,15 @@ namespace Stackshot
 
         public GoogleHealth.Today Watch { get { return watch != null && watch.ReadAt.Date == DateTime.Today ? watch : null; } }
 
-        // "Hoy: 4.230 pasos, 7 h 10 min de sueño y 500 ml de agua (a las 11:40)."
-        public string WatchLine()
-        {
-            GoogleHealth.Today w = Watch;
-            if (w == null) return null;
-            List<string> parts = new List<string> { w.Steps.ToString("N0", Es) + " pasos" };
-            if (w.SleepMinutes > 0) parts.Add(Hours(w.SleepMinutes) + " de sue\u00F1o");
-            if (w.ActiveMinutes > 0) parts.Add(w.ActiveMinutes + " min activo");
-            if (w.WaterMl > 0) parts.Add(w.WaterMl.ToString("N0", Es) + " ml de agua");
-            string last = parts[parts.Count - 1];
-            parts.RemoveAt(parts.Count - 1);
-            return "Hoy: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) + " y " + last : last) + " (a las " + w.ReadAt.ToString("HH:mm") + ").";
-        }
-
         static string Hours(int minutes) { return minutes / 60 + " h" + (minutes % 60 > 0 ? " " + minutes % 60 + " min" : ""); }
+
+        public bool WatchReading { get { return watchReading; } }
+
+        // Why the last reading failed (null when it worked).
+        public string WatchError { get; private set; }
+
+        // A reading has finished, well or not (the windows showing the numbers follow it).
+        public event Action WatchRead;
 
         // Read now (asked from the settings) or on the half-hour; done runs here with the error, or null.
         public void ReadWatch(Action<string> done)
@@ -177,15 +171,20 @@ namespace Stackshot
                 Ui(delegate
                 {
                     watchReading = false;
+                    WatchError = t != null ? null : error;
                     if (t != null)
                     {
                         watch = t;
-                        settings.FitbitLast = t.Steps + "|" + t.StepsGoal + "|" + t.SleepMinutes + "|" + t.ActiveMinutes + "|" + t.WaterMl + "|" + t.ReadAt.Ticks;
+                        settings.FitbitLast = t.Steps + "|" + t.StepsGoal + "|" + t.SleepMinutes + "|" + t.ActiveMinutes + "|" + t.WaterMl + "|" + t.ReadAt.Ticks + "|" + (t.Empty ? "vacio" : "");
                         settings.Save();
+                        Log(t.Empty ? "Google Health: leído, Google aún no tiene pasos de hoy"
+                                    : "Google Health: leído, " + t.Steps + " pasos, " + t.SleepMinutes + " min de sueño, " + t.ActiveMinutes + " min activo");
                         WatchSays();
                     }
                     else Log("Google Health: " + error);
                     if (done != null) done(error);
+                    Action h = WatchRead;
+                    if (h != null) h();
                 });
             });
         }
@@ -198,6 +197,7 @@ namespace Stackshot
             GoogleHealth.Today t = new GoogleHealth.Today { ReadAt = new DateTime(ticks) };
             int.TryParse(p[0], out t.Steps); int.TryParse(p[1], out t.StepsGoal); int.TryParse(p[2], out t.SleepMinutes);
             int.TryParse(p[3], out t.ActiveMinutes); int.TryParse(p[4], out t.WaterMl);
+            t.Empty = p.Length > 6 && p[6] == "vacio";
             return t;
         }
 
