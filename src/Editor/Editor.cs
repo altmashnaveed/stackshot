@@ -938,7 +938,7 @@ namespace Stackshot
         {
             canvas.CommitText();
             try { PinWindow.Open(canvas.Render()); }
-            catch (Exception ex) { ShotStack.Log("Fijar (editor): " + ex.Message); }
+            catch (Exception ex) { ShotStack.Log("Fijar (editor): " + ex.Message); Flash("No se pudo fijar la imagen en pantalla.", true); }
         }
 
         // Dragging from the button: the annotated image follows the cursor, centered.

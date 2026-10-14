@@ -1392,7 +1392,7 @@ namespace Stackshot
         void OpenExplorer(string dir)
         {
             try { Process.Start(Native.Explorer, "\"" + dir + "\""); }
-            catch (Exception ex) { Log("Carpeta: " + ex.Message); }
+            catch (Exception ex) { Log("Carpeta: " + ex.Message); Notify("No se pudo abrir la carpeta", ExplainOpen(ex, dir)); }
         }
 
         // Deletes every temporary capture that is not on screen or open (the save folder is never touched).
@@ -1990,7 +1990,11 @@ namespace Stackshot
                 Directory.CreateDirectory(settings.SaveFolder);
                 Process.Start(Native.Explorer, "\"" + settings.SaveFolder + "\"");
             }
-            catch (Exception ex) { Log("Carpeta: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Log("Carpeta: " + ex.Message);
+                Notify("No se pudo abrir la carpeta", ExplainOpen(ex, settings.SaveFolder));
+            }
         }
 
         // Every exit ends here. One that didn't come through TryQuit (anything calling ExitThread directly) still asks

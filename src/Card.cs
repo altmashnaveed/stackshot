@@ -1047,7 +1047,12 @@ namespace Stackshot
                     return;
                 }
                 try { PinWindow.Open(img); }
-                catch (Exception ex) { img.Dispose(); ShotStack.Log("Fijar: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    img.Dispose();
+                    ShotStack.Log("Fijar: " + ex.Message);
+                    owner.Notify("No se pudo fijar la captura", "Vuelve a intentarlo.");
+                }
             });
             owner.Remove(this);
         }
