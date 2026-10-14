@@ -230,6 +230,23 @@ namespace Stackshot
         // The desktop mascot is out and can be seen (not hidden by a full-screen app): it speaks, and no notice says the same.
         bool PetShown { get { return pet != null && pet.Visible && !pet.Behind; } }
 
+        enum Teller { Pet, Wait, Notice }
+
+        // Who tells something that can wait a little: the desktop mascot once it is free. While it is busy (a walk, a
+        // menu, a question of its own) the thing waits, but only for patience ms; then a notice says it. Below a
+        // full-screen app it keeps waiting, as a notice would.
+        Teller TellerFor(ref double waitingSince, double patience)
+        {
+            if (pet == null) { waitingSince = 0; return Teller.Notice; }
+            if (pet.CanRemind) { waitingSince = 0; return Teller.Pet; }
+            if (pet.Behind) return Teller.Wait;
+            double now = Anim.Now;
+            if (waitingSince <= 0) waitingSince = now;
+            if (now - waitingSince < patience) return Teller.Wait;
+            waitingSince = 0;
+            return Teller.Notice;
+        }
+
         // Runs once on this thread after ms, unless Stackshot is closing by then.
         void After(int ms, Action act)
         {

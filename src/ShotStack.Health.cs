@@ -118,16 +118,19 @@ namespace Stackshot
             return "Hoy: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) + " y " + last : last) + ".";
         }
 
+        double summaryWait;
+
         void DaySummaryTick()
         {
             if (settings.SummaryHour <= 0 || DateTime.Now.TimeOfDay < new TimeSpan(settings.SummaryHour, settings.SummaryMinute, 0) || settings.SummaryDay == Today) return;
             if (Native.IdleMs() >= Wellness.ActiveIdleMs || WellQuiet() || focus.Working) return;
-            if (pet != null && !pet.CanRemind) return;
+            Teller teller = TellerFor(ref summaryWait, 120000);
+            if (teller == Teller.Wait) return;
             string text = DaySummary();
             settings.SummaryDay = Today;
             settings.Save();
             if (text == null) return;
-            if (pet != null) pet.HealthTell("\u00BFQu\u00E9 tal el d\u00EDa? " + text, true);
+            if (teller == Teller.Pet) pet.HealthTell("\u00BFQu\u00E9 tal el d\u00EDa? " + text, true);
             else Notify("Tu d\u00EDa", text);
         }
 

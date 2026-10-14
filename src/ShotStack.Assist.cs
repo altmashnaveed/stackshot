@@ -22,6 +22,7 @@ namespace Stackshot
     {
         readonly List<Reminder> reminders = new List<Reminder>();
         Timer remindTimer;
+        double remindWait;
 
         static string RemindersFile { get { return Path.Combine(Settings.DataDir, "recordatorios.txt"); } }
 
@@ -90,9 +91,10 @@ namespace Stackshot
             if (Native.IdleMs() >= Wellness.ActiveIdleMs) return;
             DateTime local = due.DueUtc.ToLocalTime();
             string late = DateTime.UtcNow - due.DueUtc > TimeSpan.FromMinutes(3) ? "Era para " + WhenText(local).Replace("ma\u00F1ana ", "") + ": " : "";
-            if (pet != null)
+            Teller teller = TellerFor(ref remindWait, 60000);
+            if (teller == Teller.Wait) return;
+            if (teller == Teller.Pet)
             {
-                if (!pet.CanRemind) return;
                 RemoveReminder(due);
                 pet.ReminderCard(late + due.Text, delegate(int minutes) { AddReminder(due.Text, DateTime.Now.AddMinutes(minutes), true); });
                 return;
