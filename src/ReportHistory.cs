@@ -16,10 +16,12 @@ namespace Stackshot
     {
         public sealed class Entry
         {
-            public int Number, Seen;     // Seen: replies already shown
+            public int Number, Seen;     // Seen: replies already shown in the list
+            public int Told;             // replies already announced by a notice
             public bool Idea;
             public DateTime SentUtc;
             public string Title;
+            public string State = "";    // last known: "" not asked yet, "open", or "closed:<reason>"
         }
 
         public sealed class Reply
@@ -39,7 +41,8 @@ namespace Stackshot
         static readonly object gate = new object();
         static string FilePath { get { return Path.Combine(Settings.DataDir, "reportes.txt"); } }
 
-        // Newest first. One line each: number, kind, sent (UTC ticks), replies seen, title.
+        // Newest first. One line each: number, kind, sent (UTC ticks), replies seen, replies told, state, title (the first
+        // lists had only number, kind, sent, seen and title).
         public static List<Entry> Load()
         {
             List<Entry> list = new List<Entry>();
@@ -50,11 +53,16 @@ namespace Stackshot
                     if (!File.Exists(FilePath)) return list;
                     foreach (string line in File.ReadAllLines(FilePath, Encoding.UTF8))
                     {
-                        string[] p = line.Split(new char[] { '\t' }, 5);
-                        int n, seen;
+                        string[] p = line.Split('\t');
+                        int n, seen, told = 0;
                         long ticks;
                         if (p.Length < 5 || !int.TryParse(p[0], out n) || n <= 0 || !long.TryParse(p[2], out ticks) || !int.TryParse(p[3], out seen)) continue;
-                        list.Add(new Entry { Number = n, Idea = p[1] == "idea", SentUtc = new DateTime(ticks, DateTimeKind.Utc), Seen = seen, Title = p[4] });
+                        bool full = p.Length >= 7 && int.TryParse(p[4], out told);
+                        list.Add(new Entry
+                        {
+                            Number = n, Idea = p[1] == "idea", SentUtc = new DateTime(ticks, DateTimeKind.Utc), Seen = seen,
+                            Told = full ? told : seen, State = full ? p[5] : "", Title = full ? p[6] : p[4]
+                        });
                     }
                 }
                 catch (Exception ex) { ShotStack.Log("Mis reportes: " + ex.Message); }
@@ -74,8 +82,10 @@ namespace Stackshot
             }
         }
 
-        // The replies of these reports have been shown: they are no longer new.
-        public static void MarkSeen(Dictionary<int, int> replies)
+        public static string Key(State s) { return s.Open ? "open" : "closed:" + s.Reason; }
+
+        // What GitHub said is kept as known (and announced). shown: the list showed it, so its replies are no longer new.
+        public static void Record(Dictionary<int, State> got, bool shown)
         {
             lock (gate)
             {
@@ -83,11 +93,45 @@ namespace Stackshot
                 bool changed = false;
                 foreach (Entry e in list)
                 {
-                    int n;
-                    if (replies.TryGetValue(e.Number, out n) && n != e.Seen) { e.Seen = n; changed = true; }
+                    State s;
+                    if (!got.TryGetValue(e.Number, out s)) continue;
+                    int n = s.Replies.Count;
+                    string k = Key(s);
+                    if (k != e.State) { e.State = k; changed = true; }
+                    if (n > e.Told) { e.Told = n; changed = true; }
+                    if (shown && n != e.Seen) { e.Seen = n; changed = true; }
                 }
                 if (changed) Save(list);
             }
+        }
+
+        // What changed since it was last known: one line per report ("tiene una respuesta", "está arreglado"...), for a notice.
+        public static List<string> Changes(List<Entry> list, Dictionary<int, State> got)
+        {
+            List<string> o = new List<string>();
+            foreach (Entry e in list)
+            {
+                State s;
+                if (!got.TryGetValue(e.Number, out s)) continue;
+                string what = null;
+                string k = Key(s);
+                if (k != e.State && e.State.Length > 0)
+                    what = s.Open ? "se ha vuelto a abrir"
+                         : s.Reason == "completed" ? (e.Idea ? "est\u00E1 hecho" : "est\u00E1 arreglado")
+                         : s.Reason == "not_planned" ? "se ha descartado" : s.Reason == "duplicate" ? "est\u00E1 repetido" : "se ha cerrado";
+                int fresh = s.Replies.Count - e.Told;
+                if (fresh > 0) what = (fresh == 1 ? "tiene una respuesta nueva" : "tiene " + fresh + " respuestas nuevas") + (what != null ? " y " + what : "");
+                if (what != null) o.Add("\u00AB" + e.Title + "\u00BB " + what);
+            }
+            return o;
+        }
+
+        // Still worth asking about: not closed, or not asked yet.
+        public static List<int> Pending(List<Entry> list)
+        {
+            List<int> o = new List<int>();
+            foreach (Entry e in list) if (!e.State.StartsWith("closed", StringComparison.Ordinal)) o.Add(e.Number);
+            return o;
         }
 
         static void Save(List<Entry> list)
@@ -97,7 +141,7 @@ namespace Stackshot
                 StringBuilder b = new StringBuilder();
                 foreach (Entry e in list)
                     b.Append(e.Number).Append('\t').Append(e.Idea ? "idea" : "bug").Append('\t').Append(e.SentUtc.Ticks).Append('\t')
-                     .Append(e.Seen).Append('\t').Append(OneLine(e.Title)).Append('\n');
+                     .Append(e.Seen).Append('\t').Append(e.Told).Append('\t').Append(OneLine(e.State)).Append('\t').Append(OneLine(e.Title)).Append('\n');
                 Directory.CreateDirectory(Settings.DataDir);
                 string tmp = FilePath + ".tmp";
                 File.WriteAllText(tmp, b.ToString(), new UTF8Encoding(false));

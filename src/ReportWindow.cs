@@ -36,6 +36,9 @@ namespace Stackshot
         Dictionary<int, ReportHistory.State> states;
         string statesError;
         readonly HashSet<int> fresh = new HashSet<int>();   // replies not seen before this window
+        ScrollViewer mineScroll;
+        // While the list is on screen it asks again every couple of minutes.
+        readonly System.Windows.Threading.DispatcherTimer autoRefresh = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
 
         StackPanel page;
         TextBox titleBox, whatBox, stepsBox;
@@ -78,6 +81,9 @@ namespace Stackshot
                 else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control) { e.Handled = true; Send(); }
             };
             Closing += delegate(object o, System.ComponentModel.CancelEventArgs e) { if (sending) e.Cancel = true; };
+            autoRefresh.Tick += delegate { if (mine && IsVisible && WindowState != WindowState.Minimized) Refresh(true); };
+            autoRefresh.Start();
+            Closed += delegate { autoRefresh.Stop(); };
             Loaded += delegate { if (titleBox != null) titleBox.Focus(); };
         }
 
@@ -100,6 +106,7 @@ namespace Stackshot
             KeepCaptionsOnTop();
             Title = mine ? "Mis reportes" : "Informar de un problema";
             if (mine) { BuildMine(pal); return; }
+            mineScroll = null;
             if (sent) { BuildSent(pal); return; }
             page.Children.Add(ModeSwitch());
 
@@ -238,14 +245,18 @@ namespace Stackshot
             else Build();
         }
 
-        void Refresh()
+        void Refresh() { Refresh(false); }
+
+        // quiet: the check every few minutes while the list is on screen. It shows nothing while it asks, keeps what is
+        // shown if the answer doesn't come, and redraws only when something changed.
+        void Refresh(bool quiet)
         {
+            if (loading) return;
             List<int> numbers = new List<int>();
             foreach (ReportHistory.Entry e in ReportHistory.Load()) numbers.Add(e.Number);
-            if (numbers.Count == 0) { states = new Dictionary<int, ReportHistory.State>(); Build(); return; }
+            if (numbers.Count == 0) { if (!quiet) { states = new Dictionary<int, ReportHistory.State>(); Build(); } return; }
             loading = true;
-            statesError = null;
-            Build();
+            if (!quiet) { statesError = null; Build(); }
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string error;
@@ -255,26 +266,40 @@ namespace Stackshot
                     Dispatcher.BeginInvoke(new Action(delegate
                     {
                         loading = false;
-                        statesError = error;
-                        if (error == null)
+                        if (error != null)
                         {
+                            if (quiet) return;
+                            statesError = error;
+                        }
+                        else
+                        {
+                            string before = Signature(states);
                             states = got;
+                            statesError = null;
                             // Replies that arrived since they were last shown are marked as new for this window.
-                            Dictionary<int, int> seen = new Dictionary<int, int>();
                             foreach (ReportHistory.Entry e in ReportHistory.Load())
                             {
                                 ReportHistory.State s;
-                                if (!got.TryGetValue(e.Number, out s)) continue;
-                                if (s.Replies.Count > e.Seen) fresh.Add(e.Number);
-                                seen[e.Number] = s.Replies.Count;
+                                if (got.TryGetValue(e.Number, out s) && s.Replies.Count > e.Seen) fresh.Add(e.Number);
                             }
-                            ReportHistory.MarkSeen(seen);
+                            ReportHistory.Record(got, true);
+                            if (quiet && Signature(got) == before) return;
                         }
                         if (!IsDisposed && mine) Build();
                     }));
                 }
                 catch { }
             });
+        }
+
+        static string Signature(Dictionary<int, ReportHistory.State> d)
+        {
+            if (d == null) return "";
+            List<int> keys = new List<int>(d.Keys);
+            keys.Sort();
+            StringBuilder b = new StringBuilder();
+            foreach (int k in keys) b.Append(k).Append(':').Append(ReportHistory.Key(d[k])).Append(':').Append(d[k].Replies.Count).Append(';');
+            return b.ToString();
         }
 
         void BuildMine(Palette pal)
@@ -300,6 +325,10 @@ namespace Stackshot
                 StackPanel rows = new StackPanel();
                 foreach (ReportHistory.Entry e in list) rows.Children.Add(ReportRow(e, pal));
                 ScrollViewer sv = new ScrollViewer { MaxHeight = 430, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = rows, Margin = new Thickness(0, 16, 0, 0), Resources = HomeWindow.ScrollStyle(), Focusable = false };
+                // Redrawn by a refresh: the list stays where it was scrolled to.
+                double keep = mineScroll != null ? mineScroll.VerticalOffset : 0;
+                if (keep > 0) sv.Loaded += delegate { sv.ScrollToVerticalOffset(keep); };
+                mineScroll = sv;
                 page.Children.Add(sv);
             }
 
