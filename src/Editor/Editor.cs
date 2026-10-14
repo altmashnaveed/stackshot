@@ -543,6 +543,8 @@ namespace Stackshot
             Size o = canvas.OutputSize;
             string action = !IsVideo ? "Enter copia y cierra" : ExportsGif ? "Enter crea el GIF" : IsMaster ? "Enter crea un MP4 para compartir" : "Enter exporta";
             string left = flashText ?? (playing ? "Reproduciendo \u00B7 Espacio pausa" : canvas.HintText), right = o.Width + " \u00D7 " + o.Height + " px  \u00B7  " + action;
+            // Marks on a video are drawn over all of it: said while choosing where to put one.
+            if (IsVideo && flashText == null && !playing && !canvas.HasSelection && canvas.Tool != Tool.Crop) left += " \u00B7 se ve durante todo el v\u00EDdeo";
             if (left != hint.LeftText || right != hint.RightText)
             {
                 hint.LeftText = left;
