@@ -389,10 +389,12 @@ namespace Stackshot
             bi.biBitCount = 32;
             dib = Native.CreateDIBSection(screen, ref bi, 0, out bits, IntPtr.Zero, 0);
             old = Native.SelectObject(mem, dib);
-            int[] buf = new int[area.Width * area.Height], alt = null;
+            int[] buf = null, alt = null;
             string error = null;
             try
             {
+                // Inside the try: on a huge area this can run out of memory, and on this thread that would end the app.
+                buf = new int[area.Width * area.Height];
                 while (!stopping)
                 {
                     long t0 = clock.ElapsedMilliseconds;
