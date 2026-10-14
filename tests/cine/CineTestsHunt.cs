@@ -132,6 +132,14 @@ namespace Stackshot.Tests
             v["XmlWatch"] = true; v["XmlWatchFolder"] = @"E:\xml vigilados";
             v["CaptureCursor"] = true; v["FileNameTemplate"] = "{tipo}_{fecha}_{n}"; v["SaveSubfolder"] = 1; v["SensitiveAuto"] = true; v["HistorySearch"] = false;
             v["RecordClicks"] = true; v["RecordKeys"] = true;
+            v["SaveAll"] = false; v["MascotHideFull"] = false; v["NewsSeen"] = "2.0.0";
+            v["WellOn"] = false; v["WellWater"] = 45; v["WellEyes"] = 60; v["WellMove"] = 20; v["WellBreathe"] = 30; v["WellToasts"] = true;
+            v["WellDay"] = "2026-10-13"; v["WellDone"] = "4,3,2,1";
+            v["FocusWork"] = 40; v["FocusShort"] = 7; v["FocusLong"] = 20; v["FocusRounds"] = 6; v["FocusAuto"] = true; v["FocusSound"] = false;
+            v["FocusNotices"] = false; v["FocusDay"] = "2026-10-13"; v["FocusBlocks"] = 3; v["FocusMinutes"] = 90;
+            v["WaterGoal"] = 6; v["SummaryHour"] = 19; v["SummaryMinute"] = 45; v["StepsGoal"] = 12000; v["SummaryParts"] = 5; v["SummaryDay"] = "2026-10-12";
+            v["XmlFaultAlert"] = false; v["FitbitAsked"] = "2026-10-20"; v["HealthTalk"] = false; v["HealthSaid"] = "2026-10-13|x";
+            v["FitbitLast"] = "1|2|3|4|5|6"; v["ShortSleepDay"] = "2026-10-11"; v["StatsDay"] = "2026-10-13"; v["StatsCaptures"] = 99;
             return v;
         }
 
