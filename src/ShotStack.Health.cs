@@ -13,7 +13,7 @@ namespace Stackshot
     public partial class ShotStack
     {
         Timer healthTimer;
-        Fitbit.Today watch;
+        GoogleHealth.Today watch;
         bool watchReading;
         double nextWatchRead;
         const double WatchEveryMs = 30 * 60 * 1000;
@@ -38,7 +38,7 @@ namespace Stackshot
         void HealthTick()
         {
             if (exiting) return;
-            if (Fitbit.Connected && !watchReading && Anim.Now >= nextWatchRead) ReadWatch(null);
+            if (GoogleHealth.Connected && !watchReading && Anim.Now >= nextWatchRead) ReadWatch(null);
             DaySummaryTick();
             WatchOfferTick();
         }
@@ -50,7 +50,7 @@ namespace Stackshot
 
         void WatchOfferTick()
         {
-            if (!Fitbit.Available || Fitbit.Connected || Fitbit.Connecting || settings.FitbitAsked == "no") return;
+            if (!GoogleHealth.Available || GoogleHealth.Connected || GoogleHealth.Connecting || settings.FitbitAsked == "no") return;
             DateTime put;
             if (settings.FitbitAsked.Length > 0 && DateTime.TryParseExact(settings.FitbitAsked, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out put) && DateTime.Today < put.AddDays(3)) return;
             if (Anim.Now - startedAt < 10 * 60 * 1000) return;
@@ -58,7 +58,7 @@ namespace Stackshot
             if (pet != null && !pet.CanRemind) return;
             settings.FitbitAsked = Today;
             settings.Save();
-            string text = "\u00BFTienes un Pixel Watch o un Fitbit? Si lo conectas, te acompa\u00F1o con tus pasos, tu sue\u00F1o y el agua. Los datos no salen de tu equipo.";
+            string text = "\u00BFTienes un Pixel Watch o un Fitbit? Si lo conectas, te acompa\u00F1o con tus pasos, tu actividad y tu sue\u00F1o. Los datos van de Google a tu equipo.";
             if (pet != null) pet.WatchOffer(text, delegate { ConnectWatch(null); }, delegate { settings.FitbitAsked = "no"; settings.Save(); });
             else Notify("\u00BFConectamos tu reloj?", text, NoticeKind.Info, "Conectar", delegate { ConnectWatch(null); });
         }
@@ -144,12 +144,12 @@ namespace Stackshot
 
         // ---- The watch
 
-        public Fitbit.Today Watch { get { return watch != null && watch.ReadAt.Date == DateTime.Today ? watch : null; } }
+        public GoogleHealth.Today Watch { get { return watch != null && watch.ReadAt.Date == DateTime.Today ? watch : null; } }
 
         // "Hoy: 4.230 pasos, 7 h 10 min de sueño y 500 ml de agua (a las 11:40)."
         public string WatchLine()
         {
-            Fitbit.Today w = Watch;
+            GoogleHealth.Today w = Watch;
             if (w == null) return null;
             List<string> parts = new List<string> { w.Steps.ToString("N0", Es) + " pasos" };
             if (w.SleepMinutes > 0) parts.Add(Hours(w.SleepMinutes) + " de sue\u00F1o");
@@ -171,8 +171,8 @@ namespace Stackshot
             System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
                 string error;
-                Fitbit.Today t = null;
-                try { t = Fitbit.Read(out error); }
+                GoogleHealth.Today t = null;
+                try { t = GoogleHealth.Read(out error); }
                 catch (Exception ex) { error = ex.Message; }
                 Ui(delegate
                 {
@@ -184,18 +184,18 @@ namespace Stackshot
                         settings.Save();
                         WatchSays();
                     }
-                    else Log("Fitbit: " + error);
+                    else Log("Google Health: " + error);
                     if (done != null) done(error);
                 });
             });
         }
 
-        Fitbit.Today LastReading()
+        GoogleHealth.Today LastReading()
         {
             string[] p = (settings.FitbitLast ?? "").Split('|');
             long ticks;
             if (p.Length < 6 || !long.TryParse(p[5], out ticks)) return null;
-            Fitbit.Today t = new Fitbit.Today { ReadAt = new DateTime(ticks) };
+            GoogleHealth.Today t = new GoogleHealth.Today { ReadAt = new DateTime(ticks) };
             int.TryParse(p[0], out t.Steps); int.TryParse(p[1], out t.StepsGoal); int.TryParse(p[2], out t.SleepMinutes);
             int.TryParse(p[3], out t.ActiveMinutes); int.TryParse(p[4], out t.WaterMl);
             return t;
@@ -203,14 +203,14 @@ namespace Stackshot
 
         public void ConnectWatch(Action changed)
         {
-            Fitbit.Connect(delegate(string error)
+            GoogleHealth.Connect(delegate(string error)
             {
                 Ui(delegate
                 {
                     if (error != null) Notify("No se ha conectado el reloj", error);
                     else
                     {
-                        Notify("Reloj conectado", "Stackshot leer\u00E1 tus pasos, tu sue\u00F1o y el agua cada media hora. Los datos no salen de tu equipo.");
+                        Notify("Reloj conectado", "Stackshot leer\u00E1 tus pasos, tu actividad y tu sue\u00F1o cada media hora. Los datos van de Google a tu equipo.");
                         ReadWatch(delegate { if (changed != null) changed(); });
                     }
                     if (changed != null) changed();
@@ -220,18 +220,18 @@ namespace Stackshot
 
         public void DisconnectWatch()
         {
-            Fitbit.Disconnect();
+            GoogleHealth.Disconnect();
             watch = null;
             settings.FitbitLast = "";
             settings.Save();
-            Log("Fitbit: desconectado");
+            Log("Google Health: desconectado");
         }
 
         // A few words about the numbers, once each a day: never in a block, a call, a recording or with nobody there,
         // and only through the mascot (no notices for this).
         void WatchSays()
         {
-            Fitbit.Today w = Watch;
+            GoogleHealth.Today w = Watch;
             if (!settings.HealthTalk || w == null || pet == null || !pet.CanRemind) return;
             if (Native.IdleMs() >= Wellness.ActiveIdleMs || WellQuiet() || focus.Working) return;
             DateTime now = DateTime.Now;

@@ -1407,7 +1407,7 @@ namespace Stackshot
             int water = owner.WaterToday();
             Add("drop", "+1 vaso de agua", settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal : water + " hoy", DrinkOne);
             Add("heart", "\u00BFQu\u00E9 tal el d\u00EDa?", null, TellDay);
-            if (Fitbit.Available && !Fitbit.Connected && !Fitbit.Connecting)
+            if (GoogleHealth.Available && !GoogleHealth.Connected && !GoogleHealth.Connecting)
                 Add("heart", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             Add("sparkle", "Haz un truco", null, DoTrick);
             Add("bot", m.Sleeping ? "Despierta" : "Echa una siesta", null, delegate { if (m.Sleeping) { m.WakeUp(); m.Hop(1.2); } else { m.SleepNow(); state = State.Idle; } });

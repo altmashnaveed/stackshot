@@ -38,10 +38,10 @@ namespace Stackshot
         public const string RepoUrl = "https://github.com/rubenitx/stackshot";
         // The report relay (tools/report-relay), ending in /report; empty: reports open as a new issue in the browser.
         public const string ReportUrl = "https://stackshot-report.rmartbernabe.workers.dev/report";
-        // The app registered at dev.fitbit.com (type "Client": no secret) and its redirect address, exactly as registered;
-        // an empty id hides the watch connection.
-        public const string FitbitClientId = "";
-        public const string FitbitRedirect = "http://127.0.0.1:47321/fitbit";
+        // The Google Cloud OAuth client (type "Desktop app") for Google Health; its secret lives only in the report relay. An
+        // empty id hides the watch connection. Sign-in comes back to this loopback address.
+        public const string GoogleClientId = "";
+        public const string WatchRedirect = "http://127.0.0.1:47321/google";
 
         static string[] args;
 

@@ -168,7 +168,7 @@ namespace Stackshot
             List<Row> rows = new List<Row>();
             int water = owner.WaterToday();
             rows.Add(new SegRow("Objetivo de agua", "Vasos al d\u00EDa. Cuentan los que bebes con la mascota y \u00AB+1 vaso\u00BB en su men\u00FA" +
-                                (Fitbit.Available ? ", o el agua que apuntes en Fitbit" : "") + ". Hoy: " + water + (water == 1 ? " vaso." : " vasos."),
+                                (GoogleHealth.Available ? ", o el agua que apuntes en Google Health" : "") + ". Hoy: " + water + (water == 1 ? " vaso." : " vasos."),
                                 "drop", Mac.Blue, Mac.Teal, new string[] { "Sin objetivo", "6 vasos", "8 vasos", "10 vasos" },
                                 delegate { int i = Array.IndexOf(goals, settings.WaterGoal); return i < 0 ? 2 : i; },
                                 delegate(int i) { settings.WaterGoal = goals[Math.Max(0, Math.Min(goals.Length - 1, i))]; }));
@@ -179,28 +179,28 @@ namespace Stackshot
             // What it tells, there and in its menu's "how was the day": one chip per part, each on or off.
             List<string> names = new List<string> { "Agua", "Pausas", "Concentraci\u00F3n", "Capturas" };
             List<int> bits = new List<int> { Settings.SummaryWater, Settings.SummaryBreaks, Settings.SummaryFocus, Settings.SummaryCaptures };
-            if (Fitbit.Available) { names.Add("Pasos"); bits.Add(Settings.SummarySteps); }
+            if (GoogleHealth.Available) { names.Add("Pasos"); bits.Add(Settings.SummarySteps); }
             rows.Add(new ChipsRow("Qu\u00E9 incluye el resumen", "Toca para quitar o poner. Vale tambi\u00E9n para \u00AB\u00BFQu\u00E9 tal el d\u00EDa?\u00BB de su men\u00FA.", "check", Mac.Green, Mac.Teal,
                                   names.ToArray(), bits.ToArray(), delegate { return settings.SummaryParts; }, delegate(int v) { settings.SummaryParts = v; }));
-            if (Fitbit.Available)
+            if (GoogleHealth.Available)
             {
-                bool on = Fitbit.Connected;
+                bool on = GoogleHealth.Connected;
                 string line = owner.WatchLine();
                 rows.Add(new ButtonRow("Pixel Watch o Fitbit",
-                                       Fitbit.Connecting ? "Termina de iniciar sesi\u00F3n en el navegador\u2026"
+                                       GoogleHealth.Connecting ? "Termina de iniciar sesi\u00F3n en el navegador\u2026"
                                        : on ? "Conectado. " + (line ?? "Leyendo tus datos\u2026") + " Se lee cada media hora."
                                        : "Pasos, sue\u00F1o, minutos activos y agua de tu reloj, para que la mascota te acompa\u00F1e mejor. Inicias sesi\u00F3n en el navegador, una vez.",
                                        "heart", Mac.Teal, Mac.Green, on ? "Desconectar" : "Conectar",
                                        delegate
                                        {
-                                           if (Fitbit.Connected) { owner.DisconnectWatch(); Rebuild(); }
+                                           if (GoogleHealth.Connected) { owner.DisconnectWatch(); Rebuild(); }
                                            else owner.ConnectWatch(delegate { if (IsVisible) Rebuild(); });
                                        }));
                 rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Una vez al d\u00EDa como mucho por cada cosa: si has dormido poco, si llevas pocos pasos o si cumples tu objetivo.", "sparkle", Mac.Orange, Mac.Pink,
-                                       delegate { return settings.HealthTalk; }, delegate(bool v) { settings.HealthTalk = v; }) { When = delegate { return Fitbit.Connected; } });
+                                       delegate { return settings.HealthTalk; }, delegate(bool v) { settings.HealthTalk = v; }) { When = delegate { return GoogleHealth.Connected; } });
             }
             Group("Salud y actividad", rows.ToArray());
-            Note("Todo se queda en tu equipo. Con el reloj conectado, los datos van de Fitbit a tu ordenador y no pasan por ning\u00FAn otro sitio; " +
+            Note("Todo se queda en tu equipo. Con el reloj conectado, los datos van de Google a tu ordenador y no pasan por ning\u00FAn otro sitio; " +
                  "las claves se guardan cifradas con tu usuario de Windows y puedes desconectarlo cuando quieras. La mascota no da consejos m\u00E9dicos: " +
                  "solo te anima a moverte, beber y descansar. Si una noche duermes menos de 6 horas, ese d\u00EDa las pausas para la vista y para moverte llegan un poco antes; " +
                  "y con el objetivo de agua cumplido, deja de record\u00E1rtelo.");
