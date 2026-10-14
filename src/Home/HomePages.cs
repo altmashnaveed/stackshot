@@ -680,8 +680,8 @@ namespace Stackshot
             settings.ShowIntro = p > 0;
             settings.MascotTalks = p > 0;
             settings.MascotDesktop = p == 2;
-            settings.VideoQuality = p == 2 ? 2 : 0;
-            if (p == 0) { settings.VideoFps = 30; settings.Webcam = 0; }
+            // Rendimiento keeps everything inside the window: nothing pops up outside it. Video is never touched.
+            if (p == 0) { settings.WellToasts = false; settings.HealthTalk = false; }
             owner.MascotChanged();
             owner.ApplySettings();
         }
@@ -718,9 +718,8 @@ namespace Stackshot
             if (settings.ShowIntro != (p > 0)) l.Add("la animaci\u00F3n al abrir");
             if (settings.MascotTalks != (p > 0) && !Policy.MascotForced) l.Add("los saludos de la mascota");
             if (settings.MascotDesktop != (p == 2) && !Policy.MascotForced) l.Add("la mascota en el escritorio");
-            if (settings.VideoQuality != (p == 2 ? 2 : 0)) l.Add("la calidad del v\u00EDdeo");
-            if (p == 0 && settings.VideoFps != 30) l.Add("los fotogramas por segundo");
-            if (p == 0 && settings.Webcam != 0) l.Add("la c\u00E1mara");
+            if (p == 0 && settings.WellToasts) l.Add("los avisos de pausas");
+            if (p == 0 && settings.HealthTalk) l.Add("los comentarios de actividad");
             return l;
         }
 
@@ -729,9 +728,9 @@ namespace Stackshot
             Header("General", "C\u00F3mo arranca Stackshot y qu\u00E9 hace cada vez que capturas.");
             string[] pdesc =
             {
-                "Lo m\u00EDnimo: sin animaci\u00F3n al abrir, mascota quieta en la ventana y v\u00EDdeo ligero. Ideal para equipos justos.",
+                "Solo dentro de la ventana: sin animaci\u00F3n al abrir, la mascota quieta en Stackshot y nada por fuera (ni mascota en el escritorio ni avisos de pausas). Ideal para equipos justos.",
                 "El equilibrio de siempre: animaciones suaves y la mascota solo en la ventana.",
-                "Todo activado: mascota paseando por el escritorio, saludos y v\u00EDdeo en calidad alta."
+                "Todo activado: la mascota paseando por el escritorio y sus saludos."
             };
             // Choosing a profile moves the switches it touches on this page too (no rebuild: the choice keeps sliding).
             Group("Perfil",
