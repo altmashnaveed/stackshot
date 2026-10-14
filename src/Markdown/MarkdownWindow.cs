@@ -1830,6 +1830,17 @@ namespace Stackshot
             return XmlTreeView.Render(tree.Rows, tree.Look, out err);
         }
 
+        // No picture of the document: one too long for an image can still go out whole as a PDF.
+        void NoImage(string err)
+        {
+            if (xml || err != MarkdownView.TooLong) { Say(err, true); return; }
+            Cursor = null;
+            if (DocAlert.Ask(this, "Demasiado largo para una imagen",
+                             "Como imagen medir\u00EDa m\u00E1s de 16.000 p\u00EDxeles de alto y no se podr\u00EDa ver bien. En PDF va entero, repartido en p\u00E1ginas.",
+                             new string[] { "Guardar como PDF", "Cancelar" }, 0, 1) == 0)
+                ExportPdf();
+        }
+
         void CopyMarkdown()
         {
             if (Retry(delegate { Clipboard.SetText(Current()); })) { Say(xml ? "XML copiado." : "Markdown copiado.", false); Confirm(copyTextTool, "Copiado"); }
@@ -1843,7 +1854,7 @@ namespace Stackshot
             try
             {
                 BitmapSource img = RenderDoc(out err);
-                if (img == null) { Say(err, true); return; }
+                if (img == null) { NoImage(err); return; }
                 // Like captures, never synced to other devices through the cloud clipboard.
                 DataObject d = new DataObject();
                 d.SetImage(img);
@@ -1891,7 +1902,7 @@ namespace Stackshot
             try
             {
                 BitmapSource img = RenderDoc(out err);
-                if (img == null) { Say(err, true); return; }
+                if (img == null) { NoImage(err); return; }
                 string path = owner.SaveCapture(Ink.ToGdi(img), xml ? "XML" : "Markdown");
                 if (path == null) { Say("No he podido a\u00F1adir la captura.", true); return; }
                 try { System.IO.File.WriteAllBytes(System.IO.Path.ChangeExtension(path, xml ? ".xml" : ".md"), Companion(text, xml, file)); }

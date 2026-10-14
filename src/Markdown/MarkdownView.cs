@@ -269,6 +269,8 @@ namespace Stackshot
             }
         }
 
+        public const string TooLong = "El documento es demasiado largo para una sola imagen.";
+
         // The document as a picture on the window color, 2x when it fits.
         public static BitmapSource Render(string text, out string error)
         {
@@ -285,7 +287,7 @@ namespace Stackshot
             page.Arrange(new Rect(0, 0, page.DesiredSize.Width, page.DesiredSize.Height));
             page.UpdateLayout();
             int w = (int)Math.Ceiling(page.ActualWidth), h = (int)Math.Ceiling(page.ActualHeight);
-            if (h > 16000) { error = "El documento es demasiado largo para una sola imagen."; return null; }
+            if (h > 16000) { error = TooLong; return null; }
             double scale = h * 2 <= 16000 ? 2 : 1;
             RenderTargetBitmap rtb = new RenderTargetBitmap((int)(w * scale), (int)(h * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
             rtb.Render(page);
