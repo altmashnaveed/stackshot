@@ -190,13 +190,13 @@ namespace Stackshot
             Access.Describe(askSw, al.Text, (string)again.ToolTip);
             foot.Children.Add(again);
             StackPanel buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32);
-            cancel.Click += delegate { Close(); };
             MacButton go = new MacButton("Grabar", ButtonKind.Primary, gif ? "gif" : "video", null, 32);
-            go.Margin = new Thickness(8, 0, 0, 0);
             go.Click += Accept;
-            buttons.Children.Add(cancel);
+            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32);
+            cancel.Margin = new Thickness(8, 0, 0, 0);
+            cancel.Click += delegate { Close(); };
             buttons.Children.Add(go);
+            buttons.Children.Add(cancel);
             foot.Children.Add(buttons);
             page.Children.Add(foot);
         }

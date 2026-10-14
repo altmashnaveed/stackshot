@@ -113,22 +113,22 @@ namespace Stackshot
             page.Children.Add(status);
 
             Grid buttons = new Grid { Margin = new Thickness(0, 22, 0, 0) };
-            cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32);
-            cancel.HorizontalAlignment = HorizontalAlignment.Left;
-            cancel.Click += delegate { Close(); };
-            cancel.IsEnabled = !installing;
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            download = new MacButton(failed ? "Reintentar" : "Descargar", ButtonKind.Primary, "save", null, 32);
+            download.Click += Start;
+            download.IsEnabled = !busy && !installing;
             browse = new MacButton("Ya lo tengo\u2026", ButtonKind.Secondary, null, null, 32);
+            browse.Margin = new Thickness(8, 0, 0, 0);
             browse.ToolTip = "Elegir un ffmpeg.exe que ya tengas en el equipo";
             browse.Click += Browse;
             browse.IsEnabled = !busy && !installing;
-            download = new MacButton(failed ? "Reintentar" : "Descargar", ButtonKind.Primary, "save", null, 32);
-            download.Margin = new Thickness(8, 0, 0, 0);
-            download.Click += Start;
-            download.IsEnabled = !busy && !installing;
-            right.Children.Add(browse);
+            cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32);
+            cancel.Margin = new Thickness(8, 0, 0, 0);
+            cancel.Click += delegate { Close(); };
+            cancel.IsEnabled = !installing;
             right.Children.Add(download);
-            buttons.Children.Add(cancel);
+            right.Children.Add(browse);
+            right.Children.Add(cancel);
             buttons.Children.Add(right);
             page.Children.Add(buttons);
         }

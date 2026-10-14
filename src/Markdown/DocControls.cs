@@ -276,11 +276,10 @@ namespace Stackshot
             Grid.SetRow(body, 1);
             g.Children.Add(body);
 
-            // Destructive or secondary choices on the left, the rest on the right with the main one last.
+            // In Windows' order, as its own dialogs: on the right, the main choice first, the others, and Cancel last.
             Grid row = new Grid { Margin = new Thickness(0, 20, 0, 0) };
             Grid.SetRow(row, 2);
             Grid.SetColumnSpan(row, 2);
-            StackPanel left = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             MacButton main = null;
             MacButton[] all = new MacButton[buttons.Length];
@@ -292,13 +291,16 @@ namespace Stackshot
                 all[i] = b;
                 b.Click += delegate { result = k; Close(); };
                 if (isMain) main = b;
-                bool onLeft = buttons.Length == 3 && i != primary && i != cancel;
-                if (onLeft) left.Children.Add(b);
-                else { b.Margin = new Thickness(8, 0, 0, 0); right.Children.Add(b); }
             }
-            // The main button sits at the far right.
-            if (main != null && right.Children.Contains(main)) { right.Children.Remove(main); right.Children.Add(main); }
-            row.Children.Add(left);
+            List<int> order = new List<int>();
+            if (primary >= 0 && primary < all.Length) order.Add(primary);
+            for (int i = 0; i < all.Length; i++) if (i != primary && i != cancel) order.Add(i);
+            if (cancel >= 0 && cancel < all.Length && cancel != primary) order.Add(cancel);
+            for (int n = 0; n < order.Count; n++)
+            {
+                all[order[n]].Margin = new Thickness(n == 0 ? 0 : 8, 0, 0, 0);
+                right.Children.Add(all[order[n]]);
+            }
             row.Children.Add(right);
             g.Children.Add(row);
             Root.Children.Add(g);

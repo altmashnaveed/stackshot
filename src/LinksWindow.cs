@@ -102,13 +102,13 @@ namespace Stackshot
             page.Children.Add(error);
 
             StackPanel buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
-            MacButton close = new MacButton("Cerrar", ButtonKind.Secondary, null, null, 32) { Margin = new Thickness(0, 0, 8, 0) };
+            MacButton close = new MacButton("Cerrar", ButtonKind.Secondary, null, null, 32) { Margin = new Thickness(8, 0, 0, 0) };
             close.Click += delegate { Close(); };
             MacButton add = new MacButton("A\u00F1adir", ButtonKind.Primary, "plus", null, 32);
             add.Click += AddOne;
             add.IsEnabled = !full;
-            buttons.Children.Add(close);
             buttons.Children.Add(add);
+            buttons.Children.Add(close);
             page.Children.Add(buttons);
 
             if (list.Count == 0) return;

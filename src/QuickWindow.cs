@@ -188,12 +188,12 @@ namespace Stackshot
             page.Children.Add(error);
 
             StackPanel buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
-            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32) { Margin = new Thickness(0, 0, 8, 0) };
+            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32) { Margin = new Thickness(8, 0, 0, 0) };
             cancel.Click += delegate { Close(); };
             MacButton save = new MacButton(note ? "Apuntar" : "Recu\u00E9rdamelo", ButtonKind.Primary, note ? "check" : "clock", note ? "Ctrl+Intro" : null, 32);
             save.Click += Save;
-            buttons.Children.Add(cancel);
             buttons.Children.Add(save);
+            buttons.Children.Add(cancel);
             page.Children.Add(buttons);
         }
 

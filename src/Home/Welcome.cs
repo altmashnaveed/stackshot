@@ -217,14 +217,16 @@ namespace Stackshot
                 rule.Visibility = cut ? Visibility.Visible : Visibility.Collapsed;
             };
             Grid buttons = new Grid { Margin = compact ? new Thickness(32, 12, 32, 20) : new Thickness(36, 4, 36, 30) };
-            MacButton cancel = new MacButton("Ahora no", ButtonKind.Secondary, null, null, 40);
-            cancel.HorizontalAlignment = HorizontalAlignment.Left;
-            cancel.Click += delegate { Close(); };
+            // As a Windows installer: the main choice first, "not now" last, together on the right.
+            StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             MacButton ok = new MacButton("Instalar y empezar", ButtonKind.Primary, null, null, 40);
-            ok.HorizontalAlignment = HorizontalAlignment.Right;
             ok.Click += Save;
-            buttons.Children.Add(cancel);
-            buttons.Children.Add(ok);
+            MacButton cancel = new MacButton("Ahora no", ButtonKind.Secondary, null, null, 40);
+            cancel.Margin = new Thickness(10, 0, 0, 0);
+            cancel.Click += delegate { Close(); };
+            right.Children.Add(ok);
+            right.Children.Add(cancel);
+            buttons.Children.Add(right);
             foot.Children.Add(buttons);
             page.Children.Add(foot);
         }

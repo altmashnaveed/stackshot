@@ -118,14 +118,16 @@ namespace Stackshot
                 // The same as the notice's button: download, verify and install here, or the release page when it can't.
                 bool working = Updater.Doing == Updater.Step.Downloading || Updater.Doing == Updater.Step.Verifying || Updater.Doing == Updater.Step.Installing;
                 string label = working ? "Actualizando\u2026" : !Updater.CanInstall ? "Ver la versi\u00F3n" : Updater.IsReady ? "Instalar ahora" : "Descargar e instalar";
-                MacButton get = new MacButton(label, ButtonKind.Primary, Updater.CanInstall ? "update" : "open", null, 32) { Margin = new Thickness(8, 0, 0, 0), IsEnabled = !working };
+                MacButton get = new MacButton(label, ButtonKind.Primary, Updater.CanInstall ? "update" : "open", null, 32) { IsEnabled = !working };
                 get.Click += delegate
                 {
                     if (Updater.CanInstall) Updater.Install();
                     else Updater.OpenPage();
                     Close();
                 };
-                buttons.Children.Add(get);
+                // Windows' order: the main button first, "not now" after it.
+                buttons.Children.Insert(0, get);
+                close.Margin = new Thickness(8, 0, 0, 0);
             }
             page.Children.Add(buttons);
         }

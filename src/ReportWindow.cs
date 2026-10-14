@@ -182,17 +182,9 @@ namespace Stackshot
             statusLabel.Visibility = status.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             page.Children.Add(statusLabel);
 
+            // In Windows' order: what is missing, then the main button, the alternative and Cancel last.
             Grid buttons = new Grid { Margin = new Thickness(0, 20, 0, 0) };
-            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32) { HorizontalAlignment = HorizontalAlignment.Left };
-            cancel.Click += delegate { if (!sending) Close(); };
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            if (failed)
-            {
-                MacButton web = new MacButton("Abrir en GitHub", ButtonKind.Secondary, "open", null, 32) { Margin = new Thickness(0, 0, 8, 0) };
-                web.ToolTip = "Abre la incidencia en el navegador con todo lo que has escrito";
-                web.Click += delegate { Keep(); OpenInBrowser(); };
-                right.Children.Add(web);
-            }
             send = new MacButton(!Relay ? "Continuar en GitHub" : sending ? "Enviando\u2026" : failed ? "Reintentar" : "Enviar", ButtonKind.Primary, Relay ? "share" : "open", null, 32);
             send.ToolTip = "Ctrl + Intro";
             send.Click += Send;
@@ -203,7 +195,16 @@ namespace Stackshot
             missing.MaxWidth = 250;
             right.Children.Add(missing);
             right.Children.Add(send);
-            buttons.Children.Add(cancel);
+            if (failed)
+            {
+                MacButton web = new MacButton("Abrir en GitHub", ButtonKind.Secondary, "open", null, 32) { Margin = new Thickness(8, 0, 0, 0) };
+                web.ToolTip = "Abre la incidencia en el navegador con todo lo que has escrito";
+                web.Click += delegate { Keep(); OpenInBrowser(); };
+                right.Children.Add(web);
+            }
+            MacButton cancel = new MacButton("Cancelar", ButtonKind.Secondary, null, null, 32) { Margin = new Thickness(8, 0, 0, 0) };
+            cancel.Click += delegate { if (!sending) Close(); };
+            right.Children.Add(cancel);
             buttons.Children.Add(right);
             page.Children.Add(buttons);
             titleBox.TextChanged += delegate { Validate(); };
@@ -215,17 +216,17 @@ namespace Stackshot
         {
             StackPanel head = new StackPanel { Orientation = Orientation.Horizontal };
             head.Children.Add(new IconTile("check", 40, Ds.Rgb(52, 199, 89), Ds.Rgb(0, 160, 90)));
-            head.Children.Add(Text("\u00A1Enviado! Gracias", Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
+            head.Children.Add(Text("Enviado. Gracias", Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
             page.Children.Add(head);
             page.Children.Add(Para("Tu reporte es el n\u00FAmero " + sentNumber + ". En \u00ABMis reportes\u00BB ver\u00E1s c\u00F3mo avanza y las respuestas, aqu\u00ED mismo y sin cuenta.", pal.Label2, new Thickness(0, 14, 0, 0)));
             Grid buttons = new Grid { Margin = new Thickness(0, 22, 0, 0) };
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            MacButton see = new MacButton("Mis reportes", ButtonKind.Secondary, "history", null, 32) { Margin = new Thickness(0, 0, 8, 0) };
+            MacButton see = new MacButton("Mis reportes", ButtonKind.Secondary, "history", null, 32) { Margin = new Thickness(8, 0, 0, 0) };
             see.Click += delegate { ShowMine(); };
             MacButton close = new MacButton("Cerrar", ButtonKind.Primary, null, null, 32);
             close.Click += delegate { Close(); };
-            right.Children.Add(see);
             right.Children.Add(close);
+            right.Children.Add(see);
             buttons.Children.Add(right);
             page.Children.Add(buttons);
         }
@@ -351,7 +352,7 @@ namespace Stackshot
                 buttons.Children.Add(again);
             }
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            MacButton write = new MacButton("Nuevo reporte", ButtonKind.Secondary, "plus", null, 32) { Margin = new Thickness(0, 0, 8, 0) };
+            MacButton write = new MacButton("Nuevo reporte", ButtonKind.Secondary, "plus", null, 32) { Margin = new Thickness(8, 0, 0, 0) };
             write.Click += delegate
             {
                 mine = false;
@@ -360,8 +361,8 @@ namespace Stackshot
             };
             MacButton close = new MacButton("Cerrar", ButtonKind.Primary, null, null, 32);
             close.Click += delegate { Close(); };
-            right.Children.Add(write);
             right.Children.Add(close);
+            right.Children.Add(write);
             buttons.Children.Add(right);
             page.Children.Add(buttons);
         }
