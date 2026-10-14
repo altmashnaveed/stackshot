@@ -18,13 +18,13 @@ namespace Stackshot
     {
         readonly Settings settings;
         bool compact;
-        MacSwitch startup, printScreen, sound, copy, saveAll;
+        MacSwitch startup, printScreen, sound, copy, saveAll, extras;
         TextBlock folderLabel;
         Grid page;
         string folder;
         bool installed;
         // Choices kept across a rebuild when the theme changes.
-        bool wantStartup = true, wantPrintScreen = true, wantSound, wantCopy, wantSaveAll;
+        bool wantStartup = true, wantPrintScreen = true, wantSound, wantCopy, wantSaveAll, wantExtras;
 
         public bool StartWithWindows { get { return startup != null ? startup.IsOn : wantStartup; } }
 
@@ -97,6 +97,7 @@ namespace Stackshot
             if (sound != null) wantSound = sound.IsOn;
             if (copy != null) wantCopy = copy.IsOn;
             if (saveAll != null) wantSaveAll = saveAll.IsOn;
+            if (extras != null) wantExtras = extras.IsOn;
         }
 
         void Build()
@@ -153,6 +154,8 @@ namespace Stackshot
             sound = AddSwitch(list, "Sonido al capturar", "Un peque\u00F1o clic de c\u00E1mara.", wantSound);
             copy = AddSwitch(list, "Copiar cada captura", "Lista para pegar con Ctrl+V nada m\u00E1s hacerla.", wantCopy);
             saveAll = AddSwitch(list, "Guardar todas las capturas", "Van a tu carpeta al momento. Apagado, solo las que guardes t\u00FA.", wantSaveAll);
+            extras = Policy.MascotForced ? null
+                   : AddSwitch(list, "Mascota y pausas saludables", "Un compa\u00F1ero en la ventana que te recuerda beber agua y descansar la vista. Se puede activar despu\u00E9s.", wantExtras);
             Grid frow = Row(list);
             StackPanel ft = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = TextPad };
             ft.Children.Add(Text("Carpeta de capturas", Ds.Regular, 13.5, pal.Label, HorizontalAlignment.Left, new Thickness(0)));
@@ -305,6 +308,7 @@ namespace Stackshot
             settings.Sound = wantSound;
             settings.CopyToClipboard = wantCopy;
             settings.SaveAll = wantSaveAll;
+            settings.SetExtras(wantExtras && !Policy.MascotForced);
             settings.FirstRunDone = true;
             settings.Save();
             if (printScreen != null && wantPrintScreen) Installer.FreePrintScreen();

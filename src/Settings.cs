@@ -605,6 +605,15 @@ namespace Stackshot
             }
         }
 
+        // The extras beyond capturing: the mascot in the window, healthy breaks and the health comments. A new install
+        // starts with them off unless the welcome's switch turns them on.
+        public void SetExtras(bool on)
+        {
+            MascotOn = on;
+            WellOn = on;
+            HealthTalk = on;
+        }
+
         public Settings Clone()
         {
             return (Settings)MemberwiseClone();

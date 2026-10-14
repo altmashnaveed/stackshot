@@ -144,6 +144,7 @@ namespace Stackshot
                 // misread file, never a reason to write (the defaults) over it.
                 if (folder != null || (!s.FirstRunDone && !updated))
                 {
+                    if (!s.FirstRunDone && !updated) s.SetExtras(false); // a deployment starts with capturing only
                     s.FirstRunDone = true;
                     s.Save();
                 }
@@ -237,6 +238,7 @@ namespace Stackshot
                     if (Installer.ManagedByMsi)
                     {
                         // Installed by the MSI: shortcuts and startup are already set; skip the welcome.
+                        s.SetExtras(false);
                         s.FirstRunDone = true;
                         s.Save();
                     }
