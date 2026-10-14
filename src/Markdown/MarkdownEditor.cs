@@ -43,6 +43,7 @@ namespace Stackshot
         public event Action Scrolled;
         public event Action CaretMoved;
         public event Action<MouseButtonEventArgs, List<MenuEntry>> Menu;
+        public event Action<string> Copied;     // copied or cut from its menu: what to tell the user
 
         public MarkdownEditor(Palette pal, string text, bool xml)
         {
@@ -367,9 +368,9 @@ namespace Stackshot
             undo.Enabled = Box.CanUndo;
             MenuEntry redo = MenuEntry.Item("Rehacer", "redo", false, delegate { Box.Redo(); });
             redo.Enabled = Box.CanRedo;
-            MenuEntry cut = MenuEntry.Item("Cortar", null, false, delegate { Box.Cut(); });
+            MenuEntry cut = MenuEntry.Item("Cortar", null, false, delegate { Box.Cut(); if (Copied != null) Copied("Cortado."); });
             cut.Enabled = sel;
-            MenuEntry copy = MenuEntry.Item("Copiar", "copy", false, delegate { Box.Copy(); });
+            MenuEntry copy = MenuEntry.Item("Copiar", "copy", false, delegate { Box.Copy(); if (Copied != null) Copied("Copiado."); });
             copy.Enabled = sel;
             m.Add(undo); m.Add(redo); m.Add(MenuEntry.Line());
             m.Add(cut); m.Add(copy);

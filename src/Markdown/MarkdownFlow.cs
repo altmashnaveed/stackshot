@@ -24,6 +24,7 @@ namespace Stackshot
         readonly double side;
 
         public event Action<MouseButtonEventArgs, List<MenuEntry>> Menu;
+        public event Action<string> Copied;     // copied from its menu: what to tell the user
 
         // side: the least padding at each side of the page.
         public MarkdownFlow(double side)
@@ -52,7 +53,7 @@ namespace Stackshot
                 e.Handled = true;
                 if (Menu == null) return;
                 List<MenuEntry> m = new List<MenuEntry>();
-                MenuEntry copy = MenuEntry.Item("Copiar", "copy", false, delegate { Box.Copy(); });
+                MenuEntry copy = MenuEntry.Item("Copiar", "copy", false, delegate { Box.Copy(); if (Copied != null) Copied("Copiado."); });
                 copy.Enabled = !Box.Selection.IsEmpty;
                 m.Add(copy);
                 m.Add(MenuEntry.Item("Seleccionar todo", "check", false, delegate { Box.Focus(); Box.SelectAll(); }));

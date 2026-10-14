@@ -622,7 +622,28 @@ namespace Stackshot
 
         public string Label { get { return label; } set { if (label == value) return; label = value; Width = Measure(); InvalidateVisual(); } }
 
-        double Measure()
+        string done;
+        System.Windows.Threading.DispatcherTimer doneTimer;
+
+        // A check and a short word ("Copiado") in place of the label for a moment, so an action with nothing else to see
+        // still shows it happened. An icon-only button shows just the check.
+        public void Confirm(string word)
+        {
+            done = word;
+            if (label.Length > 0) Width = Math.Max(Width, Measure(word));
+            if (doneTimer == null)
+            {
+                doneTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
+                doneTimer.Tick += delegate { doneTimer.Stop(); done = null; Width = Measure(); InvalidateVisual(); };
+            }
+            doneTimer.Stop();
+            doneTimer.Start();
+            InvalidateVisual();
+        }
+
+        double Measure() { return Measure(label); }
+
+        double Measure(string label)
         {
             double w = Text(label, Ds.Semibold, fontSize, Colors.Black).WidthIncludingTrailingWhitespace + (Height >= 38 ? 40 : 26);
             if (icon != null) w += fontSize + 7;
@@ -704,6 +725,15 @@ namespace Stackshot
                 }
             }
             double pad = h >= 38 ? 20 : 13, x = r.X + pad;
+            if (done != null)
+            {
+                FormattedText dt = Text(label.Length > 0 ? done : "", Ds.Semibold, fontSize, fg);
+                double gw = fontSize + 2 + (label.Length > 0 ? 7 + dt.WidthIncludingTrailingWhitespace : 0);
+                x = Math.Round(r.X + (w - gw) / 2);
+                Glyph.Draw(dc, "check", x, r.Y + (r.Height - fontSize - 2) / 2, fontSize + 2, pal.High || kind == ButtonKind.Primary ? fg : pal.Green, 1.9);
+                if (label.Length > 0) dc.DrawText(dt, new Point(x + fontSize + 9, Math.Round(r.Y + (r.Height - dt.Height) / 2)));
+                return;
+            }
             if (trailing == null && icon == null)
             {
                 Ink.Center(dc, Text(label, Ds.Semibold, fontSize, fg), r);

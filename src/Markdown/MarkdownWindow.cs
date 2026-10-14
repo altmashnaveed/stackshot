@@ -399,16 +399,24 @@ namespace Stackshot
                     if (search == null) { search = new SearchField(Ds.Brushes, "Buscar o filtrar"); search.Text = query; search.Changed += OnSearch; }
                     tools.Children.Add(search);
                 }
-                tools.Children.Add(Tool("Copiar XML", "copy", CopyMarkdown, null));
+                tools.Children.Add(copyTextTool = Tool("Copiar XML", "copy", CopyMarkdown, null));
             }
             else
             {
                 tools.Children.Add(OutlineTool());
-                tools.Children.Add(Tool("Ordenar", "sparkle", Tidy, null));
-                tools.Children.Add(Tool("Insertar \u00EDndice", "plus", Index, null));
-                tools.Children.Add(Tool("Copiar Markdown", "copy", CopyMarkdown, null));
+                tools.Children.Add(tidyTool = Tool("Ordenar", "sparkle", Tidy, null));
+                tools.Children.Add(indexTool = Tool("Insertar \u00EDndice", "plus", Index, null));
+                tools.Children.Add(copyTextTool = Tool("Copiar Markdown", "copy", CopyMarkdown, null));
             }
-            tools.Children.Add(Tool("Copiar como imagen", "photo", CopyImage, null));
+            tools.Children.Add(copyImageTool = Tool("Copiar como imagen", "photo", CopyImage, null));
+        }
+
+        // The toolbar buttons that confirm on themselves (the status line also says it).
+        MacButton copyTextTool, copyImageTool, tidyTool, indexTool;
+
+        static void Confirm(MacButton b, string word)
+        {
+            if (b != null && b.IsLoaded) b.Confirm(word);
         }
 
         bool Narrow()
@@ -706,6 +714,7 @@ namespace Stackshot
             {
                 flow = new MarkdownFlow(editing ? 28 : 40);
                 flow.Menu += ShowMenu;
+                flow.Copied += delegate(string what) { Say(what, false); };
                 previewHost.Child = flow.Box;
             }
             Preview(true);
@@ -733,6 +742,7 @@ namespace Stackshot
             ed.Scrolled += delegate { if (!xml) SyncPreview(); };
             ed.CaretMoved += delegate { if (xml && ed.Box.IsKeyboardFocused) syncLater.Restart(); };
             ed.Menu += ShowMenu;
+            ed.Copied += delegate(string what) { Say(what, false); };
             HookMarkdownEditor(ed);
             return ed;
         }
@@ -956,7 +966,9 @@ namespace Stackshot
         {
             if (statusLabel == null) return;
             Palette pal = Ds.Brushes;
-            statusLabel.Foreground = Ds.Brush(statusBad ? pal.Error : pal.Label2);
+            statusLabel.Foreground = Ds.Brush(statusBad ? pal.Error : status != null ? pal.Label : pal.Label2);
+            // A message stands out from the usual counts while it lasts.
+            statusLabel.FontWeight = status != null ? FontWeights.SemiBold : FontWeights.Normal;
             if (status != null) { statusLabel.Text = status; return; }
             if (text == null) { statusLabel.Text = "Ver, editar y convertir Markdown o XML en una captura"; return; }
             string head = name != null ? name : "Sin t\u00EDtulo";
@@ -1755,8 +1767,9 @@ namespace Stackshot
         {
             if (xml || Current() == null) return;
             string t = MarkdownTools.Tidy(text);
-            if (t.TrimEnd('\n') == text.TrimEnd('\n')) { Say("Ya estaba ordenado.", false); return; }
+            if (t.TrimEnd('\n') == text.TrimEnd('\n')) { Say("Ya estaba ordenado.", false); Confirm(tidyTool, "Ya estaba"); return; }
             Replace(t, "Documento ordenado.");
+            Confirm(tidyTool, "Ordenado");
         }
 
         void Index()
@@ -1765,6 +1778,7 @@ namespace Stackshot
             string t = MarkdownTools.Toc(text);
             if (t == null) { Say("No hay t\u00EDtulos suficientes para un \u00EDndice.", true); return; }
             Replace(t, "\u00CDndice insertado.");
+            Confirm(indexTool, "Insertado");
         }
 
         // Formats or compacts the XML (text next to markup and xml:space="preserve" stay as they are).
@@ -1816,7 +1830,7 @@ namespace Stackshot
 
         void CopyMarkdown()
         {
-            if (Retry(delegate { Clipboard.SetText(Current()); })) Say(xml ? "XML copiado." : "Markdown copiado.", false);
+            if (Retry(delegate { Clipboard.SetText(Current()); })) { Say(xml ? "XML copiado." : "Markdown copiado.", false); Confirm(copyTextTool, "Copiado"); }
             else Say("No he podido usar el portapapeles.", true);
         }
 
@@ -1832,7 +1846,7 @@ namespace Stackshot
                 DataObject d = new DataObject();
                 d.SetImage(img);
                 d.SetData("CanUploadToCloudClipboard", new MemoryStream(BitConverter.GetBytes(0)));
-                if (Retry(delegate { Clipboard.SetDataObject(d, true); })) Say("Imagen copiada.", false);
+                if (Retry(delegate { Clipboard.SetDataObject(d, true); })) { Say("Imagen copiada.", false); Confirm(copyImageTool, "Copiada"); }
                 else Say("No he podido usar el portapapeles.", true);
             }
             catch (Exception ex) { ShotStack.Log("Markdown imagen: " + ex.Message); Say("No he podido crear la imagen.", true); }
