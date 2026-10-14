@@ -802,8 +802,11 @@ namespace Stackshot
                 new ToggleRow("Tapar los datos sensibles al capturar", "DNI, NIE, n\u00FAmero de la Seguridad Social, IBAN, tarjetas, correos y tel\u00E9fonos se tapan solos en cada captura. Se leen en tu equipo; nada sale de \u00E9l.", "redact!", Mac.Red, Mac.Orange,
                               delegate { return settings.SensitiveAuto; }, delegate(bool v) { settings.SensitiveAuto = v; }));
             Note("Apagado, decides t\u00FA: en el editor, \u00ABDatos sensibles\u00BB los tapa con marcas que puedes quitar.");
-            Group("Capturas guardadas", new FolderRow(), new NameTemplateRow(), SubfolderRow());
-            Note("Lo que no guardas se borra solo seg\u00FAn lo elegido en Recientes (nunca mientras tenga miniatura o est\u00E9 en el editor).");
+            Group("Capturas guardadas",
+                new ToggleRow("Guardar todas las capturas", "Cada captura y grabaci\u00F3n va tambi\u00E9n a tu carpeta. Apagado, solo las que guardas con Guardar.", "folder", Mac.Blue, Mac.Teal,
+                              delegate { return settings.SaveAll; }, delegate(bool v) { settings.SaveAll = v; }),
+                new FolderRow(), new NameTemplateRow(), SubfolderRow());
+            Note("Lo que no est\u00E1 en tu carpeta se borra solo seg\u00FAn lo elegido en Recientes (nunca mientras tenga miniatura o est\u00E9 en el editor).");
             BuildAdvanced();
         }
 

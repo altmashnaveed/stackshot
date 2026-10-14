@@ -22,6 +22,7 @@ namespace Stackshot
 
         // Where kept captures go (everything else is temporary and cleaned up).
         public string SaveFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Stackshot");
+        public bool SaveAll = true;         // every capture and recording also goes to the save folder; off: only those kept with Guardar
         public bool Sound = true;
         public bool CopyToClipboard = true;
         public bool FollowMouse = true;
@@ -226,6 +227,7 @@ namespace Stackshot
                     switch (k)
                     {
                         case "savefolder": v = Unquote(v); if (v.Length > 0) s.SaveFolder = Folder(v, s.SaveFolder); break;
+                        case "saveall": s.SaveAll = Bool(v, s.SaveAll); break;
                         case "sound": s.Sound = Bool(v, s.Sound); break;
                         case "copytoclipboard": s.CopyToClipboard = Bool(v, s.CopyToClipboard); break;
                         case "followmouse": s.FollowMouse = Bool(v, s.FollowMouse); break;
@@ -403,6 +405,7 @@ namespace Stackshot
             StringBuilder b = new StringBuilder();
             b.AppendLine("# Ajustes de Stackshot. Se pueden cambiar desde el icono de la bandeja > Ajustes.");
             b.AppendLine("SaveFolder = " + OneLine(SaveFolder));
+            b.AppendLine("SaveAll = " + (SaveAll ? "1" : "0"));
             b.AppendLine("Sound = " + (Sound ? "1" : "0"));
             b.AppendLine("CopyToClipboard = " + (CopyToClipboard ? "1" : "0"));
             b.AppendLine("FollowMouse = " + (FollowMouse ? "1" : "0"));

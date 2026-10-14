@@ -859,9 +859,21 @@ namespace Stackshot
                 catch (Exception ex) { Log("Portapapeles: " + ex.Message); }
             }
             Log("Captura: " + Path.GetFileName(path) + " (" + size.Width + "x" + size.Height + ")");
+            SaveIfAll(path);
             if (!Test) { AddLove(); CountCapture(); }
             if (Captured != null) Captured(path);
             return path;
+        }
+
+        // With "Guardar todas" on, a new capture or recording is copied to the save folder right away; a failure leaves
+        // it in the stack, still temporary, and says why.
+        void SaveIfAll(string path)
+        {
+            if (!settings.SaveAll || Test) return;
+            KeepAsync(path, delegate(string saved, string why)
+            {
+                if (saved == null) Notify("No se pudo guardar en tu carpeta", why + " La miniatura sigue en la pila: puedes volver a pulsar Guardar.");
+            });
         }
 
         // For the main window (the mascot celebrates each capture).
@@ -972,6 +984,7 @@ namespace Stackshot
             PlanSweep(TempLife + TimeSpan.FromSeconds(5));
             if (!AddCard(path)) return;
             if (SaveFolders.Inside(settings, Path.GetDirectoryName(path))) KeptInPlace(path);
+            else if (!IsCine(path)) SaveIfAll(path); // a Cine master (GB) is kept only by hand
             // A Cine master (GB of lossless video most apps can't play) is never pasted into a chat by accident.
             if (settings.CopyToClipboard && !Test && !IsCine(path))
             {

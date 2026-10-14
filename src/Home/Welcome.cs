@@ -18,13 +18,13 @@ namespace Stackshot
     {
         readonly Settings settings;
         bool compact;
-        MacSwitch startup, printScreen, sound, copy;
+        MacSwitch startup, printScreen, sound, copy, saveAll;
         TextBlock folderLabel;
         Grid page;
         string folder;
         bool installed;
         // Choices kept across a rebuild when the theme changes.
-        bool wantStartup = true, wantPrintScreen = true, wantSound, wantCopy;
+        bool wantStartup = true, wantPrintScreen = true, wantSound, wantCopy, wantSaveAll;
 
         public bool StartWithWindows { get { return startup != null ? startup.IsOn : wantStartup; } }
 
@@ -43,6 +43,7 @@ namespace Stackshot
             folder = s.SaveFolder;
             wantSound = s.Sound;
             wantCopy = s.CopyToClipboard;
+            wantSaveAll = s.SaveAll;
             Title = "Stackshot";
             Width = 520;
             SizeToContent = SizeToContent.Height;
@@ -95,6 +96,7 @@ namespace Stackshot
             if (printScreen != null) wantPrintScreen = printScreen.IsOn;
             if (sound != null) wantSound = sound.IsOn;
             if (copy != null) wantCopy = copy.IsOn;
+            if (saveAll != null) wantSaveAll = saveAll.IsOn;
         }
 
         void Build()
@@ -135,7 +137,7 @@ namespace Stackshot
             RenderOptions.SetBitmapScalingMode(logo, BitmapScalingMode.HighQuality);
             head.Children.Add(logo);
             col.Children.Add(head);
-            col.Children.Add(Text("Bienvenido a Stackshot", Ds.Title, compact ? 25 : 28, pal.Label, HorizontalAlignment.Center, new Thickness(0, compact ? 10 : 14, 0, 0)));
+            col.Children.Add(Text("Te damos la bienvenida", Ds.Title, compact ? 25 : 28, pal.Label, HorizontalAlignment.Center, new Thickness(0, compact ? 10 : 14, 0, 0)));
             string key = Hotkeys.Split(settings.HotRegion).Count > 0 ? "\nPulsa " + Hotkeys.Display(settings.HotRegion) + " y listo." : "";
             TextBlock sub = Text("Captura, marca y comparte en segundos." + key, Ds.Regular, 14, pal.Label2,
                                  HorizontalAlignment.Center, new Thickness(0, 6, 0, compact ? 18 : 24));
@@ -150,6 +152,7 @@ namespace Stackshot
                 : null;
             sound = AddSwitch(list, "Sonido al capturar", "Un peque\u00F1o clic de c\u00E1mara.", wantSound);
             copy = AddSwitch(list, "Copiar cada captura", "Lista para pegar con Ctrl+V nada m\u00E1s hacerla.", wantCopy);
+            saveAll = AddSwitch(list, "Guardar todas las capturas", "Van a tu carpeta al momento. Apagado, solo las que guardes t\u00FA.", wantSaveAll);
             Grid frow = Row(list);
             StackPanel ft = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = TextPad };
             ft.Children.Add(Text("Carpeta de capturas", Ds.Regular, 13.5, pal.Label, HorizontalAlignment.Left, new Thickness(0)));
@@ -301,6 +304,7 @@ namespace Stackshot
             settings.SaveFolder = folder;
             settings.Sound = wantSound;
             settings.CopyToClipboard = wantCopy;
+            settings.SaveAll = wantSaveAll;
             settings.FirstRunDone = true;
             settings.Save();
             if (printScreen != null && wantPrintScreen) Installer.FreePrintScreen();
