@@ -354,6 +354,7 @@ namespace Stackshot
             }
             catch { }
             string tmp = System.IO.Path.Combine(dir ?? "", "~" + name + ".stackshot-tmp");
+            bool tmpWritten = false;
             try
             {
                 using (FileStream fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -361,9 +362,23 @@ namespace Stackshot
                     fs.Write(b, 0, b.Length);
                     fs.Flush(true);
                 }
-                if (File.Exists(target)) File.Replace(tmp, target, null, true);
-                else File.Move(tmp, target);
-                return true;
+                tmpWritten = true;
+                // An antivirus or a sync client (OneDrive) often holds the file for a moment: try again before falling
+                // back to writing over it.
+                for (int attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        if (File.Exists(target)) File.Replace(tmp, target, null, true);
+                        else File.Move(tmp, target);
+                        return true;
+                    }
+                    catch (IOException)
+                    {
+                        if (attempt >= 2 || !File.Exists(tmp) || !File.Exists(target)) throw;
+                        System.Threading.Thread.Sleep(150);
+                    }
+                }
             }
             catch (IOException ex) { ShotStack.Log("Guardar (temporal): " + ex.Message); }
             catch (UnauthorizedAccessException ex) { ShotStack.Log("Guardar (temporal): " + ex.Message); }
@@ -371,11 +386,7 @@ namespace Stackshot
             // A failed replace can leave the target gone and the new text in the temporary file: put it in place.
             try
             {
-                if (File.Exists(tmp))
-                {
-                    if (!File.Exists(target)) { File.Move(tmp, target); return true; }
-                    File.Delete(tmp);
-                }
+                if (File.Exists(tmp) && !File.Exists(target)) { File.Move(tmp, target); return true; }
             }
             catch (Exception ex) { ShotStack.Log("Guardar (recuperar): " + ex.Message); }
             try
@@ -385,6 +396,8 @@ namespace Stackshot
                     fs.Write(b, 0, b.Length);
                     fs.Flush(true);
                 }
+                // The temporary copy stays until the direct write is complete: a failure halfway still leaves the text.
+                if (tmpWritten) { try { File.Delete(tmp); } catch (Exception ex) { ShotStack.Log("Guardar (temporal): " + ex.Message); } }
                 return true;
             }
             catch (UnauthorizedAccessException) { error = "No tengo permiso para escribir en " + name + ". Usa \u00ABGuardar como\u2026\u00BB."; }
