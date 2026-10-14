@@ -76,7 +76,7 @@ namespace Stackshot
             KeepCaptionsOnTop();
 
             StackPanel head = new StackPanel { Orientation = Orientation.Horizontal };
-            head.Children.Add(note ? new IconTile("note", 36, Ds.Rgb(255, 214, 10), Ds.Rgb(255, 159, 10)) : new IconTile("clock", 36, Ds.Rgb(90, 200, 250), Ds.Rgb(0, 122, 255)));
+            head.Children.Add(note ? new IconTile("memo", 36, Ds.Rgb(255, 214, 10), Ds.Rgb(255, 159, 10)) : new IconTile("clock", 36, Ds.Rgb(90, 200, 250), Ds.Rgb(0, 122, 255)));
             head.Children.Add(Text(note ? "\u00BFQu\u00E9 apunto?" : "\u00BFQu\u00E9 te recuerdo?", Ds.Title, 18, pal.Label, new Thickness(12, 0, 0, 0)));
             page.Children.Add(head);
 
@@ -135,7 +135,24 @@ namespace Stackshot
             }
             else
             {
-                TextBlock see = Text("Ver mis notas", Ds.Regular, 12.5, pal.Link, new Thickness(0, 10, 0, 0));
+                // The latest ones at a glance, then all of them in Notas.md.
+                List<KeyValuePair<string, string>> last = owner.LastNotes(3);
+                if (last.Count > 0)
+                {
+                    page.Children.Add(Text("\u00DAltimas notas", Ds.Semibold, 12.5, pal.Label, new Thickness(0, 18, 0, 4)));
+                    foreach (KeyValuePair<string, string> n in last)
+                    {
+                        DockPanel row = new DockPanel { Margin = new Thickness(0, 3, 0, 0), ToolTip = n.Value };
+                        TextBlock when = Text(n.Key, Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 10, 0));
+                        DockPanel.SetDock(when, Dock.Left);
+                        row.Children.Add(when);
+                        TextBlock what = Text(n.Value, Ds.Regular, 12.5, pal.Label2, new Thickness(0));
+                        what.TextTrimming = TextTrimming.CharacterEllipsis;
+                        row.Children.Add(what);
+                        page.Children.Add(row);
+                    }
+                }
+                TextBlock see = Text(last.Count > 0 ? "Ver todas (Notas.md, en tu carpeta de capturas)" : "Ver mis notas (Notas.md, en tu carpeta de capturas)", Ds.Regular, 12.5, pal.Link, new Thickness(0, 10, 0, 0));
                 see.Cursor = Cursors.Hand;
                 see.HorizontalAlignment = HorizontalAlignment.Left;
                 see.MouseLeftButtonUp += delegate { owner.OpenNotes(); };

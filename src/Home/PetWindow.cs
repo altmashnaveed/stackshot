@@ -1561,7 +1561,7 @@ namespace Stackshot
             // What it helps with: reminders, notes, focus, breaks and the day.
             int pending = owner.Reminders.Count;
             Add("bell", "Recu\u00E9rdame algo\u2026", pending > 0 ? pending + (pending == 1 ? " pendiente" : " pendientes") : null, delegate { QuickWindow.Remind(owner); });
-            Add("note", "Apunta algo\u2026", null, delegate { QuickWindow.Note(owner); });
+            Add("memo", "Apunta algo\u2026", null, delegate { QuickWindow.Note(owner); });
             if (!f.On) Add("clock", "Concentrarme " + FocusClock.Minutes(settings.FocusWork), null, owner.FocusStart);
             Add("drop", "Una pausa conmigo", null, OpenBreaks);
             int water = owner.WaterToday();

@@ -226,7 +226,7 @@ namespace Stackshot
             Group("Ayudante",
                 new ButtonRow("Recordatorios", "\u00ABRecu\u00E9rdame algo\u2026\u00BB en el men\u00FA de la mascota. " + next, "bell", Mac.Blue, Mac.Indigo, "Nuevo\u2026",
                               delegate { QuickWindow.Remind(owner); }),
-                new ButtonRow("Notas", "\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas.", "note", Mac.Orange, Mac.Pink, "Ver",
+                new ButtonRow("Notas", "\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas.", "memo", Mac.Orange, Mac.Pink, "Ver",
                               delegate { owner.OpenNotes(); }),
                 new ButtonRow("Accesos rápidos", LinksSub(), "open", Mac.Indigo, Mac.Blue, "Editar…", delegate { LinksWindow.Show(owner); }),
                 new ToggleRow("Avisarme de los XML con fallo", "Cuando llega a la carpeta vigilada un XML con SOAP Fault, te lo dice con un bot\u00F3n para abrirlo.", "warning", Mac.Red, Mac.Orange,

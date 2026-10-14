@@ -159,6 +159,36 @@ namespace Stackshot
             }
         }
 
+        // The latest notes, newest first: when (as written) and the text on one line.
+        public List<KeyValuePair<string, string>> LastNotes(int count)
+        {
+            List<KeyValuePair<string, string>> all = new List<KeyValuePair<string, string>>();
+            try
+            {
+                if (!File.Exists(NotesPath)) return all;
+                foreach (string line in File.ReadAllLines(NotesPath, Encoding.UTF8))
+                {
+                    // "- **14/10/2026 16:05** · text"; the lines under it (indented) belong to it.
+                    if (line.StartsWith("- **"))
+                    {
+                        int end = line.IndexOf("**", 4);
+                        if (end < 0) continue;
+                        string body = line.Substring(end + 2).TrimStart(' ', '·').Trim();
+                        all.Add(new KeyValuePair<string, string>(line.Substring(4, end - 4), body));
+                    }
+                    else if (line.StartsWith("  ") && all.Count > 0 && line.Trim().Length > 0)
+                    {
+                        KeyValuePair<string, string> last = all[all.Count - 1];
+                        all[all.Count - 1] = new KeyValuePair<string, string>(last.Key, last.Value + " " + line.Trim());
+                    }
+                }
+            }
+            catch (Exception ex) { Log("Notas: " + ex.Message); }
+            all.Reverse();
+            if (all.Count > count) all.RemoveRange(count, all.Count - count);
+            return all;
+        }
+
         public void OpenNotes()
         {
             if (!File.Exists(NotesPath))
