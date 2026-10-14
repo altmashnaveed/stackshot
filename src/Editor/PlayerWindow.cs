@@ -978,8 +978,21 @@ namespace Stackshot
             string f = files[0];
             if (Directory.Exists(f) || !File.Exists(f)) { Flash("No se puede abrir eso."); return; }
             // An extension FFmpeg is not known to read is probed first, so a stray file does not replace what is playing.
-            if (!ShotStack.IsVideoFile(f) && !MediaInfo.Probe(ffmpeg, f).CanPlay) { Flash("Ese archivo no es un v\u00EDdeo que se pueda abrir."); return; }
-            OpenAndPlay(f);
+            if (ShotStack.IsVideoFile(f)) { OpenAndPlay(f); return; }
+            if (probing) return;
+            probing = true;
+            UseWaitCursor = true;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                bool playable = MediaInfo.ProbeCached(ffmpeg, f).CanPlay;
+                OnUi(delegate
+                {
+                    probing = false;
+                    UseWaitCursor = false;
+                    if (!playable) { Flash("Ese archivo no es un v\u00EDdeo que se pueda abrir."); return; }
+                    OpenAndPlay(f);
+                });
+            });
         }
 
         void Act(string id)

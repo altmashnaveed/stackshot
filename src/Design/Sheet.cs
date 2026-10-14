@@ -314,8 +314,9 @@ namespace Stackshot
                 if (MinHeight > h) MinHeight = h;
                 if (!double.IsNaN(Width) && Width > w) Width = w;
                 if (!double.IsNaN(Height) && Height > h) Height = h;
-                if (MaxWidth > w) MaxWidth = w;
-                if (MaxHeight > h) MaxHeight = h;
+                // Only a window that sizes itself to its content needs a ceiling (to scroll instead of growing past the
+                // screen); a resizable one keeps no cap, so it can still be made bigger on a larger monitor.
+                if ((SizeToContent == SizeToContent.Height || SizeToContent == SizeToContent.WidthAndHeight) && MaxHeight > h) MaxHeight = h;
             }
             catch (Exception ex) { ShotStack.Log("Ventana al \u00E1rea de trabajo: " + ex.Message); }
         }

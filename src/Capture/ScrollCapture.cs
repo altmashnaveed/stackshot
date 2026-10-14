@@ -104,6 +104,9 @@ namespace Stackshot
         public int[] Add(int[] px, out Result result, out int added)
         {
             added = 0;
+            // Profiles worked out by an earlier call may belong to whatever this reused buffer held then.
+            curFeat = null;
+            curFeatOf = null;
             ulong[] hs = new ulong[h];
             bool[] flat = new bool[h];
             HashRows(px, hs, flat);

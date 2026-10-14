@@ -46,7 +46,7 @@ namespace Stackshot
         }
         public bool CanPlay { get { return HasVideo && Fps > 0; } }
 
-        // Probes kept for a minute (same file, size and time), so the window opened after a background probe doesn't
+        // Probes kept a while (same file, size and time), so the window opened after a background probe doesn't
         // ask FFmpeg again on the UI thread.
         static readonly Dictionary<string, KeyValuePair<DateTime, MediaInfo>> recent = new Dictionary<string, KeyValuePair<DateTime, MediaInfo>>(StringComparer.OrdinalIgnoreCase);
 
@@ -56,18 +56,25 @@ namespace Stackshot
             catch (Exception) { return null; }
         }
 
+        // A failed probe (FFmpeg stuck, a drive gone) is only kept long enough for the window it opens, so trying the same
+        // file again asks FFmpeg again.
+        static bool Fresh(KeyValuePair<DateTime, MediaInfo> hit)
+        {
+            return DateTime.UtcNow - hit.Key < (hit.Value.HasVideo ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(5));
+        }
+
         internal static bool IsCached(string path)
         {
             string key = CacheKey(path);
             KeyValuePair<DateTime, MediaInfo> hit;
-            lock (recent) return key != null && recent.TryGetValue(key, out hit) && DateTime.UtcNow - hit.Key < TimeSpan.FromMinutes(1);
+            lock (recent) return key != null && recent.TryGetValue(key, out hit) && Fresh(hit);
         }
 
         internal static MediaInfo ProbeCached(string ffmpeg, string path)
         {
             string key = CacheKey(path);
             KeyValuePair<DateTime, MediaInfo> hit;
-            if (key != null) lock (recent) if (recent.TryGetValue(key, out hit) && DateTime.UtcNow - hit.Key < TimeSpan.FromMinutes(1)) return hit.Value;
+            if (key != null) lock (recent) if (recent.TryGetValue(key, out hit) && Fresh(hit)) return hit.Value;
             MediaInfo m = Probe(ffmpeg, path);
             if (key != null) lock (recent) { if (recent.Count > 32) recent.Clear(); recent[key] = new KeyValuePair<DateTime, MediaInfo>(DateTime.UtcNow, m); }
             return m;

@@ -118,6 +118,9 @@ namespace Stackshot
             // A folder whose new XML files open in the viewer (SOAP messages); off unless turned on.
             xmlWatch = new XmlWatch(sync, OpenArrivedXml);
             xmlWatch.Apply(settings);
+            // Turned on with no folder (an earlier version had a default one): said once per start, instead of silence.
+            if (settings.XmlWatch && XmlWatch.FolderFor(settings) == null && !Test)
+                After(6000, delegate { if (!exiting) NotifyPage("Elige la carpeta de los XML", "La vigilancia de XML está activada pero no tiene carpeta. Elígela en General > Avanzado.", "general"); });
 
             // Another instance (an update, the uninstaller) can ask this one to quit cleanly.
             if (!Test)
@@ -1606,11 +1609,11 @@ namespace Stackshot
             // FFmpeg reads the file first, off the UI thread (a network drive or a damaged file can take long); the
             // window then finds the answer ready.
             if (MediaInfo.IsCached(path)) { OpenPlayerNow(path, ff); return; }
-            if (!preparing.Add(path)) return;
+            if (!preparing.Add("p|" + path)) return;
             System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
                 MediaInfo.ProbeCached(ff, path);
-                Ui(delegate { preparing.Remove(path); if (!exiting && !Playing(path)) OpenPlayerNow(path, ff); });
+                Ui(delegate { preparing.Remove("p|" + path); if (!exiting && !Playing(path)) OpenPlayerNow(path, ff); });
             });
         }
 
@@ -1802,18 +1805,18 @@ namespace Stackshot
             {
                 // Video or GIF: presentation mode (annotations and backdrop over the whole recording). FFmpeg reads it
                 // off the UI thread, so a slow drive or a damaged file never freezes the stack; the window follows.
-                if (preparing.Contains(path)) return true;
+                if (preparing.Contains("e|" + path)) return true;
                 string ff = Recorder.FindFfmpeg(settings);
                 if (ff == null) ff = FfmpegSetup.Run(settings);
                 if (ff == null) return false;
-                preparing.Add(path);
+                preparing.Add("e|" + path);
                 System.Threading.ThreadPool.QueueUserWorkItem(delegate
                 {
                     Editor.VideoPrep v = Editor.PrepareVideo(ff, path);
                     Ui(delegate
                     {
-                        preparing.Remove(path);
-                        if (exiting) { Editor.FromPrepared(null, path, ff, new Editor.VideoPrep { Frame = v.Frame, Failure = "" }); return; }
+                        preparing.Remove("e|" + path);
+                        if (exiting) { Editor.FromPrepared(null, path, ff, new Editor.VideoPrep { Frame = v.Frame, Failure = "", Quiet = true }); return; }
                         Editor e = Editor.FromPrepared(this, path, ff, v);
                         if (e != null) ShowEditor(path, e);
                     });

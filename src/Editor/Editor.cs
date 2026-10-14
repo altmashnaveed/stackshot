@@ -996,7 +996,7 @@ namespace Stackshot
 
         // What opening a recording needs from FFmpeg (its first frame, length and streams). It can take long on a network
         // drive or a damaged file, so the stack reads it off the UI thread and builds the window with FromPrepared.
-        internal sealed class VideoPrep { public string Frame, Err, Failure; public double Duration; public MediaInfo Info; }
+        internal sealed class VideoPrep { public string Frame, Err, Failure; public double Duration; public MediaInfo Info; public bool Quiet; }
 
         internal static VideoPrep PrepareVideo(string ff, string path)
         {
@@ -1035,7 +1035,9 @@ namespace Stackshot
             {
                 if (v.Failure != null)
                 {
-                    if (v.Failure.Length > 0) Dialogs.Show("No se pudo abrir la grabaci\u00F3n.\n\n" + v.Failure, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (!v.Quiet)
+                        Dialogs.Show("No se pudo abrir la grabaci\u00F3n." + (v.Failure.Length > 0 ? "\n\n" + v.Failure : "\n\nEl archivo no se puede leer ahora; vuelve a intentarlo."),
+                                     "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return null;
                 }
                 double dur = v.Duration;

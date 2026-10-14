@@ -159,15 +159,28 @@ namespace Stackshot
                 d.Filter = "ffmpeg.exe|ffmpeg.exe";
                 d.Title = "\u00BFD\u00F3nde est\u00E1 ffmpeg.exe?";
                 if (d.ShowDialog(Win32) != WF.DialogResult.OK) return;
-                if (!AnswersAsFfmpeg(d.FileName))
+                string chosen = d.FileName;
+                // Asked off the window's thread: an exe that never answers must not freeze it.
+                browse.IsEnabled = download.IsEnabled = false;
+                SetStatus("Comprobando " + System.IO.Path.GetFileName(chosen) + "\u2026", false);
+                ThreadPool.QueueUserWorkItem(delegate
                 {
-                    SetStatus("Ese archivo no responde como FFmpeg. Elige el ffmpeg.exe de una versi\u00F3n completa.", true);
-                    return;
-                }
-                settings.Ffmpeg = d.FileName;
-                settings.Save();
-                result = d.FileName;
-                Close();
+                    bool ok = AnswersAsFfmpeg(chosen);
+                    try
+                    {
+                        Dispatcher.BeginInvoke((Action)delegate
+                        {
+                            if (!IsVisible) return;
+                            browse.IsEnabled = download.IsEnabled = !busy && !installing;
+                            if (!ok) { SetStatus("Ese archivo no responde como FFmpeg. Elige el ffmpeg.exe de una versi\u00F3n completa.", true); return; }
+                            settings.Ffmpeg = chosen;
+                            settings.Save();
+                            result = chosen;
+                            Close();
+                        });
+                    }
+                    catch (Exception ex) { ShotStack.Log("FFmpeg elegido: " + ex.Message); }
+                });
             }
         }
 
