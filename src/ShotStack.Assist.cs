@@ -60,7 +60,7 @@ namespace Stackshot
             Log("Recordatorio para las " + dueLocal.ToString("HH:mm"));
             if (quiet) return;
             string when = WhenText(dueLocal);
-            if (pet != null) pet.FocusSay("Te lo recuerdo " + when + ".");
+            if (PetShown) pet.FocusSay("Te lo recuerdo " + when + ".");
             else Notify("Recordatorio guardado", "Te lo recuerdo " + when + ": \u00AB" + text + "\u00BB.");
         }
 

@@ -14,6 +14,7 @@ namespace Stackshot
         Timer focusTimer;
         string trayText;
         bool focusWasAway;                          // a minute or more without input (a question is asked again on return)
+        bool focusPetHid;                           // the mascot hidden by a full-screen app (same, when it comes back)
         const int FocusAwayMs = 5 * 60 * 1000;      // away this long during a block: the clock stops
         const int FocusForgetMs = 45 * 60 * 1000;   // a question unanswered this long: focus ends on its own
 
@@ -116,14 +117,13 @@ namespace Stackshot
             FocusRun();
         }
 
-        // Every change is told: in the mascot's bubble when it is on the desktop, and as a notice by the clock (with a
-        // button for the obvious next step, if any) unless those are turned off.
+        // Every change is told once: in the mascot's bubble when it is on screen, otherwise as a notice by the clock (with
+        // a button for the obvious next step, if any) unless those are turned off.
         void FocusTell(FocusChime.Cue cue, string title, string text, string actionLabel, Action action)
         {
             if (settings.FocusSound) FocusChime.Play(cue);
-            FocusSay(text);
-            // Without the desktop mascot the notices are the only way to know, whatever the setting.
-            if (settings.FocusNotices || pet == null) Notify(title, text, NoticeKind.Info, actionLabel, action);
+            if (PetShown) pet.FocusSay(text);
+            else if (settings.FocusNotices) Notify(title, text, NoticeKind.Info, actionLabel, action);
         }
 
         void FocusRun()
@@ -158,11 +158,15 @@ namespace Stackshot
                 focus.Away = false;
                 FocusAskBack();
             }
-            // A question that came while they were away (a break ending) is asked again when they are back.
+            // A question that came while they were away (a break ending), or while a full-screen app hid the mascot, is
+            // asked again when they are back.
             bool back = focusWasAway && idle < 3000;
             if (idle >= 60000) focusWasAway = true;
             else if (idle < 3000) focusWasAway = false;
-            if (back && focus.Asking && pet != null)
+            bool hid = pet != null && !pet.Visible;
+            if (focusPetHid && !hid) back = true;
+            focusPetHid = hid;
+            if (back && focus.Asking && PetShown)
             {
                 if (focus.Now == FocusClock.Phase.Work) pet.FocusAskWork(null);
                 else pet.FocusAskBreak();
@@ -189,16 +193,15 @@ namespace Stackshot
                 Log("Concentraci\u00F3n: bloque " + focus.Block + " hecho");
                 string done = "Bloque " + focus.Block + " de " + focus.Rounds + " hecho";
                 if (auto) { FocusBreak(done); return; }
+                // The mascot asks (no notice as well); hidden by a full-screen app, it asks when it is back.
                 focus.Ask(now);
                 pet.FocusAskWork(up);
-                if (settings.FocusNotices) Notify(done, (FocusToday() ?? "") + " \u00BFDescansamos?", NoticeKind.Info, "Empezar el descanso", delegate { if (focus.Asking && focus.Now == FocusClock.Phase.Work) FocusBreak(); });
             }
             else
             {
                 if (auto) { FocusWork(false, "Fin del descanso"); return; }
                 focus.Ask(now);
                 pet.FocusAskBreak();
-                if (settings.FocusNotices) Notify("Fin del descanso", "\u00BFSeguimos con el siguiente bloque?", NoticeKind.Info, "Empezar el bloque", delegate { if (focus.Asking && focus.Now == FocusClock.Phase.Break) FocusWork(false); });
             }
         }
 
@@ -208,12 +211,6 @@ namespace Stackshot
             string text = "Has estado fuera " + m + " min y he parado el reloj: quedaban " + FocusClock.Clock(focus.Left(DateTime.UtcNow)) + ".";
             if (pet != null) pet.FocusAskBack(text);
             else Notify("Concentraci\u00F3n en pausa", text, NoticeKind.Info, "Seguir", delegate { if (focus.Paused) FocusResume(); });
-        }
-
-        // What the mascot says about it (in its bubble), or nothing without it on the desktop.
-        void FocusSay(string text)
-        {
-            if (pet != null) pet.FocusSay(text);
         }
 
         // The pill above the mascot, the tray tooltip and the settings page follow the clock.

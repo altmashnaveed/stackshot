@@ -217,12 +217,15 @@ namespace Stackshot
             StartAssist();
         }
 
-        // Something to say to the user right now: the mascot's bubble, or a notice without it on the desktop.
+        // Something to say to the user right now: the mascot's bubble, or a notice when it is not on screen.
         public void Told(string text)
         {
-            if (pet != null) pet.FocusSay(text);
+            if (PetShown) pet.FocusSay(text);
             else Notify("Stackshot", text);
         }
+
+        // The desktop mascot is out and can be seen (not hidden by a full-screen app): it speaks, and no notice says the same.
+        bool PetShown { get { return pet != null && pet.Visible; } }
 
         // Runs once on this thread after ms, unless Stackshot is closing by then.
         void After(int ms, Action act)
