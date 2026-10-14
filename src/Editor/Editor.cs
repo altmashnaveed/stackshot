@@ -232,6 +232,10 @@ namespace Stackshot
                 timeline.Clips = clips;
                 timeline.CanAddClips = ffmpeg != null;
                 timeline.Trimmed += delegate { SyncPlayEnd(); dirty = true; UpdateUi(); };
+                // Ctrl+Z also takes back trims, splits and cuts.
+                timeline.Changing += canvas.Checkpoint;
+                canvas.SaveExtra = delegate { return timeline.Save(); };
+                canvas.LoadExtra = delegate(object o) { if (timeline.Load(o as Timeline.State)) { SyncPlayEnd(); dirty = true; UpdateUi(); } };
                 timeline.OptionsChanged += delegate { RememberQuality(bgs, timeline.Quality); dirty = true; UpdateUi(); };
                 timeline.Seek += OnTimelineSeek;
                 timeline.AddClip += AskForClips;

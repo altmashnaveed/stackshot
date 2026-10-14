@@ -11,7 +11,12 @@ namespace Stackshot
 {
     public partial class Canvas : Control
     {
-        class Snapshot { public List<Shape> Shapes; public RectangleF Crop; }
+        class Snapshot { public List<Shape> Shapes; public RectangleF Crop; public object Extra; }
+
+        // State kept outside the canvas that undo also covers (a video's trim and cuts): taken with every step and given
+        // back on undo and redo.
+        public Func<object> SaveExtra;
+        public Action<object> LoadExtra;
         enum Drag { None, Draw, Move, Resize }
 
         public static readonly float[] Weights = { 0.6f, 1f, 1.6f };
@@ -1172,7 +1177,16 @@ namespace Stackshot
             sn.Shapes = new List<Shape>();
             foreach (Shape s in shapes) sn.Shapes.Add(s.Clone());
             sn.Crop = Crop;
+            if (SaveExtra != null) sn.Extra = SaveExtra();
             return sn;
+        }
+
+        // An undo step for a change made outside the canvas (the timeline), taken just before it.
+        public void Checkpoint()
+        {
+            if (box != null) return;
+            Commit();
+            Fire(StateChanged);
         }
 
         // Snapshot taken before every change.
@@ -1193,6 +1207,7 @@ namespace Stackshot
             foreach (Shape s in shapes) s.DropCache();
             shapes = sn.Shapes;
             Crop = sn.Crop;
+            if (LoadExtra != null && sn.Extra != null) LoadExtra(sn.Extra);
             selected = null;
             hover = null;
             if (drag == Drag.Move || drag == Drag.Resize) { drag = Drag.None; orig = null; }

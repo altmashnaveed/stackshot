@@ -95,8 +95,39 @@ namespace Stackshot
             Pieces.Add(new Piece());
         }
 
+        // Before every trim, split or cut (for undo). Adding, removing or moving videos starts a new layout: older steps
+        // no longer fit it and leave the timeline as it is.
+        public event Action Changing;
+        int layout;
+        bool dragNoted;
+
+        public sealed class State { public int Layout; public double In, Out; public Piece[] Pieces; }
+
+        public State Save()
+        {
+            State st = new State { Layout = layout, In = In, Out = Out, Pieces = new Piece[Pieces.Count] };
+            for (int i = 0; i < Pieces.Count; i++) st.Pieces[i] = new Piece { A = Pieces[i].A, B = Pieces[i].B, Off = Pieces[i].Off };
+            return st;
+        }
+
+        // False when the state belongs to another layout (nothing changes then).
+        public bool Load(State st)
+        {
+            if (st == null || st.Layout != layout) return false;
+            In = st.In;
+            Out = st.Out;
+            Pieces.Clear();
+            foreach (Piece p in st.Pieces) Pieces.Add(new Piece { A = p.A, B = p.B, Off = p.Off });
+            Playhead = Math.Max(In, Math.Min(Out, Playhead));
+            Invalidate();
+            return true;
+        }
+
+        void Noting() { if (Changing != null) Changing(); }
+
         public void Init(double duration)
         {
+            layout++;
             Duration = duration;
             Out = duration;
             Pieces.Clear();
@@ -107,6 +138,7 @@ namespace Stackshot
         // previous video still holds and the new one is not left outside the handles.
         public void Extend(double total)
         {
+            layout++;
             double old = Duration, oldOut = Out;
             if (oldOut < old - 0.05)
             {
@@ -129,6 +161,7 @@ namespace Stackshot
         // of a span (the end of a piece belongs to the video it closes, a start to the one it opens).
         public void Relayout(Func<double, bool, double> map, double total)
         {
+            layout++;
             List<Piece> moved = new List<Piece>();
             foreach (Piece p in Pieces)
             {
@@ -181,6 +214,7 @@ namespace Stackshot
         public void SplitAtPlayhead()
         {
             if (!CanSplit) return;
+            Noting();
             Piece p = PieceAt(Playhead);
             Piece n = new Piece { A = Playhead, B = p.B, Off = p.Off };
             p.B = Playhead;
@@ -191,6 +225,7 @@ namespace Stackshot
         public void ToggleCut()
         {
             if (!CanCut) return;
+            Noting();
             Piece p = PieceAt(Playhead);
             p.Off = !p.Off;
             Changed();
@@ -670,6 +705,7 @@ namespace Stackshot
                 return;
             }
             double t = T(e.X), min = Math.Min(0.3, Duration / 4);
+            if ((drag == Grip.In || drag == Grip.Out) && !dragNoted) { dragNoted = true; Noting(); }
             if (drag == Grip.In) { In = Math.Min(t, Out - min); Playhead = In; }
             else if (drag == Grip.Out) { Out = Math.Max(t, In + min); Playhead = Out; }
             else Playhead = Math.Max(In, Math.Min(Out, t));
@@ -701,6 +737,7 @@ namespace Stackshot
         {
             Grip d = drag;
             drag = Grip.None;
+            dragNoted = false;
             if (d == Grip.In || d == Grip.Out) { if (Trimmed != null) Trimmed(); }
             if (d != Grip.None && Seek != null) Seek(Playhead);
         }
