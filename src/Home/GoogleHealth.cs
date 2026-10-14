@@ -111,27 +111,62 @@ namespace Stackshot
                     string line = new StreamReader(s, Encoding.ASCII).ReadLine() ?? "";
                     string[] parts = line.Split(' ');
                     string target = parts.Length > 1 ? parts[1] : "";
-                    if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, "No encontrado."); continue; }
+                    if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, Mark.Fail, "P\u00E1gina no encontrada", null, "Esta direcci\u00F3n no es de Stackshot."); continue; }
                     Dictionary<string, string> q = Query(target);
                     string got;
-                    if (q.TryGetValue("error", out got)) { Answer(s, 200, "Has cancelado la conexi\u00F3n. Puedes cerrar esta pesta\u00F1a."); return got == "access_denied" ? Cancelled :"Google ha dicho: " + got; }
+                    if (q.TryGetValue("error", out got))
+                    {
+                        if (got == "access_denied")
+                        {
+                            Answer(s, 200, Mark.Off, "Conexi\u00F3n cancelada", null, "No se ha conectado nada. Puedes cerrar esta pesta\u00F1a y, cuando quieras, volver a intentarlo desde Stackshot.");
+                            return Cancelled;
+                        }
+                        Answer(s, 200, Mark.Fail, "No se ha podido conectar", null, "Google ha respondido \u00AB" + got + "\u00BB. Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.");
+                        return "Google ha dicho: " + got;
+                    }
                     string code, st;
-                    if (!q.TryGetValue("code", out code) || !q.TryGetValue("state", out st) || st != state) { Answer(s, 400, "Respuesta no v\u00E1lida."); continue; }
+                    if (!q.TryGetValue("code", out code) || !q.TryGetValue("state", out st) || st != state)
+                    {
+                        Answer(s, 400, Mark.Fail, "Respuesta no v\u00E1lida", null, "Esta respuesta no viene del inicio de sesi\u00F3n que ha abierto Stackshot. Vuelve a intentarlo desde la app.");
+                        continue;
+                    }
                     string error = Token("grant_type=authorization_code&code=" + Uri.EscapeDataString(code) + "&code_verifier=" + verifier +
                                          "&redirect_uri=" + Uri.EscapeDataString(Program.WatchRedirect));
-                    Answer(s, 200, error == null ? "\u00A1Listo! Tu reloj ya est\u00E1 conectado con Stackshot. Puedes cerrar esta pesta\u00F1a." : "No se ha podido terminar la conexi\u00F3n. Vuelve a Stackshot.");
+                    if (error == null) Answer(s, 200, Mark.Ok, "Reloj ", "conectado", "Stackshot ya puede ver tus pasos, tu actividad y tu sue\u00F1o. Puedes cerrar esta pesta\u00F1a y volver a la app.");
+                    else Answer(s, 200, Mark.Fail, "No se ha podido conectar", null, error + " Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.");
                     return error;
                 }
             }
             return "Se acab\u00F3 el tiempo para iniciar sesi\u00F3n. Vuelve a intentarlo.";
         }
 
-        static void Answer(NetworkStream s, int code, string text)
+        enum Mark { Ok, Off, Fail }
+
+        // The page the browser shows at the end, in the look of the website (light or dark, as the system is). word: the
+        // end of the title in the website's gradient.
+        static void Answer(NetworkStream s, int code, Mark mark, string title, string word, string text)
         {
-            string html = "<!doctype html><meta charset=utf-8><title>Stackshot</title><body style=\"font:16px Segoe UI,sans-serif;display:grid;place-items:center;height:90vh;color:#222\"><p>" +
-                          WebUtility.HtmlEncode(text) + "</p></body>";
+            string icon = mark == Mark.Ok ? "M5 12.5l4.5 4.5L19 7.5" : mark == Mark.Off ? "M7.5 7.5l9 9M16.5 7.5l-9 9" : "M12 6.5v7M12 17.5v.01";
+            string html = "<!doctype html><html lang=es><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Stackshot</title><style>" +
+                ":root{color-scheme:light dark;--bg:#f5f5f7;--card:#fff;--ink:#1d1d1f;--sub:#6e6e73;--line:#0000000f;--shade:#0000001a;--g1:#8b5cf6;--g2:#4f7bff;--g3:#0891cc}" +
+                "@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#161618;--ink:#f5f5f7;--sub:#98989d;--line:#ffffff14;--shade:#00000080;--g1:#a78bfa;--g2:#6d8bff;--g3:#22c3ee}}" +
+                "*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--ink);" +
+                "font:15px/1.55 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif}" +
+                "main{width:100%;max-width:440px;padding:44px 36px 30px;background:var(--card);border:1px solid var(--line);border-radius:22px;text-align:center;" +
+                "box-shadow:0 24px 70px var(--shade);animation:in .5s cubic-bezier(.2,.8,.2,1) both}" +
+                ".mark{width:64px;height:64px;margin:0 auto 22px;border-radius:50%;display:grid;place-items:center;background:#8e8e93}" +
+                ".ok{background:linear-gradient(135deg,var(--g1),var(--g2) 50%,var(--g3));box-shadow:0 10px 30px #6d8bff59}.fail{background:#ff453a}" +
+                "h1{margin:0 0 10px;font:600 28px/1.15 'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;letter-spacing:-.015em}" +
+                "h1 span{background:linear-gradient(100deg,var(--g1),var(--g2) 45%,var(--g3));-webkit-background-clip:text;background-clip:text;color:transparent}" +
+                "p{margin:0;color:var(--sub)}footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--sub)}" +
+                "@keyframes in{from{opacity:0;transform:translateY(10px)}}@media (prefers-reduced-motion:reduce){main{animation:none}}</style>" +
+                "<main><div class='mark" + (mark == Mark.Ok ? " ok" : mark == Mark.Fail ? " fail" : "") + "'><svg width=30 height=30 viewBox='0 0 24 24' fill=none stroke=#fff " +
+                "stroke-width=2.6 stroke-linecap=round stroke-linejoin=round aria-hidden=true><path d='" + icon + "'/></svg></div>" +
+                "<h1>" + WebUtility.HtmlEncode(title) + (word != null ? "<span>" + WebUtility.HtmlEncode(word) + "</span>" : "") + "</h1>" +
+                "<p>" + WebUtility.HtmlEncode(text) + "</p><footer>Stackshot</footer></main></html>";
             byte[] body = Encoding.UTF8.GetBytes(html);
-            byte[] head = Encoding.ASCII.GetBytes("HTTP/1.1 " + code + " OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + body.Length + "\r\nConnection: close\r\n\r\n");
+            string reason = code == 200 ? "OK" : code == 400 ? "Bad Request" : "Not Found";
+            byte[] head = Encoding.ASCII.GetBytes("HTTP/1.1 " + code + " " + reason + "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + body.Length + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n");
             s.Write(head, 0, head.Length);
             s.Write(body, 0, body.Length);
         }
