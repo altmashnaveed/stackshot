@@ -54,21 +54,23 @@ namespace Stackshot
             if (focus.On) focus.Stop();
             focus.StartWork(settings.FocusWork, DateTime.UtcNow, false);
             Log("Concentraci\u00F3n: bloque de " + settings.FocusWork + " min");
-            FocusSay("\u00A1A concentrarnos! " + FocusClock.Minutes(settings.FocusWork) + ". Yo leo a tu lado sin hacer ruido.");
+            if (settings.FocusSound) FocusChime.Play(true);
+            FocusTell("Concentraci\u00F3n: bloque 1 de " + focus.Rounds, "\u00A1A concentrarnos! " + FocusClock.Minutes(settings.FocusWork) + ". Te aviso al terminar.", null, null);
             FocusRun();
         }
 
         public void FocusPause()
         {
             focus.Pause(DateTime.UtcNow);
-            FocusSay("En pausa. Quedan " + FocusClock.Clock(focus.Left(DateTime.UtcNow)) + ".");
+            FocusTell((focus.Now == FocusClock.Phase.Work ? "Concentraci\u00F3n" : "Descanso") + " en pausa", "Quedan " + FocusClock.Clock(focus.Left(DateTime.UtcNow)) + ".", "Reanudar", delegate { if (focus.Paused) FocusResume(); });
             FocusChanged();
         }
 
         public void FocusResume()
         {
             focus.Resume(DateTime.UtcNow);
-            FocusSay(focus.Now == FocusClock.Phase.Work ? "\u00A1Seguimos!" : "Seguimos con el descanso.");
+            bool work = focus.Now == FocusClock.Phase.Work;
+            FocusTell(work ? "Seguimos con la concentraci\u00F3n" : "Seguimos con el descanso", "Quedan " + FocusClock.Clock(focus.Left(DateTime.UtcNow)) + ".", null, null);
             FocusChanged();
         }
 
@@ -78,25 +80,32 @@ namespace Stackshot
             focus.Stop();
             Log("Concentraci\u00F3n: terminada");
             string today = FocusToday();
-            FocusSay(today != null ? today + ". \u00A1Bien hecho!" : "Lo dejamos aqu\u00ED.");
+            FocusTell("Concentraci\u00F3n terminada", today != null ? today + ". \u00A1Bien hecho!" : "Lo dejamos aqu\u00ED.", null, null);
             FocusChanged();
         }
 
         // After a block: its break now.
-        public void FocusBreak()
+        public void FocusBreak() { FocusBreak(null); }
+
+        // done: the block just finished (its notice says both things).
+        void FocusBreak(string done)
         {
             focus.StartBreak(settings.FocusShort, settings.FocusLong, DateTime.UtcNow);
-            FocusSay((focus.LongBreak ? "Descanso largo de " + FocusClock.Minutes(settings.FocusLong) : "Descanso de " + FocusClock.Minutes(settings.FocusShort)) +
-                     ". Lev\u00E1ntate, mira lejos, bebe agua. Te aviso al terminar.");
+            string what = focus.LongBreak ? "Descanso largo de " + FocusClock.Minutes(settings.FocusLong) : "Descanso de " + FocusClock.Minutes(settings.FocusShort);
+            FocusTell(done ?? (focus.LongBreak ? "Descanso largo" : "Descanso"), what + ": lev\u00E1ntate, mira lejos, bebe agua. Te aviso al terminar.", null, null);
             FocusRun();
         }
 
         // The next block (skipping what is left of a break), or the same block again.
-        public void FocusWork(bool again)
+        public void FocusWork(bool again) { FocusWork(again, null); }
+
+        // done: the break just finished.
+        void FocusWork(bool again, string done)
         {
             focus.Rounds = settings.FocusRounds;
             focus.StartWork(settings.FocusWork, DateTime.UtcNow, again);
-            FocusSay((again ? "Empezamos el bloque de nuevo: " : "Bloque " + focus.Block + " de " + focus.Rounds + ": ") + FocusClock.Minutes(settings.FocusWork) + ". \u00A1Vamos!");
+            FocusTell(done ?? (again ? "Bloque " + focus.Block + " de nuevo" : "Concentraci\u00F3n: bloque " + focus.Block + " de " + focus.Rounds),
+                      (done != null ? "Bloque " + focus.Block + " de " + focus.Rounds + ": " : "") + FocusClock.Minutes(settings.FocusWork) + " de concentraci\u00F3n. \u00A1Vamos!", null, null);
             FocusRun();
         }
 
@@ -104,8 +113,17 @@ namespace Stackshot
         public void FocusMore(int minutes)
         {
             focus.Extend(minutes, DateTime.UtcNow);
-            FocusSay("Vale, " + minutes + " minutos m\u00E1s de descanso.");
+            FocusTell("Descanso", minutes + " minutos m\u00E1s. Te aviso al terminar.", null, null);
             FocusRun();
+        }
+
+        // Every change is told: in the mascot's bubble when it is on the desktop, and as a notice by the clock (with a
+        // button for the obvious next step, if any) unless those are turned off.
+        void FocusTell(string title, string text, string actionLabel, Action action)
+        {
+            FocusSay(text);
+            // Without the desktop mascot the notices are the only way to know, whatever the setting.
+            if (settings.FocusNotices || pet == null) Notify(title, text, NoticeKind.Info, actionLabel, action);
         }
 
         void FocusRun()
@@ -168,26 +186,18 @@ namespace Stackshot
                 settings.Save();
                 string up = LoveUp();
                 Log("Concentraci\u00F3n: bloque " + focus.Block + " hecho");
-                if (auto)
-                {
-                    FocusBreak();
-                    if (pet == null) Notify("Bloque " + focus.Block + " de " + focus.Rounds + " hecho", "Empieza " + (focus.LongBreak ? "el descanso largo" : "el descanso") + ": " +
-                                            FocusClock.Minutes(focus.LongBreak ? settings.FocusLong : settings.FocusShort) + ". " + (FocusToday() ?? ""), NoticeKind.Info, "Terminar", FocusStop);
-                    return;
-                }
+                string done = "Bloque " + focus.Block + " de " + focus.Rounds + " hecho";
+                if (auto) { FocusBreak(done); return; }
                 focus.Ask(now);
                 pet.FocusAskWork(up);
+                if (settings.FocusNotices) Notify(done, (FocusToday() ?? "") + " \u00BFDescansamos?", NoticeKind.Info, "Empezar el descanso", delegate { if (focus.Asking && focus.Now == FocusClock.Phase.Work) FocusBreak(); });
             }
             else
             {
-                if (auto)
-                {
-                    FocusWork(false);
-                    if (pet == null) Notify("Fin del descanso", "Empieza el bloque " + focus.Block + " de " + focus.Rounds + ": " + FocusClock.Minutes(settings.FocusWork) + ".", NoticeKind.Info, "Terminar", FocusStop);
-                    return;
-                }
+                if (auto) { FocusWork(false, "Fin del descanso"); return; }
                 focus.Ask(now);
                 pet.FocusAskBreak();
+                if (settings.FocusNotices) Notify("Fin del descanso", "\u00BFSeguimos con el siguiente bloque?", NoticeKind.Info, "Empezar el bloque", delegate { if (focus.Asking && focus.Now == FocusClock.Phase.Break) FocusWork(false); });
             }
         }
 
@@ -196,7 +206,7 @@ namespace Stackshot
             int m = Math.Max(1, (int)Math.Round((DateTime.UtcNow - focus.AwaySince).TotalMinutes));
             string text = "Has estado fuera " + m + " min y he parado el reloj: quedaban " + FocusClock.Clock(focus.Left(DateTime.UtcNow)) + ".";
             if (pet != null) pet.FocusAskBack(text);
-            else Notify("Concentraci\u00F3n en pausa", text, NoticeKind.Info, "Seguir", FocusResume);
+            else Notify("Concentraci\u00F3n en pausa", text, NoticeKind.Info, "Seguir", delegate { if (focus.Paused) FocusResume(); });
         }
 
         // What the mascot says about it (in its bubble), or nothing without it on the desktop.

@@ -96,7 +96,7 @@ namespace Stackshot
         // Focus mode (Pomodoro): minutes of a block, of the short and long breaks, blocks before a long break, whether
         // the next phase starts on its own, a soft chime, and today's blocks and minutes (FocusDay is their date).
         public int FocusWork = 25, FocusShort = 5, FocusLong = 15, FocusRounds = 4;
-        public bool FocusAuto = false, FocusSound = true;
+        public bool FocusAuto = false, FocusSound = true, FocusNotices = true;
         public string FocusDay = "";
         public int FocusBlocks, FocusMinutes;
         // Health: glasses of water a day (0 none), the hour of the day's summary (0 none) and the day it was given,
@@ -274,6 +274,9 @@ namespace Stackshot
                         case "focusrounds": s.FocusRounds = Int(v, s.FocusRounds, 2, 8); break;
                         case "focusauto": s.FocusAuto = Bool(v, s.FocusAuto); break;
                         case "focussound": s.FocusSound = Bool(v, s.FocusSound); break;
+                        case "focusnotices": s.FocusNotices = Bool(v, s.FocusNotices); break;
+                        case "summaryparts": s.SummaryParts = Int(v, s.SummaryParts, 0, 31); break;
+                        case "fitbitasked": s.FitbitAsked = Cut(v, 10); break;
                         case "focusday": s.FocusDay = Cut(v, 10); break;
                         case "focusblocks": s.FocusBlocks = Int(v, 0, 0, 999); break;
                         case "focusminutes": s.FocusMinutes = Int(v, 0, 0, 99999); break;
@@ -473,13 +476,16 @@ namespace Stackshot
             b.AppendLine("FocusRounds = " + FocusRounds);
             b.AppendLine("FocusAuto = " + (FocusAuto ? "1" : "0"));
             b.AppendLine("FocusSound = " + (FocusSound ? "1" : "0"));
+            b.AppendLine("FocusNotices = " + (FocusNotices ? "1" : "0"));
             b.AppendLine("FocusDay = " + OneLine(FocusDay));
             b.AppendLine("FocusBlocks = " + FocusBlocks);
             b.AppendLine("FocusMinutes = " + FocusMinutes);
             b.AppendLine("# Salud: vasos de agua al dia (0 = sin objetivo) y hora del resumen del dia (0 = no)");
             b.AppendLine("WaterGoal = " + WaterGoal);
             b.AppendLine("SummaryHour = " + SummaryHour);
+            b.AppendLine("SummaryParts = " + SummaryParts);
             b.AppendLine("SummaryDay = " + OneLine(SummaryDay));
+            b.AppendLine("FitbitAsked = " + OneLine(FitbitAsked));
             b.AppendLine("HealthTalk = " + (HealthTalk ? "1" : "0"));
             b.AppendLine("HealthSaid = " + OneLine(HealthSaid));
             b.AppendLine("FitbitLast = " + OneLine(FitbitLast));

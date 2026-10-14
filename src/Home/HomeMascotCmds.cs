@@ -151,8 +151,10 @@ namespace Stackshot
                            delegate(int i) { settings.FocusRounds = rounds[Math.Max(0, Math.Min(rounds.Length - 1, i))]; }),
                 new ToggleRow("Seguir solo", "Al acabar un bloque empieza el descanso, y al acabar el descanso el siguiente bloque, sin preguntarte.", "update", Mac.Teal, Mac.Blue,
                               delegate { return settings.FocusAuto; }, delegate(bool v) { settings.FocusAuto = v; }),
-                new ToggleRow("Sonido al terminar", "Un aviso suave al acabar cada bloque y cada descanso.", "sound", Mac.Pink, Mac.Red,
-                              delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(false); }));
+                new ToggleRow("Sonido", "Un aviso suave al empezar y al acabar cada bloque y cada descanso.", "sound", Mac.Pink, Mac.Red,
+                              delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(false); }),
+                new ToggleRow("Avisar con notificaciones", "Junto al reloj de Windows: al empezar, pausar, reanudar y terminar cada bloque y cada descanso.", "bell", Mac.Orange, Mac.Red,
+                              delegate { return settings.FocusNotices; }, delegate(bool v) { settings.FocusNotices = v; }));
             Note("Empieza desde aqu\u00ED o desde el men\u00FA de la mascota en el escritorio (\u00ABConcentrarme\u00BB). Mientras dura un bloque, la mascota lee a tu lado sin hablar, " +
                  "lleva el reloj encima de la cabeza y las pausas saludables esperan al descanso, donde te propone la que toque. Si te levantas m\u00E1s de 5 minutos, " +
                  "el reloj se para y al volver te pregunta si sigues. Sin la mascota en el escritorio, todo sigue solo y te avisa con notificaciones.");
