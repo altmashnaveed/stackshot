@@ -368,6 +368,9 @@ namespace Stackshot
         void PaintThumbs(Graphics g, Rectangle r)
         {
             g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+            // While playing only the playhead's sliver is repainted: slots outside it would draw nothing.
+            RectangleF painted = g.ClipBounds;
+            painted.Inflate(1, 1);
             for (int ci = 0; ci < Clips.Count; ci++)
             {
                 Bitmap[] th = Clips[ci].Thumbs;
@@ -380,6 +383,7 @@ namespace Stackshot
                 float tw = cr.Width / (float)show;
                 for (int i = 0; i < show; i++)
                 {
+                    if (!new RectangleF(cr.X + i * tw, r.Y, tw, r.Height).IntersectsWith(painted)) continue;
                     Bitmap t = th[show == th.Length ? i : Math.Min(th.Length - 1, (int)((i + 0.5) * th.Length / show))];
                     if (t == null) continue;
                     // Cover each slot, cropping the frame's sides.
