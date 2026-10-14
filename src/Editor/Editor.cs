@@ -613,8 +613,10 @@ namespace Stackshot
             int step = (keyData & Keys.Shift) != 0 ? 10 : 1;
             switch (keyData & ~Keys.Shift)
             {
-                case Keys.Left: if (canvas.HasSelection) { canvas.Nudge(-step, 0); return true; } break;
-                case Keys.Right: if (canvas.HasSelection) { canvas.Nudge(step, 0); return true; } break;
+                case Keys.Left: if (canvas.HasSelection) { canvas.Nudge(-step, 0); return true; } if (StepHead(-1, step > 1)) return true; break;
+                case Keys.Right: if (canvas.HasSelection) { canvas.Nudge(step, 0); return true; } if (StepHead(1, step > 1)) return true; break;
+                case Keys.Home: if (timeline != null && !canvas.HasSelection) { timeline.MoveHead(timeline.In); return true; } break;
+                case Keys.End: if (timeline != null && !canvas.HasSelection) { timeline.MoveHead(timeline.Out); return true; } break;
                 case Keys.Up: if (canvas.HasSelection) { canvas.Nudge(0, -step); return true; } break;
                 case Keys.Down: if (canvas.HasSelection) { canvas.Nudge(0, step); return true; } break;
             }
@@ -670,6 +672,16 @@ namespace Stackshot
                 case Keys.Oemplus: case Keys.Add: SetWeight(canvas.ActiveWeight + 1); return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        // Arrows on a video with no mark selected: a frame back or forward (with Shift, a second), as in the player.
+        bool StepHead(int dir, bool second)
+        {
+            if (timeline == null || timeline.Dragging) return false;
+            if (playing) PausePlay();
+            double frame = 1.0 / Math.Max(1, sourceFps);
+            timeline.MoveHead(timeline.Playhead + dir * (second ? 1.0 : frame));
+            return true;
         }
 
         static ImageFormat FormatFor(string file)

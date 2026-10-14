@@ -125,6 +125,39 @@ namespace Stackshot
 
         void Noting() { if (Changing != null) Changing(); }
 
+        // The keyboard's way to move the playhead: kept within the trim, then shown as a released drag would be, and
+        // told to screen readers.
+        public void MoveHead(double t)
+        {
+            if (Duration <= 0) return;
+            t = Math.Max(In, Math.Min(Out, t));
+            SetPlayhead(t);
+            if (Seek != null) Seek(t);
+            AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
+        }
+
+        protected override AccessibleObject CreateAccessibilityInstance() { return new Access(this); }
+
+        // A slider for screen readers: "Línea de tiempo", its position and length, and whether it is trimmed or cut.
+        sealed class Access : ControlAccessibleObject
+        {
+            readonly Timeline t;
+            public Access(Timeline t) : base(t) { this.t = t; }
+            public override AccessibleRole Role { get { return AccessibleRole.Slider; } }
+            public override string Name { get { return "L\u00EDnea de tiempo"; } }
+            public override string Value
+            {
+                get
+                {
+                    string v = Clock(t.Playhead) + " de " + Clock(t.Duration);
+                    if (t.IsTrimmed) v += ", recortada de " + Clock(t.In) + " a " + Clock(t.Out);
+                    if (t.HasCuts) v += ", con tramos quitados";
+                    return v;
+                }
+            }
+            public override string Description { get { return "Flechas: fotograma a fotograma. May\u00FAs y flechas: de segundo en segundo. Inicio y Fin: principio y final del recorte."; } }
+        }
+
         public void Init(double duration)
         {
             layout++;
