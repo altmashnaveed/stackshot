@@ -146,7 +146,7 @@ namespace Stackshot
                 bool fresh = !File.Exists(NotesPath);
                 // A note of several lines keeps them, indented under its bullet.
                 string body = text.Replace("\n", "\n  ");
-                string entry = (fresh ? "# Notas\n\n" : "") + "- **" + DateTime.Now.ToString("d/M/yyyy H:mm", CultureInfo.GetCultureInfo("es-ES")) + "** \u00B7 " + body + "\n";
+                string entry = (fresh ? "# Notas\n\n" : "") + "- [ ] **" + DateTime.Now.ToString("d/M/yyyy H:mm", CultureInfo.GetCultureInfo("es-ES")) + "** \u00B7 " + body + "\n";
                 File.AppendAllText(NotesPath, entry, new UTF8Encoding(false));
                 Log("Nota apuntada");
                 return true;
@@ -159,34 +159,89 @@ namespace Stackshot
             }
         }
 
-        // The latest notes, newest first: when (as written) and the text on one line.
-        public List<KeyValuePair<string, string>> LastNotes(int count)
+        // A note as Notas.md keeps it: its first line (to find it again), when, the text on one line and whether it is done.
+        public sealed class Note
         {
-            List<KeyValuePair<string, string>> all = new List<KeyValuePair<string, string>>();
+            public string Line, When, Text;
+            public bool Done;
+        }
+
+        // The latest notes, newest first.
+        public List<Note> LastNotes(int count)
+        {
+            List<Note> all = new List<Note>();
             try
             {
                 if (!File.Exists(NotesPath)) return all;
                 foreach (string line in File.ReadAllLines(NotesPath, Encoding.UTF8))
                 {
-                    // "- **14/10/2026 16:05** · text"; the lines under it (indented) belong to it.
-                    if (line.StartsWith("- **"))
+                    // "- [ ] **14/10/2026 16:05** - text" ("- **...**" before notes could be ticked); the indented lines
+                    // under it belong to it.
+                    bool done;
+                    string rest = NoteRest(line, out done);
+                    if (rest != null && rest.StartsWith("**"))
                     {
-                        int end = line.IndexOf("**", 4);
+                        int end = rest.IndexOf("**", 2);
                         if (end < 0) continue;
-                        string body = line.Substring(end + 2).TrimStart(' ', '\u00B7').Trim();
-                        all.Add(new KeyValuePair<string, string>(line.Substring(4, end - 4), body));
+                        all.Add(new Note { Line = line, When = rest.Substring(2, end - 2), Text = rest.Substring(end + 2).TrimStart(' ', '\u00B7').Trim(), Done = done });
                     }
-                    else if (line.StartsWith("  ") && all.Count > 0 && line.Trim().Length > 0)
-                    {
-                        KeyValuePair<string, string> last = all[all.Count - 1];
-                        all[all.Count - 1] = new KeyValuePair<string, string>(last.Key, last.Value + " " + line.Trim());
-                    }
+                    else if (line.StartsWith("  ") && all.Count > 0 && line.Trim().Length > 0) all[all.Count - 1].Text += " " + line.Trim();
                 }
             }
             catch (Exception ex) { Log("Notas: " + ex.Message); }
             all.Reverse();
             if (all.Count > count) all.RemoveRange(count, all.Count - count);
             return all;
+        }
+
+        // What follows "- " and the tick box, if the line is a list item (null otherwise).
+        static string NoteRest(string line, out bool done)
+        {
+            done = false;
+            if (!line.StartsWith("- ")) return null;
+            string rest = line.Substring(2);
+            if (rest.StartsWith("[ ] ")) return rest.Substring(4);
+            if (rest.StartsWith("[x] ") || rest.StartsWith("[X] ")) { done = true; return rest.Substring(4); }
+            return rest;
+        }
+
+        // Ticks a note or unticks it; false when it is no longer in the file as it was.
+        public bool NoteDone(Note n, bool done)
+        {
+            return EditNote(n, delegate(List<string> lines, int at, int count)
+            {
+                bool was;
+                lines[at] = "- [" + (done ? "x" : " ") + "] " + NoteRest(lines[at], out was);
+            });
+        }
+
+        // Removes a note and the lines that belong to it.
+        public bool DeleteNote(Note n)
+        {
+            return EditNote(n, delegate(List<string> lines, int at, int count) { lines.RemoveRange(at, count); });
+        }
+
+        // Finds the note again by its first line (the last one like it: the newest) and rewrites the file.
+        bool EditNote(Note n, Action<List<string>, int, int> change)
+        {
+            try
+            {
+                if (!File.Exists(NotesPath)) return false;
+                List<string> lines = new List<string>(File.ReadAllLines(NotesPath, Encoding.UTF8));
+                int at = lines.LastIndexOf(n.Line);
+                if (at < 0) return false;
+                int count = 1;
+                while (at + count < lines.Count && lines[at + count].StartsWith("  ") && lines[at + count].Trim().Length > 0) count++;
+                change(lines, at, count);
+                File.WriteAllText(NotesPath, string.Join("\n", lines.ToArray()) + "\n", new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log("Notas: " + ex.Message);
+                Notify("No se pudo cambiar la nota", Explain(ex, NotesPath));
+                return false;
+            }
         }
 
         public void OpenNotes()

@@ -135,19 +135,43 @@ namespace Stackshot
             }
             else
             {
-                // The latest ones at a glance, then all of them in Notas.md.
-                List<KeyValuePair<string, string>> last = owner.LastNotes(3);
+                // The latest ones at a glance, each to tick off or remove; all of them in Notas.md.
+                List<ShotStack.Note> last = owner.LastNotes(5);
                 if (last.Count > 0)
                 {
                     page.Children.Add(Text("\u00DAltimas notas", Ds.Semibold, 12.5, pal.Label, new Thickness(0, 18, 0, 4)));
-                    foreach (KeyValuePair<string, string> n in last)
+                    foreach (ShotStack.Note n in last)
                     {
-                        DockPanel row = new DockPanel { Margin = new Thickness(0, 3, 0, 0), ToolTip = n.Value };
-                        TextBlock when = Text(n.Key, Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 10, 0));
+                        ShotStack.Note it = n;
+                        DockPanel row = new DockPanel { Margin = new Thickness(0, 2, 0, 0), MinHeight = 26 };
+                        // The tick: a ring, or a green disc with a check once done.
+                        TapBorder tick = new TapBorder
+                        {
+                            Width = 18, Height = 18, CornerRadius = new CornerRadius(9), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 10, 0),
+                            Background = n.Done ? Ds.Brush(pal.Green) : Brushes.Transparent, BorderThickness = new Thickness(n.Done ? 0 : 1.5),
+                            BorderBrush = Ds.Brush(pal.Label3), Label = n.Done ? "Marcar como pendiente" : "Marcar como hecha",
+                            ToolTip = n.Done ? "Marcar como pendiente" : "Marcar como hecha", VerticalAlignment = VerticalAlignment.Center
+                        };
+                        if (n.Done) tick.Child = new GlyphView("check", 11, pal.High ? pal.Window : Colors.White, 2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                        Action flip = delegate { Keep(); if (!owner.NoteDone(it, !it.Done)) Say("Esa nota ha cambiado en Notas.md: \u00E1brela para verla."); else Build(); };
+                        tick.MouseLeftButtonUp += delegate { flip(); };
+                        Access.Clickable(tick, flip);
+                        DockPanel.SetDock(tick, Dock.Left);
+                        row.Children.Add(tick);
+                        TapBorder x = new TapBorder { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Brushes.Transparent, Cursor = Cursors.Hand, Label = "Borrar esta nota", ToolTip = "Borrar", Margin = new Thickness(8, 0, 0, 0) };
+                        x.Child = new GlyphView("close", 11, pal.Label2, 1.8) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                        Action drop = delegate { Keep(); if (!owner.DeleteNote(it)) Say("Esa nota ha cambiado en Notas.md: \u00E1brela para verla."); else Build(); };
+                        x.MouseLeftButtonUp += delegate { drop(); };
+                        Access.Clickable(x, drop);
+                        DockPanel.SetDock(x, Dock.Right);
+                        row.Children.Add(x);
+                        TextBlock when = Text(n.When, Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 10, 0));
                         DockPanel.SetDock(when, Dock.Left);
                         row.Children.Add(when);
-                        TextBlock what = Text(n.Value, Ds.Regular, 12.5, pal.Label2, new Thickness(0));
+                        TextBlock what = Text(n.Text, Ds.Regular, 12.5, n.Done ? pal.Label3 : pal.Label2, new Thickness(0));
                         what.TextTrimming = TextTrimming.CharacterEllipsis;
+                        what.ToolTip = n.Text;
+                        if (n.Done) what.TextDecorations = TextDecorations.Strikethrough;
                         row.Children.Add(what);
                         page.Children.Add(row);
                     }
