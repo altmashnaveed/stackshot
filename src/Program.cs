@@ -40,7 +40,7 @@ namespace Stackshot
         public const string ReportUrl = "https://stackshot-report.rmartbernabe.workers.dev/report";
         // The Google Cloud OAuth client (type "Desktop app") for Google Health; its secret lives only in the report relay. An
         // empty id hides the watch connection. Sign-in comes back to this loopback address.
-        public const string GoogleClientId = "";
+        public const string GoogleClientId = "639021672591-0fjai4977n80ublfl9tslcs3pjlj0pps.apps.googleusercontent.com";
         public const string WatchRedirect = "http://127.0.0.1:47321/google";
 
         static string[] args;
