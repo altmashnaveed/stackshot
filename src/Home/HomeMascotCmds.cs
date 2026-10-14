@@ -128,6 +128,45 @@ namespace Stackshot
                  "Puedes hacer una pausa cuando quieras desde su men\u00FA en el escritorio (\u00ABUna pausa conmigo\u00BB).");
         }
 
+        // ---- Focus mode (Pomodoro), in the mascot settings
+
+        void BuildFocus()
+        {
+            FocusClock f = owner.FocusState;
+            string line = owner.FocusLine(), today = owner.FocusToday();
+            int[] work = { 25, 30, 45, 50 }, shortB = { 5, 10 }, longB = { 15, 20, 30 }, rounds = { 3, 4, 5 };
+            Group("Modo concentraci\u00F3n",
+                new ButtonRow(f.On ? "Concentraci\u00F3n en marcha" : "Concentrarme ahora",
+                              (line ?? "Bloques de trabajo con descansos entre medias (la t\u00E9cnica Pomodoro).") + (today != null ? " " + today + "." : ""),
+                              "clock", Mac.Orange, Mac.Red, f.On ? "Terminar" : "Empezar",
+                              delegate { if (owner.FocusState.On) owner.FocusStop(); else owner.FocusStart(); Rebuild(); }),
+                FocusRow("Cada bloque", "El tiempo de trabajo concentrado.", "clock", Mac.Orange, Mac.Pink, work,
+                         delegate { return settings.FocusWork; }, delegate(int m) { settings.FocusWork = m; }),
+                FocusRow("Descanso corto", "Entre un bloque y el siguiente.", "coffee", Mac.Green, Mac.Teal, shortB,
+                         delegate { return settings.FocusShort; }, delegate(int m) { settings.FocusShort = m; }),
+                FocusRow("Descanso largo", "Al completar una ronda de bloques.", "moon", Mac.Indigo, Mac.Purple, longB,
+                         delegate { return settings.FocusLong; }, delegate(int m) { settings.FocusLong = m; }),
+                new SegRow("Bloques por ronda", "Cu\u00E1ntos bloques hay antes del descanso largo.", "stack", Mac.Blue, Mac.Indigo, new string[] { "3", "4", "5" },
+                           delegate { int i = Array.IndexOf(rounds, settings.FocusRounds); return i < 0 ? 1 : i; },
+                           delegate(int i) { settings.FocusRounds = rounds[Math.Max(0, Math.Min(rounds.Length - 1, i))]; }),
+                new ToggleRow("Seguir solo", "Al acabar un bloque empieza el descanso, y al acabar el descanso el siguiente bloque, sin preguntarte.", "update", Mac.Teal, Mac.Blue,
+                              delegate { return settings.FocusAuto; }, delegate(bool v) { settings.FocusAuto = v; }),
+                new ToggleRow("Sonido al terminar", "Un aviso suave al acabar cada bloque y cada descanso.", "sound", Mac.Pink, Mac.Red,
+                              delegate { return settings.FocusSound; }, delegate(bool v) { settings.FocusSound = v; if (v) FocusChime.Play(false); }));
+            Note("Empieza desde aqu\u00ED o desde el men\u00FA de la mascota en el escritorio (\u00ABConcentrarme\u00BB). Mientras dura un bloque, la mascota lee a tu lado sin hablar, " +
+                 "lleva el reloj encima de la cabeza y las pausas saludables esperan al descanso, donde te propone la que toque. Si te levantas m\u00E1s de 5 minutos, " +
+                 "el reloj se para y al volver te pregunta si sigues. Sin la mascota en el escritorio, todo sigue solo y te avisa con notificaciones.");
+        }
+
+        SegRow FocusRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int[] minutes, Func<int> get, Action<int> set)
+        {
+            string[] names = new string[minutes.Length];
+            for (int i = 0; i < minutes.Length; i++) names[i] = minutes[i] + " min";
+            return new SegRow(title, sub, icon, c1, c2, names,
+                              delegate { int i = Array.IndexOf(minutes, get()); return i < 0 ? 0 : i; },
+                              delegate(int i) { set(minutes[Math.Max(0, Math.Min(minutes.Length - 1, i))]); });
+        }
+
         SegRow WellRow(string title, string sub, string icon, System.Drawing.Color c1, System.Drawing.Color c2, int[] minutes, Func<int> get, Action<int> set, Func<bool> when)
         {
             string[] names = new string[minutes.Length];

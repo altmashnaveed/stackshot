@@ -34,8 +34,9 @@ namespace Stackshot
             int idle = IdleMs();
             wellness.Tick(now, idle);
             int kind = wellness.Due(now, Wellness.MinutesOf(settings));
-            // Nobody at the computer right now (lunch with the screen on): it waits until you're back.
-            if (kind < 0 || idle >= Wellness.ActiveIdleMs) return;
+            // Nobody at the computer right now (lunch with the screen on): it waits until you're back. A focus block
+            // running: it waits for the break (where the mascot offers it).
+            if (kind < 0 || idle >= Wellness.ActiveIdleMs || FocusHoldsBreaks) return;
             // With the mascot on the desktop it always asks itself, once it is free (not walking, dragged or in a menu).
             bool toPet = pet != null;
             if (toPet ? !pet.CanRemind : !settings.WellToasts) return;
@@ -86,6 +87,12 @@ namespace Stackshot
             int today = Wellness.Count(settings, kind);
             levelUp = LoveUp();
             return today;
+        }
+
+        // The healthy break that is due now, or -1 (none, or the breaks are off).
+        public int WellDueKind()
+        {
+            return settings.WellOn ? wellness.Due(Anim.Now, Wellness.MinutesOf(settings)) : -1;
         }
 
         // Later: after ms, or (ms < 0) not again today.

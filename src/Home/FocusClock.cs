@@ -1,0 +1,183 @@
+// Stackshot - Focus mode (Pomodoro): blocks of work and breaks, a long break every few blocks, paused while you are
+// away. Only the clock; the owner (ShotStack.Focus.cs) decides what to say and the desktop mascot keeps you company.
+// MIT License - https://github.com/rubenitx/stackshot
+using System;
+using System.IO;
+using System.Media;
+
+namespace Stackshot
+{
+    public sealed class FocusClock
+    {
+        public enum Phase { Off, Work, Break }
+
+        public Phase Now { get; private set; }
+        public bool LongBreak { get; private set; }
+        public bool Paused { get; private set; }
+        public bool Away;               // paused because nobody was at the computer (asked about once they are back)
+        public DateTime AwaySince;      // when they left
+        public bool Asking;             // a phase ended and the next one waits for an answer
+        public DateTime AskingSince;
+        public int Block { get; private set; }     // 1 to Rounds: the block running, or the one just done
+        public int Rounds = 4;
+
+        DateTime ends;
+        TimeSpan total, left;           // left: kept while paused
+
+        public bool On { get { return Now != Phase.Off; } }
+        public bool Working { get { return Now == Phase.Work && !Paused && !Asking; } }
+        public TimeSpan Total { get { return total; } }
+
+        public TimeSpan Left(DateTime now)
+        {
+            if (Asking) return TimeSpan.Zero;
+            TimeSpan l = Paused ? left : ends - now;
+            return l < TimeSpan.Zero ? TimeSpan.Zero : l;
+        }
+
+        // 0 at the start of the phase, 1 at its end.
+        public double Progress(DateTime now)
+        {
+            if (total.Ticks <= 0) return 0;
+            return Math.Max(0, Math.Min(1, 1 - Left(now).TotalSeconds / total.TotalSeconds));
+        }
+
+        // The next block (the first after starting or after a long break), or the same one again (again: true).
+        public void StartWork(int minutes, DateTime now, bool again)
+        {
+            if (!again || Block == 0) Block = Now == Phase.Off || Block >= Rounds || (Now == Phase.Break && LongBreak) ? 1 : Block + 1;
+            Begin(Phase.Work, minutes, now);
+            LongBreak = false;
+        }
+
+        // The break after the block just done: a long one after the last block of a round.
+        public void StartBreak(int shortMinutes, int longMinutes, DateTime now)
+        {
+            LongBreak = Block >= Rounds;
+            Begin(Phase.Break, LongBreak ? longMinutes : shortMinutes, now);
+        }
+
+        void Begin(Phase p, int minutes, DateTime now)
+        {
+            Now = p;
+            total = TimeSpan.FromMinutes(Math.Max(1, minutes));
+            ends = now + total;
+            Paused = Away = Asking = false;
+        }
+
+        public void Pause(DateTime now)
+        {
+            if (Paused || Asking || !On) return;
+            left = Left(now);
+            Paused = true;
+        }
+
+        // Nobody at the computer since then: that time doesn't count.
+        public void PauseAway(DateTime since, DateTime now)
+        {
+            if (Paused || Asking || !On) return;
+            left = ends - since;
+            if (left < TimeSpan.Zero) left = TimeSpan.Zero;
+            Paused = Away = true;
+            AwaySince = since;
+        }
+
+        public void Resume(DateTime now)
+        {
+            if (!Paused) return;
+            ends = now + left;
+            Paused = Away = false;
+        }
+
+        public void Extend(int minutes, DateTime now)
+        {
+            if (Asking) { total = TimeSpan.FromMinutes(minutes); ends = now + total; Asking = false; return; }
+            ends += TimeSpan.FromMinutes(minutes);
+            total += TimeSpan.FromMinutes(minutes);
+        }
+
+        // The phase ran out: it waits for what comes next.
+        public void Ask(DateTime now)
+        {
+            Asking = true;
+            AskingSince = now;
+        }
+
+        public bool Due(DateTime now) { return On && !Paused && !Asking && now >= ends; }
+
+        public void Stop()
+        {
+            Now = Phase.Off;
+            Paused = Away = Asking = LongBreak = false;
+            Block = 0;
+        }
+
+        // "18:42", or "1:05:00" for an hour or more.
+        public static string Clock(TimeSpan t)
+        {
+            int s = (int)Math.Ceiling(t.TotalSeconds);
+            return s >= 3600 ? (s / 3600) + ":" + (s / 60 % 60).ToString("00") + ":" + (s % 60).ToString("00") : (s / 60) + ":" + (s % 60).ToString("00");
+        }
+
+        // "25 min", "1 h 15 min".
+        public static string Minutes(int m)
+        {
+            return m < 60 ? m + " min" : (m / 60) + " h" + (m % 60 > 0 ? " " + (m % 60) + " min" : "");
+        }
+    }
+
+    // A soft two-note chime at the end of a block or a break, synthesized like the shutter (no audio files).
+    public static class FocusChime
+    {
+        static SoundPlayer up, down;
+
+        // up: a rising pair (back to work); otherwise falling (time to rest).
+        public static void Play(bool rising)
+        {
+            try
+            {
+                SoundPlayer p = rising ? up : down;
+                if (p == null)
+                {
+                    p = new SoundPlayer(new MemoryStream(Build(rising ? 659.25 : 880.0, rising ? 880.0 : 659.25)));
+                    p.Load();
+                    if (rising) up = p; else down = p;
+                }
+                p.Play();
+            }
+            catch (Exception ex) { ShotStack.Log("Sonido de concentraci\u00F3n: " + ex.Message); }
+        }
+
+        static byte[] Build(double f1, double f2)
+        {
+            const int rate = 44100;
+            int n = rate * 1100 / 1000;
+            short[] pcm = new short[n];
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)rate, v = Note(t, 0, f1) + Note(t, 0.18, f2);
+                pcm[i] = (short)Math.Max(-32767, Math.Min(32767, v * 9000));
+            }
+            using (MemoryStream ms = new MemoryStream())
+            using (BinaryWriter w = new BinaryWriter(ms))
+            {
+                int data = n * 2;
+                w.Write(new[] { 'R', 'I', 'F', 'F' }); w.Write(36 + data);
+                w.Write(new[] { 'W', 'A', 'V', 'E' }); w.Write(new[] { 'f', 'm', 't', ' ' });
+                w.Write(16); w.Write((short)1); w.Write((short)1); w.Write(rate); w.Write(rate * 2); w.Write((short)2); w.Write((short)16);
+                w.Write(new[] { 'd', 'a', 't', 'a' }); w.Write(data);
+                foreach (short sample in pcm) w.Write(sample);
+                return ms.ToArray();
+            }
+        }
+
+        // A bell-like note: a quick attack, a long soft decay and a quiet octave on top.
+        static double Note(double t, double at, double f)
+        {
+            double d = t - at;
+            if (d < 0) return 0;
+            double env = Math.Min(1, d / 0.008) * Math.Exp(-d * 4.2);
+            return env * (Math.Sin(2 * Math.PI * f * d) + 0.25 * Math.Sin(2 * Math.PI * f * 2 * d));
+        }
+    }
+}

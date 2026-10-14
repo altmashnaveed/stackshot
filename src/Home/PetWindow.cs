@@ -80,6 +80,7 @@ namespace Stackshot
         // Healthy breaks: the reminder on show (its kind, or -1) and the guided break in progress.
         int menuWell = -1, session = -1, sessionReps;
         bool menuSticky;            // the menu stays a minute and ignores clicks elsewhere (news after an update)
+        bool menuFocus;             // the menu is a focus-mode question
         int sessionSerial;
         bool sessionStretch;
 
@@ -589,6 +590,188 @@ namespace Stackshot
             nextIdea = Anim.Now + 8000;
         }
 
+        // ---- Focus mode: the questions at each change of phase, what it says, and the clock above its head.
+
+        public void FocusSay(string text)
+        {
+            if (menu != null && menuFocus) CloseMenu();
+            m.WakeUp();
+            m.Say(text, 3800);
+        }
+
+        // A block is done: its break (with the healthy break that is due, if any), another block, or the end.
+        public void FocusAskWork(string levelUp)
+        {
+            FocusClock f = owner.FocusState;
+            string today = owner.FocusToday();
+            m.Perform(MascotCmd.Cheer);
+            FocusPrompt("\u00A1Bloque " + f.Block + " de " + f.Rounds + " hecho!" + (today != null ? " " + today + "." : "") + (levelUp != null ? " " + levelUp : ""));
+            AddFocusChoices(f);
+        }
+
+        // A break is over: the next block, a few more minutes, or the end.
+        public void FocusAskBreak()
+        {
+            FocusClock f = owner.FocusState;
+            int next = f.Block >= f.Rounds || f.LongBreak ? 1 : f.Block + 1;
+            m.Perform(MascotCmd.Wave);
+            FocusPrompt("Fin del descanso. \u00BFSeguimos con el bloque " + next + " de " + f.Rounds + "?");
+            AddFocusChoices(f);
+        }
+
+        // Back after being away in the middle of a block (the clock stopped when they left).
+        public void FocusAskBack(string text)
+        {
+            m.Hop(1.0);
+            FocusPrompt(text);
+            AddFocusChoices(owner.FocusState);
+        }
+
+        void FocusPrompt(string header)
+        {
+            m.WakeUp();
+            m.Bubble = null;
+            bubble = null;
+            menu = new List<Choice>();
+            Header(header);
+            menuAt = menuSeen = Anim.Now;
+            // It stays while you work (clicks elsewhere don't close it) and goes after a minute; the clock above its
+            // head then says it is waiting, and a click on it brings the same choices back.
+            menuSticky = menuFocus = true;
+            menuArmed = false;
+            menuRect = RectangleF.Empty;
+            menuHot = -1;
+            nextIdea = Anim.Now + 8000;
+        }
+
+        // What can be done now, for the questions and the top of its menu.
+        void AddFocusChoices(FocusClock f)
+        {
+            if (f.Asking && f.Now == FocusClock.Phase.Work)
+            {
+                bool longBreak = f.Block >= f.Rounds;
+                Add("clock", (longBreak ? "Descanso largo de " + FocusClock.Minutes(settings.FocusLong) : "Descanso de " + FocusClock.Minutes(settings.FocusShort)), null, owner.FocusBreak);
+                // The healthy break that is due fits in the break: started together.
+                int well = owner.WellDueKind();
+                if (well >= 0) Add(WellKind.Glyphs[well], WellKind.Names[well] + " conmigo", null, delegate { owner.FocusBreak(); int k = well; BeginInvoke((Action)delegate { StartSession(k); }); });
+                Add("play", "Otro bloque sin descanso", null, delegate { owner.FocusWork(false); });
+                Add("close", "Terminar por hoy", null, owner.FocusStop);
+            }
+            else if (f.Asking)
+            {
+                Add("play", "Empezar el bloque", null, delegate { owner.FocusWork(false); });
+                Add("clock", "5 minutos m\u00E1s de descanso", null, delegate { owner.FocusMore(5); });
+                Add("close", "Terminar por hoy", null, owner.FocusStop);
+            }
+            else if (f.Paused)
+            {
+                Add("play!", f.Now == FocusClock.Phase.Work ? "Seguir donde lo dej\u00E9" : "Seguir con el descanso", null, owner.FocusResume);
+                if (f.Now == FocusClock.Phase.Work) Add("update", "Empezar el bloque de nuevo", null, delegate { owner.FocusWork(true); });
+                Add("close", "Terminar la concentraci\u00F3n", null, owner.FocusStop);
+            }
+            else
+            {
+                Add("pause", "Pausar", null, owner.FocusPause);
+                if (f.Now == FocusClock.Phase.Break) Add("play", "Saltar el descanso", null, delegate { owner.FocusWork(false); });
+                Add("close", "Terminar la concentraci\u00F3n", null, owner.FocusStop);
+            }
+        }
+
+        // While a block runs it stays where it is and reads now and then, without talking.
+        void FocusIdea(double now)
+        {
+            nextIdea = now + 35000 + rnd.NextDouble() * 25000;
+            if (state == State.Idle && session < 0) m.Perform(MascotCmd.Read);
+        }
+
+        // The clock above its head while focus mode is on; the bubble and the menu go over it.
+        void PillParts(FocusClock f, DateTime now, out string time, out string label, out Color tone)
+        {
+            if (f.Asking)
+            {
+                time = "";
+                label = f.Now == FocusClock.Phase.Work ? "\u00A1Bloque hecho! T\u00F3came" : "\u00BFSeguimos? T\u00F3came";
+                tone = Color.FromArgb(10, 132, 255);
+                return;
+            }
+            time = FocusClock.Clock(f.Left(now));
+            label = f.Paused ? "En pausa" : f.Now == FocusClock.Phase.Break ? (f.LongBreak ? "Descanso largo" : "Descanso") : "Concentraci\u00F3n";
+            tone = f.Paused ? Color.FromArgb(160, 160, 170) : f.Now == FocusClock.Phase.Break ? Color.FromArgb(52, 199, 89) : Color.FromArgb(255, 159, 10);
+        }
+
+        string pillLabelFor;
+        float pillLabelW, pillTimeW;
+
+        RectangleF PillLayout(Graphics g, string time, string label)
+        {
+            if (label != pillLabelFor)
+            {
+                pillLabelFor = label;
+                pillLabelW = g.MeasureString(label, Fonts.Get(Mac.TextFont, 12 * s), PointF.Empty, StringFormat.GenericTypographic).Width;
+            }
+            // The time takes the width of its widest digits, so the pill doesn't twitch every second.
+            if (pillTimeW == 0) pillTimeW = g.MeasureString("00:00", Fonts.Get(Fonts.DisplaySemibold, 14 * s), PointF.Empty, StringFormat.GenericTypographic).Width;
+            float tw = time.Length == 0 ? 0 : (time.Length > 5 ? pillTimeW * 1.4f : pillTimeW) + 7 * s;
+            float w = 10 * s + 16 * s + 8 * s + tw + pillLabelW + 13 * s, h = 30 * s;
+            float x = ClampX(MidX - w / 2, w), y = m.Box.Y - D * 0.38f - h;
+            return new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Ceiling(w), (float)Math.Ceiling(h));
+        }
+
+        void PaintPill(Graphics g)
+        {
+            FocusClock f = owner.FocusState;
+            DateTime now = DateTime.UtcNow;
+            string time, label;
+            Color tone;
+            PillParts(f, now, out time, out label, out tone);
+            RectangleF r = PillLayout(g, time, label);
+            using (GraphicsPath p = Theme.Round(r, r.Height / 2))
+            {
+                RectangleF sh = r;
+                sh.Offset(0, 3 * s);
+                using (GraphicsPath sp = Theme.Round(sh, r.Height / 2)) MascotParts.FillSolid(g, sp, Color.FromArgb(60, 0, 0, 0));
+                MascotParts.FillSolid(g, p, Color.FromArgb(245, 52, 52, 60));
+                MascotParts.Stroke(g, p, Color.FromArgb(40, 255, 255, 255), 1);
+            }
+            // A ring that fills as the phase goes by; two bars inside it while paused, a dot while it waits.
+            float rs = 16 * s;
+            RectangleF ring = new RectangleF(r.X + 10 * s, r.Y + (r.Height - rs) / 2, rs, rs);
+            using (Pen track = new Pen(Color.FromArgb(70, 255, 255, 255), 2.6f * s)) g.DrawEllipse(track, ring);
+            if (f.Asking)
+            {
+                float d = 7 * s;
+                using (SolidBrush dot = new SolidBrush(tone)) g.FillEllipse(dot, ring.X + (rs - d) / 2, ring.Y + (rs - d) / 2, d, d);
+            }
+            else
+            {
+                float sweep = (float)(360 * f.Progress(now));
+                if (sweep > 0.5f)
+                    using (Pen arc = new Pen(tone, 2.6f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(arc, ring, -90, sweep);
+                if (f.Paused)
+                    using (SolidBrush bars = new SolidBrush(Color.FromArgb(230, 255, 255, 255)))
+                    {
+                        g.FillRectangle(bars, ring.X + rs * 0.34f, ring.Y + rs * 0.3f, rs * 0.11f, rs * 0.4f);
+                        g.FillRectangle(bars, ring.X + rs * 0.55f, ring.Y + rs * 0.3f, rs * 0.11f, rs * 0.4f);
+                    }
+            }
+            float x = ring.Right + 8 * s;
+            using (SolidBrush ink = new SolidBrush(Color.White))
+            using (SolidBrush soft = new SolidBrush(Color.FromArgb(190, 255, 255, 255)))
+            {
+                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                if (time.Length > 0)
+                {
+                    Font tf = Fonts.Get(Fonts.DisplaySemibold, 14 * s);
+                    SizeF ts = g.MeasureString(time, tf, PointF.Empty, StringFormat.GenericTypographic);
+                    g.DrawString(time, tf, ink, (float)Math.Round(x), (float)Math.Round(r.Y + (r.Height - ts.Height) / 2), StringFormat.GenericTypographic);
+                    x += (time.Length > 5 ? pillTimeW * 1.4f : pillTimeW) + 7 * s;
+                }
+                Font lf = Fonts.Get(Mac.TextFont, 12 * s);
+                SizeF ls = g.MeasureString(label, lf, PointF.Empty, StringFormat.GenericTypographic);
+                g.DrawString(label, lf, f.Asking ? ink : soft, (float)Math.Round(x), (float)Math.Round(r.Y + (r.Height - ls.Height) / 2), StringFormat.GenericTypographic);
+            }
+        }
+
         void Header(string text)
         {
             Choice c = new Choice();
@@ -802,10 +985,12 @@ namespace Stackshot
             FollowPerch();
             CheckGround();
             m.Busy = state != State.Idle || menu != null || leaving || clicks > 0;
-            m.Talks = settings.MascotTalks;
-            m.Energy = settings.MascotEnergy;
+            // While a block runs it keeps you company quietly: no chatter, no dances, only reading now and then.
+            bool focusing = owner.FocusState.Working;
+            m.Talks = settings.MascotTalks && !focusing;
+            m.Energy = focusing ? 0 : settings.MascotEnergy;
             m.Chatter = settings.MascotChatter;
-            m.Alone = settings.MascotAlone;
+            m.Alone = focusing ? 0 : settings.MascotAlone;
             m.SleepIdle = settings.MascotSleepIdle;
             if (menuDue > 0 && now >= menuDue) { menuDue = 0; clicks = 0; OpenMenu(); }
             if (clicks > 0 && now - lastClick > 400 && menuDue == 0) clicks = 0;
@@ -902,7 +1087,7 @@ namespace Stackshot
                     else slide = 0;
                     if (leaving) { WalkOff(); break; }
                     if (session >= 0) SessionTick(now);
-                    else if (menu == null && !m.Sleeping && now > nextIdea) Idea(now);
+                    else if (menu == null && !m.Sleeping && now > nextIdea) { if (focusing) FocusIdea(now); else Idea(now); }
                     if (m.Sleeping && !asleepForAway && now > nextIdea + 120000) { m.WakeUp(); Idea(now); }
                     break;
             }
@@ -1004,7 +1189,8 @@ namespace Stackshot
                 g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 m.Paint(g);
                 if (menu != null) PaintMenu(g, now);
-                else PaintBubble(g);
+                else if (bubble != null && m.BubbleAlpha >= 0.02) PaintBubble(g);
+                else if (owner.FocusState.On) PaintPill(g);
             }
             Native.GdiFlush();
             // Only the mascot's box, and the bubble or menu if any, goes to the screen (a fraction of the window).
@@ -1073,8 +1259,18 @@ namespace Stackshot
                 return RectangleF.FromLTRB(r.Left - 15 * s, r.Top - 15 * s, r.Right + 15 * s, r.Bottom + 22 * s);
             }
             if (m.Bubble != null) bubble = m.Bubble;
-            if (bubble == null) return RectangleF.Empty;
-            if (m.BubbleAlpha < 0.02) { if (m.Bubble == null) bubble = null; return RectangleF.Empty; }
+            if (bubble != null && m.BubbleAlpha < 0.02 && m.Bubble == null) bubble = null;
+            if (bubble == null || m.BubbleAlpha < 0.02)
+            {
+                // No bubble: the focus clock, if focus mode is on.
+                if (!owner.FocusState.On) return RectangleF.Empty;
+                FocusClock f = owner.FocusState;
+                string time, label;
+                Color tone;
+                PillParts(f, DateTime.UtcNow, out time, out label, out tone);
+                RectangleF pr = PillLayout(g, time, label);
+                return RectangleF.FromLTRB(pr.Left - 2, pr.Top - 2, pr.Right + 2, pr.Bottom + 6 * s);
+            }
             RectangleF b = BubbleLayout(g);
             return RectangleF.FromLTRB(b.Left - 2, b.Top - 2, b.Right + 2, b.Bottom + 10 * s);
         }
@@ -1128,6 +1324,14 @@ namespace Stackshot
             bubble = null;
             m.Hop(0.9);
             menu = new List<Choice>();
+            // Focus mode on: where it stands and what can be done, first.
+            FocusClock f = owner.FocusState;
+            if (f.On)
+            {
+                Header(owner.FocusLine());
+                AddFocusChoices(f);
+                AddSep();
+            }
             Add("area", "Capturar un \u00E1rea", Keys(settings.HotRegion), delegate { owner.Run("region"); });
             Add("video", Recorder.Recording ? "Parar la grabaci\u00F3n" : "Grabar un v\u00EDdeo", null, delegate { owner.Run("video"); });
             Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
@@ -1136,6 +1340,7 @@ namespace Stackshot
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
             Add("play", "Ponte a jugar", null, delegate { m.Perform(MascotCmd.Play); });
             Add("drop", "Una pausa conmigo", null, OpenBreaks);
+            if (!f.On) Add("clock", "Concentrarme " + FocusClock.Minutes(settings.FocusWork), null, owner.FocusStart);
             Add("sparkle", "Haz un truco", null, delegate
             {
                 int trick = rnd.Next(MascotCmd.Tricks + 1);
@@ -1174,7 +1379,7 @@ namespace Stackshot
             menu = null;
             menuHot = -1;
             menuWell = -1;
-            menuSticky = false;
+            menuSticky = menuFocus = false;
         }
 
         static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }

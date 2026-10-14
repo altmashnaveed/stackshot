@@ -93,6 +93,12 @@ namespace Stackshot
         public int WellWater = 60, WellEyes = 30, WellMove = 60, WellBreathe = 0;
         public bool WellToasts = false;
         public string WellDay = "", WellDone = "";
+        // Focus mode (Pomodoro): minutes of a block, of the short and long breaks, blocks before a long break, whether
+        // the next phase starts on its own, a soft chime, and today's blocks and minutes (FocusDay is their date).
+        public int FocusWork = 25, FocusShort = 5, FocusLong = 15, FocusRounds = 4;
+        public bool FocusAuto = false, FocusSound = true;
+        public string FocusDay = "";
+        public int FocusBlocks, FocusMinutes;
         // Updates.
         public bool CheckUpdates = true;
         public string LastUpdateCheck = "";
@@ -253,6 +259,15 @@ namespace Stackshot
                         case "welltoasts": s.WellToasts = Bool(v, s.WellToasts); break;
                         case "wellday": s.WellDay = Cut(v, 10); break;
                         case "welldone": s.WellDone = Cut(v, 40); break;
+                        case "focuswork": s.FocusWork = Int(v, s.FocusWork, 5, 90); break;
+                        case "focusshort": s.FocusShort = Int(v, s.FocusShort, 1, 30); break;
+                        case "focuslong": s.FocusLong = Int(v, s.FocusLong, 5, 60); break;
+                        case "focusrounds": s.FocusRounds = Int(v, s.FocusRounds, 2, 8); break;
+                        case "focusauto": s.FocusAuto = Bool(v, s.FocusAuto); break;
+                        case "focussound": s.FocusSound = Bool(v, s.FocusSound); break;
+                        case "focusday": s.FocusDay = Cut(v, 10); break;
+                        case "focusblocks": s.FocusBlocks = Int(v, 0, 0, 999); break;
+                        case "focusminutes": s.FocusMinutes = Int(v, 0, 0, 99999); break;
                         case "checkupdates": s.CheckUpdates = Bool(v, s.CheckUpdates); break;
                         case "lastupdatecheck": s.LastUpdateCheck = v; break;
                         case "autoupdate": s.AutoUpdate = Bool(v, s.AutoUpdate); break;
@@ -433,6 +448,16 @@ namespace Stackshot
             b.AppendLine("WellToasts = " + (WellToasts ? "1" : "0"));
             b.AppendLine("WellDay = " + OneLine(WellDay));
             b.AppendLine("WellDone = " + OneLine(WellDone));
+            b.AppendLine("# Modo concentracion: minutos del bloque, del descanso corto y del largo, bloques hasta el largo");
+            b.AppendLine("FocusWork = " + FocusWork);
+            b.AppendLine("FocusShort = " + FocusShort);
+            b.AppendLine("FocusLong = " + FocusLong);
+            b.AppendLine("FocusRounds = " + FocusRounds);
+            b.AppendLine("FocusAuto = " + (FocusAuto ? "1" : "0"));
+            b.AppendLine("FocusSound = " + (FocusSound ? "1" : "0"));
+            b.AppendLine("FocusDay = " + OneLine(FocusDay));
+            b.AppendLine("FocusBlocks = " + FocusBlocks);
+            b.AppendLine("FocusMinutes = " + FocusMinutes);
             b.AppendLine("CheckUpdates = " + (CheckUpdates ? "1" : "0"));
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("AutoUpdate = " + (AutoUpdate ? "1" : "0"));
