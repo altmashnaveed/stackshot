@@ -1381,7 +1381,7 @@ namespace Stackshot
                     case Tool.Text: return "Haz clic donde quieras escribir";
                     case Tool.Counter: return "Cada clic pone el siguiente n\u00FAmero: 1, 2, 3\u2026";
                     case Tool.Highlight: return "Arrastra sobre lo que quieras resaltar";
-                    case Tool.Pixelate: return "Arrastra sobre lo que quieras difuminar \u00b7 para contrase\u00f1as o datos sensibles, mejor Tapar (X)";
+                    case Tool.Pixelate: return "Arrastra sobre lo que quieras pixelar \u00b7 para contrase\u00f1as o datos sensibles, mejor Tapar (X)";
                     case Tool.Redact: return "Arrastra sobre lo que quieras tapar: un bloque s\u00f3lido que borra de verdad lo de debajo";
                     default: return "Arrastra el \u00E1rea que quieres conservar \u00B7 Ctrl+Z lo deshace";
                 }

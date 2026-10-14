@@ -73,7 +73,7 @@ namespace Stackshot
             head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             StackPanel titles = new StackPanel();
             titles.Children.Add(Label("Grabaci\u00F3n", Ds.Title, 26, pal.Label));
-            TextBlock sub = Paragraph("V\u00EDdeo con sonido (MP4, o MKV sin p\u00E9rdidas en Cine) y GIF animado. Para parar, pulsa el atajo otra vez o el bot\u00F3n de la barrita roja.", 13, pal.Label2);
+            TextBlock sub = Paragraph("V\u00EDdeo con sonido (MP4, o MKV sin p\u00E9rdidas en Cine) y GIF animado. Para parar, pulsa el atajo otra vez o Detener en la barra de grabaci\u00F3n.", 13, pal.Label2);
             sub.Margin = new Thickness(0, 5, 0, 0);
             titles.Children.Add(sub);
             head.Children.Add(titles);
@@ -512,7 +512,7 @@ namespace Stackshot
             tiles.Children.Add(a);
             tiles.Children.Add(b);
             p.Children.Add(tiles);
-            TextBlock n = Paragraph("Mientras grabas, la barrita muestra el nivel de cada sonido y un clic en el micr\u00F3fono lo silencia. El sonido va sincronizado con la imagen " +
+            TextBlock n = Paragraph("Mientras grabas, la barra de grabaci\u00F3n muestra el nivel de cada sonido y un clic en el micr\u00F3fono lo silencia. El sonido va sincronizado con la imagen " +
                                     "y, aunque suenen los dos a la vez, nunca se satura.", 12, pal.Label2);
             n.Margin = new Thickness(2, 12, 2, 0);
             p.Children.Add(n);

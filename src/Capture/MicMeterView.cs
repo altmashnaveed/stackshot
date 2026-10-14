@@ -260,7 +260,7 @@ namespace Stackshot
             note.Visibility = text == null ? Visibility.Collapsed : Visibility.Visible;
             bar.Visibility = text == null ? Visibility.Visible : Visibility.Hidden;
             if (st == MicState.Denied) note.ToolTip = "Act\u00EDvalo en Configuraci\u00F3n > Privacidad y seguridad > Micr\u00F3fono.";
-            else if (st == MicState.Recording) note.ToolTip = "Mientras grabas, el nivel de cada sonido sale en la barrita de la grabaci\u00F3n.";
+            else if (st == MicState.Recording) note.ToolTip = "Mientras grabas, el nivel de cada sonido sale en la barra de grabaci\u00F3n.";
             else note.ToolTip = text;
         }
 
