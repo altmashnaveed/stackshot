@@ -71,7 +71,7 @@ namespace Stackshot.Tests
         {
             AppTests.Test(SuiteName, "settings: XmlWatch and its folder written and read back", SettingsRoundTrip);
             AppTests.Test(SuiteName, "settings: off by default, garbage reads as off", SettingsDefaults);
-            AppTests.Test(SuiteName, "folder: Egara's unless another one is chosen", FolderChoice);
+            AppTests.Test(SuiteName, "folder: the policy's, else the one chosen, else none", FolderChoice);
             AppTests.Test(SuiteName, "watch: a file written slowly opens once, after the writer closes it", SlowWriter);
             AppTests.Test(SuiteName, "watch: other extensions and folders are ignored; .XML in capitals is not", Ignored);
             AppTests.Test(SuiteName, "watch: a file renamed to .xml opens", Renamed);
@@ -83,8 +83,7 @@ namespace Stackshot.Tests
             AppTests.Test(SuiteName, "operation: request, response, fault, plain root, comments, BOM, garbage", Operations);
             AppTests.Test(SuiteName, "recent and latest: newest first, capped, only .xml", RecentLatest);
             AppTests.Test(SuiteName, "sibling: by write time, ties by name, null at both ends", Siblings);
-            AppTests.Test(SuiteName, "old viewer: the check answers without throwing (diagnostic)", OldViewer);
-            AppTests.Test(SuiteName, "settings page: Avanzado shown on Egara PCs or when in use, a link otherwise", SettingsPage);
+            AppTests.Test(SuiteName, "settings page: Avanzado shown with a policy folder or when in use, nothing otherwise", SettingsPage);
             AppTests.Test(SuiteName, "tray: the latest-XML entry only with the watch on", TrayEntry);
         }
 
@@ -118,40 +117,38 @@ namespace Stackshot.Tests
 
         static void SettingsPage()
         {
-            Console.WriteLine("    Egara folder on this PC: " + Directory.Exists(@"C:\egarsat"));
-            Func<bool> real = XmlWatch.EgaraWorkstation;
+            Func<string> real = XmlWatch.Preset;
             List<string> t;
             try
             {
-                XmlWatch.EgaraWorkstation = delegate { return true; };
+                // The organization sets the folder by policy: the group shows it, managed.
+                XmlWatch.Preset = delegate { return @"D:\mensajes soap"; };
                 t = GeneralTexts(new Settings());
-                Check(Has(t, "Avanzado") && Has(t, "Abrir los XML nuevos de una carpeta"), "Egara PC: the group is hidden");
+                Check(Has(t, "Avanzado") && Has(t, "Abrir los XML nuevos de una carpeta"), "policy folder: the group is hidden");
+                Check(Has(t, @"D:\mensajes soap") && Has(t, Policy.Managed), "policy folder not shown as managed");
                 // Anywhere else nothing at all: no group, no link to unfold it.
-                XmlWatch.EgaraWorkstation = delegate { return false; };
+                XmlWatch.Preset = delegate { return null; };
                 t = GeneralTexts(new Settings());
-                Check(!Has(t, "Avanzado") && !Has(t, "Abrir los XML nuevos de una carpeta") && !Has(t, "Egara") && !Has(t, "avanzados"), "PC without Egara: something of the folder watch shows");
-                Check(!XmlWatch.Offered(new Settings()), "offered without Egara");
+                Check(!Has(t, "Avanzado") && !Has(t, "Abrir los XML nuevos de una carpeta") && !Has(t, "avanzados"), "without a policy: something of the folder watch shows");
+                Check(!XmlWatch.Offered(new Settings()), "offered without a policy or a setup");
                 Settings already = new Settings();
                 already.XmlWatchFolder = @"D:\soap entrada";
                 Check(XmlWatch.Offered(already), "a watch already set up is hidden from its owner");
+
+                Settings on = new Settings();
+                on.XmlWatch = true;
+                t = GeneralTexts(on);
+                Check(Has(t, "Avanzado") && Has(t, "Abrir los XML nuevos de una carpeta"), "group hidden while on");
+                Check(Has(t, "Ninguna carpeta") && Has(t, "Elige abajo la carpeta"), "no folder chosen is not told");
+
+                Settings custom = new Settings();
+                custom.XmlWatch = true;
+                custom.XmlWatchFolder = @"D:\soap entrada";
+                t = GeneralTexts(custom);
+                Check(Has(t, @"D:\soap entrada") && Has(t, "Carpeta elegida por ti."), "chosen folder");
+                Check(Has(t, "no existe todav"), "a missing folder is not told");
             }
-            finally { XmlWatch.EgaraWorkstation = real; }
-
-            Settings on = new Settings();
-            on.XmlWatch = true;
-            t = GeneralTexts(on);
-            Check(Has(t, "Avanzado") && Has(t, "Abrir los XML nuevos de una carpeta"), "group hidden while on");
-            Check(Has(t, XmlWatch.EgaraFolder), "Egara's folder not shown");
-            Check(Has(t, "La carpeta de Egara."), "folder note");
-            Check(Has(t, "Activo") || Has(t, "no existe todav") || Has(t, "ci\u00E9rralo"), "state of the watch not told");
-            if (XmlWatch.OldViewerRunning()) Check(Has(t, "ci\u00E9rralo para no abrir cada XML dos veces"), "the old viewer is open and nothing says so");
-
-            Settings custom = new Settings();
-            custom.XmlWatch = true;
-            custom.XmlWatchFolder = @"D:\soap entrada";
-            t = GeneralTexts(custom);
-            Check(Has(t, @"D:\soap entrada") && Has(t, "Carpeta elegida por ti."), "chosen folder");
-            Check(Has(t, "no existe todav") || Has(t, "ci\u00E9rralo"), "a missing folder is not told");
+            finally { XmlWatch.Preset = real; }
 
             Settings folderOnly = new Settings();
             folderOnly.XmlWatchFolder = @"D:\soap entrada";
@@ -227,11 +224,18 @@ namespace Stackshot.Tests
 
         static void FolderChoice()
         {
-            Settings s = new Settings();
-            Same(XmlWatch.EgaraFolder, XmlWatch.FolderFor(s), "empty");
-            s.XmlWatchFolder = @"E:\otra";
-            Same(@"E:\otra", XmlWatch.FolderFor(s), "chosen");
-            Same(@"C:\egarsat\temp", XmlWatch.EgaraFolder, "Egara's folder");
+            Func<string> real = XmlWatch.Preset;
+            try
+            {
+                XmlWatch.Preset = delegate { return null; };
+                Settings s = new Settings();
+                Same(null, XmlWatch.FolderFor(s), "empty");
+                s.XmlWatchFolder = @"E:\otra";
+                Same(@"E:\otra", XmlWatch.FolderFor(s), "chosen");
+                XmlWatch.Preset = delegate { return @"F:\de la empresa"; };
+                Same(@"F:\de la empresa", XmlWatch.FolderFor(s), "the policy's folder wins");
+            }
+            finally { XmlWatch.Preset = real; }
         }
 
         static void SlowWriter()
@@ -468,12 +472,6 @@ namespace Stackshot.Tests
             Same(null, sib("d.xml", 1), "after the last");
             Same(null, sib("no-existe.xml", 1), "a file that is not there");
             Same(null, XmlWatch.Sibling(Path.Combine(dir, "falta", "x.xml"), 1), "a folder that is not there");
-        }
-
-        static void OldViewer()
-        {
-            bool running = XmlWatch.OldViewerRunning();
-            Console.WriteLine("    old tray viewer running: " + running);
         }
     }
 }

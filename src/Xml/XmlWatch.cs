@@ -1,6 +1,5 @@
-// Stackshot - A folder watched for new XML files, each opened in the viewer as soon as it is complete. Made for the
-// Egara client, whose "Consulta WS" (Salida and Entrada) writes every SOAP message to C:\egarsat\temp\tmpNNNNN.xml and
-// tries to open it with a viewer that is no longer there; any folder works. Off unless turned on in General > Avanzado.
+// Stackshot - A folder watched for new XML files, each opened in the viewer as soon as it is complete: for programs that
+// leave every SOAP message they send or receive as an XML file in a folder. Off unless turned on in General > Avanzado.
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
 using System.Collections.Generic;
@@ -19,21 +18,16 @@ namespace Stackshot
 
     public sealed class XmlWatch : IDisposable
     {
-        public const string EgaraFolder = @"C:\egarsat\temp";
         const int SettleMs = 250, GiveUpSeconds = 15;
 
-        // Egara is installed here (its folder exists); tests replace it.
-        internal static Func<bool> EgaraWorkstation = delegate
-        {
-            try { return Directory.Exists(Path.GetDirectoryName(EgaraFolder)); }
-            catch (Exception) { return false; }
-        };
+        // The folder an organization sets with the XmlWatchFolder policy, or null; tests replace it.
+        internal static Func<string> Preset = delegate { return Policy.XmlFolder; };
 
-        // The folder watch is only offered on Egara workstations, or where it was already set up: nobody else sees it,
-        // not even through the settings search.
+        // The folder watch is only offered where it was already set up or the organization sets its folder: nobody else
+        // sees it, not even through the settings search.
         public static bool Offered(Settings s)
         {
-            return s.XmlWatch || !string.IsNullOrEmpty(s.XmlWatchFolder) || EgaraWorkstation();
+            return s.XmlWatch || !string.IsNullOrEmpty(s.XmlWatchFolder) || Preset() != null;
         }
 
         readonly Action<string> open;
@@ -58,10 +52,11 @@ namespace Stackshot
         public string Folder { get { return folder; } }
         public bool Watching { get { return watcher != null; } }
 
-        // The folder the setting points at: the one chosen, else Egara's.
+        // The folder to watch: the organization's, else the one chosen; null when there is none yet.
         public static string FolderFor(Settings s)
         {
-            return string.IsNullOrEmpty(s.XmlWatchFolder) ? EgaraFolder : s.XmlWatchFolder;
+            string f = Preset() ?? s.XmlWatchFolder;
+            return string.IsNullOrEmpty(f) ? null : f;
         }
 
         // Follows the settings: starts, stops or moves to another folder.
@@ -226,16 +221,6 @@ namespace Stackshot
                 return m.Groups[1].Value == "Fault" ? "SOAP Fault" : m.Groups[1].Value;
             }
             catch (Exception) { return ""; }
-        }
-
-        // The older tray tool (C:\Projects\visor-xml) watching too: each XML would open twice.
-        public static bool OldViewerRunning()
-        {
-            try
-            {
-                using (System.Threading.Mutex m = System.Threading.Mutex.OpenExisting(@"Local\VisorXmlEgara")) return true;
-            }
-            catch (Exception) { return false; }
         }
     }
 }

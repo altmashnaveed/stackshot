@@ -1031,7 +1031,7 @@ namespace Stackshot.Tests
 
         static void LookHits()
         {
-            Notice n = WithAction(new Notice("No hay ning\u00FAn XML", "No hay ning\u00FAn XML en C:\\Egara\\Mensajes\\SOAP\\EntradaConUnNombreDeCarpetaMuyLargoSinEspaciosQueNoCabeEnUnaLinea\\2026\\10\\12.", NoticeKind.Info));
+            Notice n = WithAction(new Notice("No hay ning\u00FAn XML", "No hay ning\u00FAn XML en C:\\Empresa\\Mensajes\\SOAP\\EntradaConUnNombreDeCarpetaMuyLargoSinEspaciosQueNoCabeEnUnaLinea\\2026\\10\\12.", NoticeKind.Info));
             foreach (float scale in new float[] { 1f, 1.25f, 1.5f, 2f })
             {
                 ToastLook k = ToastLook.For(n, scale);
@@ -1060,7 +1060,7 @@ namespace Stackshot.Tests
         static void LookPaths()
         {
             // A long path that fits in three lines is shown whole, wrapped at its separators.
-            string dir = "C:\\Egara\\Mensajes\\SOAP\\EntradaDeLaMutuaColaboradora\\2026\\10\\12\\Lote0001";
+            string dir = "C:\\Empresa\\Mensajes\\SOAP\\EntradaDeLaMutuaColaboradora\\2026\\10\\12\\Lote0001";
             foreach (float scale in new float[] { 1f, 1.5f })
             {
                 ToastLook k = ToastLook.For(new Notice("Stackshot", "No hay ning\u00FAn XML en " + dir + ".", NoticeKind.Info), scale);

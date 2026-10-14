@@ -311,7 +311,7 @@ Abre archivos `.md` y `.xml` desde el Explorador (opcional; Windows siempre tien
 <img src="docs/screens/xml-compare.png" alt="El visor de XML comparando dos respuestas SOAP: la barra de resumen muestra la operación y OK, y los nodos cambiados, añadidos y quitados aparecen resaltados con el recuento de diferencias" width="720">
 </div>
 
-En General > Avanzado se puede vigilar una carpeta: cada XML nuevo que aparece en ella se abre solo en el visor, delante de todo, y <kbd>[</kbd> <kbd>]</kbd> pasan al anterior o al siguiente. Está pensado para la Consulta WS de Egara, que deja cada mensaje SOAP en `C:\egarsat\temp`: solo aparece en equipos con Egara instalado y viene apagado. Desde la línea de órdenes, `--last-xml` abre el más reciente.
+En General > Avanzado se puede vigilar una carpeta: cada XML nuevo que aparece en ella se abre solo en el visor, delante de todo, y <kbd>[</kbd> <kbd>]</kbd> pasan al anterior o al siguiente. Está pensado para programas que dejan cada mensaje SOAP como un archivo XML en una carpeta: solo aparece si informática fija esa carpeta (la directiva `XmlWatchFolder`, ver [docs/it-policies.md](docs/it-policies.md)) o donde ya estaba configurado, y viene apagado. Desde la línea de órdenes, `--last-xml` abre el más reciente.
 
 **Markdown para documentar**
 

@@ -780,7 +780,7 @@ namespace Stackshot.Tests
                 int records = 0;
                 Func<bool, string> make = delegate(bool second)
                 {
-                    StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<S:Envelope xmlns:S=\"" + X6Soap11 + "\">\n  <S:Header><t:Traza xmlns:t=\"urn:traza\">" + (second ? "B" : "A") + "</t:Traza></S:Header>\n  <S:Body>\n    <ns2:consultaResponse xmlns:ns2=\"urn:egara\">\n");
+                    StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<S:Envelope xmlns:S=\"" + X6Soap11 + "\">\n  <S:Header><t:Traza xmlns:t=\"urn:traza\">" + (second ? "B" : "A") + "</t:Traza></S:Header>\n  <S:Body>\n    <ns2:consultaResponse xmlns:ns2=\"urn:ejemplo\">\n");
                     for (int i = 0; second ? i < records : sb.Length < 5 * 1024 * 1024; i++)
                     {
                         if (second && i == 1234) sb.Append("      <expediente codigo=\"N-1\"><nombre>Nuevo</nombre></expediente>\n");

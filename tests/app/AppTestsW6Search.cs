@@ -49,7 +49,7 @@ namespace Stackshot.Tests
                 T("typing-through-the-dispatcher", Typing);
                 T("results-view-light-and-dark", ResultsView);
                 T("keyboard-and-opening-a-result", OpenResult);
-                T("xml-watch-found-only-on-egara-workstations", Advanced);
+                T("xml-watch-found-only-with-a-policy-or-a-setup", Advanced);
                 T("recording-quality-options", Quality);
                 T("esc-returns-to-the-page", Esc);
                 T("ctrl-f-routing", CtrlF);
@@ -807,11 +807,11 @@ namespace Stackshot.Tests
 
         static void Advanced()
         {
-            Func<bool> real = XmlWatch.EgaraWorkstation;
+            Func<string> real = XmlWatch.Preset;
             try
             {
-                // An Egara workstation: the XML watch is on General, in the index, and opens in view.
-                XmlWatch.EgaraWorkstation = delegate { return true; };
+                // A folder set by the organization's policy: the XML watch is on General, in the index, and opens in view.
+                XmlWatch.Preset = delegate { return @"D:\mensajes soap"; };
                 Settings s = Fresh();
                 s.XmlWatch = false;
                 s.XmlWatchFolder = "";
@@ -830,21 +830,21 @@ namespace Stackshot.Tests
                 Glows(hw, row, watch.Title);
                 InView(hw, row, watch.Title);
                 // The folder row next to it, dimmed while the watch is off, is found too.
-                hw.SearchFor("carpeta de egara");
+                hw.SearchFor("mensajes soap");
                 Check(hw.SearchResults.Count > 0 && hw.SearchResults[0].Entry.Group == "Avanzado", "the watched folder: " + Titles(hw.SearchResults, 3));
                 hw.Shutdown();
 
                 // Anywhere else the search knows nothing of it either.
-                XmlWatch.EgaraWorkstation = delegate { return false; };
+                XmlWatch.Preset = delegate { return null; };
                 HomeWindow other = Make(1, Fresh());
                 List<SearchEntry> none = Index(other);
-                Check(Entry(none, "general", "Abrir los XML nuevos de una carpeta") == null, "the XML watch is in the index of a PC without Egara");
-                foreach (SearchEntry e in none) Check(e.Group != "Avanzado" && (e.Sub == null || e.Sub.IndexOf("Egara", StringComparison.Ordinal) < 0), "Egara shows in the index: " + e.Title);
+                Check(Entry(none, "general", "Abrir los XML nuevos de una carpeta") == null, "the XML watch is in the index without a policy or a setup");
+                foreach (SearchEntry e in none) Check(e.Group != "Avanzado", "the folder watch shows in the index: " + e.Title);
                 other.SearchFor("xml nuevos");
-                foreach (SearchHit h in other.SearchResults) Check(h.Entry.Group != "Avanzado", "found without Egara: " + h.Entry.Title);
+                foreach (SearchHit h in other.SearchResults) Check(h.Entry.Group != "Avanzado", "found without a policy or a setup: " + h.Entry.Title);
                 other.Shutdown();
             }
-            finally { XmlWatch.EgaraWorkstation = real; }
+            finally { XmlWatch.Preset = real; }
         }
 
         static FrameworkElement Card(HomeWindow hw, int i)

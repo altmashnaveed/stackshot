@@ -15,7 +15,7 @@ Stackshot.exe --last-xml
 |---|---|
 | `--capture <modo>` | Lo mismo que el atajo de ese modo. |
 | `--open-home` | Abre la ventana principal. |
-| `--last-xml` | Abre en el visor el XML más reciente de la carpeta vigilada (Ajustes > General > Avanzado; si no hay ninguna elegida, la de Egara). |
+| `--last-xml` | Abre en el visor el XML más reciente de la carpeta vigilada (Ajustes > General > Avanzado, o la que fije la directiva `XmlWatchFolder`). |
 
 Modos de `--capture`:
 
@@ -68,6 +68,7 @@ HKEY_CURRENT_USER\SOFTWARE\Policies\Stackshot     (solo ese usuario)
 | `Mascot` | DWORD `0` | Sin mascota: ni en la ventana, ni en el escritorio, ni sus saludos y consejos. |
 | `SensitiveAuto` | DWORD `1` / `0` | `1`: tapa siempre los datos personales (DNI, IBAN, correos...) en cada captura. `0`: nunca. |
 | `HistorySearch` | DWORD `0` | El Historial no lee el texto de las capturas ni guarda un índice de texto (borra el que hubiera): solo busca por el nombre. |
+| `XmlWatchFolder` | REG_SZ o REG_EXPAND_SZ | Carpeta donde un programa deja cada mensaje SOAP como XML. Hace aparecer Ajustes > General > Avanzado > «Abrir los XML nuevos de una carpeta» con esa carpeta fija (el usuario solo decide si lo enciende). Sin esta directiva, el grupo solo existe donde ya estaba configurado. |
 
 - En `CheckUpdates`, `AutoUpdate`, `Mascot` y `HistorySearch`, un `1` deja la decisión al usuario; en HKLM, aunque
   HKCU tenga un `0`.

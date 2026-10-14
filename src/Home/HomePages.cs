@@ -810,7 +810,7 @@ namespace Stackshot
             BuildAdvanced();
         }
 
-        // Egara's folder watch: only on Egara workstations (or where it is already set up); elsewhere nothing at all.
+        // The folder watch: only where it is already set up or the organization sets its folder; elsewhere nothing at all.
         void BuildAdvanced()
         {
             if (!XmlWatch.Offered(settings)) return;
@@ -819,54 +819,47 @@ namespace Stackshot
                               delegate { return settings.XmlWatch; }, delegate(bool v) { settings.XmlWatch = v; })
                     { SubNow = XmlWatchNote },
                 new XmlFolderRow { When = delegate { return settings.XmlWatch; } });
-            Note("Pensado para la Consulta WS de Egara, que deja cada mensaje SOAP en " + XmlWatch.EgaraFolder + ". En el visor, [ y ] pasan al XML anterior o al siguiente, y \u00ABM\u00E1s opciones\u00BB lista los \u00FAltimos que han llegado.");
+            Note("Pensado para programas que dejan cada mensaje SOAP como un archivo XML en una carpeta. En el visor, [ y ] pasan al XML anterior o al siguiente, y \u00ABM\u00E1s opciones\u00BB lista los \u00FAltimos que han llegado.");
         }
 
         string XmlWatchNote()
         {
             if (!settings.XmlWatch) return "Cada XML que aparezca en esa carpeta se abre solo en el visor de Stackshot, delante de todo.";
-            if (XmlWatch.OldViewerRunning()) return "El visor XML Egara tambi\u00E9n est\u00E1 abierto: ci\u00E9rralo para no abrir cada XML dos veces.";
             string dir = XmlWatch.FolderFor(settings);
+            if (dir == null) return "Elige abajo la carpeta que vigilar.";
             bool exists = false;
             try { exists = Directory.Exists(dir); } catch { }
             if (!exists) return "La carpeta no existe todav\u00EDa; Stackshot la vuelve a buscar cada minuto.";
             return "Activo: los XML nuevos se abren solos en el visor, delante de todo.";
         }
 
-        // The folder whose new XML files open in the viewer: Egara's unless another one is chosen.
+        // The folder whose new XML files open in the viewer: the organization's, or the one chosen here.
         public class XmlFolderRow : Row
         {
             public XmlFolderRow() : base("", null, "folder", D.Color.FromArgb(90, 200, 250), D.Color.FromArgb(0, 122, 255)) { }
             public override void Build()
             {
                 string dir = XmlWatch.FolderFor(W.settings);
-                Title = ShortPath(dir);
-                Sub = string.IsNullOrEmpty(W.settings.XmlWatchFolder) ? "La carpeta de Egara." : "Carpeta elegida por ti.";
+                Title = dir != null ? ShortPath(dir) : "Ninguna carpeta";
+                Sub = XmlWatch.Preset() != null ? Policy.Managed + "." : dir != null ? "Carpeta elegida por ti." : "Elige la carpeta donde aparecen los XML.";
                 base.Build();
-                ToolTip = dir;
+                if (dir != null) ToolTip = dir;
                 ToolTipService.SetInitialShowDelay(this, 700);
             }
             protected override FrameworkElement Control()
             {
                 StackPanel p = new StackPanel { Orientation = Orientation.Horizontal };
-                if (!string.IsNullOrEmpty(W.settings.XmlWatchFolder))
-                {
-                    MacButton egara = new MacButton("La de Egara", ButtonKind.Secondary);
-                    egara.Margin = new Thickness(0, 0, 8, 0);
-                    egara.Click += delegate { W.settings.XmlWatchFolder = ""; W.Changed(); W.Rebuild(); };
-                    p.Children.Add(egara);
-                }
-                MacButton change = new MacButton("Cambiar\u2026", ButtonKind.Secondary);
+                if (XmlWatch.Preset() != null) return p;
+                MacButton change = new MacButton(XmlWatch.FolderFor(W.settings) != null ? "Cambiar\u2026" : "Elegir\u2026", ButtonKind.Secondary);
                 change.Click += delegate
                 {
                     using (WF.FolderBrowserDialog d = new WF.FolderBrowserDialog())
                     {
                         d.Description = "\u00BFQu\u00E9 carpeta vigilo? Cada XML nuevo que aparezca en ella se abrir\u00E1 en el visor.";
                         d.ShowNewFolderButton = false;
-                        try { string cur = XmlWatch.FolderFor(W.settings); if (Directory.Exists(cur)) d.SelectedPath = cur; } catch { }
+                        try { string cur = XmlWatch.FolderFor(W.settings); if (cur != null && Directory.Exists(cur)) d.SelectedPath = cur; } catch { }
                         if (d.ShowDialog(W.Win32) != WF.DialogResult.OK) return;
-                        bool same = string.Equals(d.SelectedPath.TrimEnd('\\'), XmlWatch.EgaraFolder, StringComparison.OrdinalIgnoreCase);
-                        W.settings.XmlWatchFolder = same ? "" : d.SelectedPath;
+                        W.settings.XmlWatchFolder = d.SelectedPath;
                         W.Changed();
                         W.Rebuild();
                     }

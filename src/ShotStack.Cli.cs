@@ -37,6 +37,7 @@ namespace Stackshot
         void OpenLatestXmlQuietly()
         {
             string dir = XmlWatch.FolderFor(settings);
+            if (dir == null) { Notify("Stackshot", NoXmlFolder); return; }
             System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
                 string last = XmlWatch.Latest(dir);

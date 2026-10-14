@@ -13,6 +13,7 @@ namespace Stackshot
     //   Mascot         DWORD 0                  no mascot at all: window, desktop and its tips
     //   SensitiveAuto  DWORD 1 / 0              always / never cover personal data in new captures
     //   HistorySearch  DWORD 0                  never read the text of captures
+    //   XmlWatchFolder REG_SZ / REG_EXPAND_SZ   the folder whose new XML files can open in the viewer (General > Avanzado)
     // A DWORD 1 in the switches that only turn something off leaves the choice to the user. Anything else is ignored and
     // logged. A forced value replaces the user's while the policy exists, but settings.ini keeps the user's own choice
     // (Settings.Save writes ForFile), so removing the policy brings it back. Read by Settings.Load and every time a
@@ -30,13 +31,14 @@ namespace Stackshot
         // What the registry forces: null or -1 where nothing is forced.
         internal sealed class Values
         {
-            public string SaveFolder;
+            public string SaveFolder, XmlFolder;
             public int CheckUpdates = -1, AutoUpdate = -1, Mascot = -1, SensitiveAuto = -1, HistorySearch = -1;
         }
 
         static volatile Values current = new Values();
 
         public static bool FolderForced { get { return current.SaveFolder != null; } }
+        public static string XmlFolder { get { return current.XmlFolder; } }
         public static bool ChecksForced { get { return current.CheckUpdates == 0; } }
         public static bool AutoForced { get { Values v = current; return v.AutoUpdate == 0 || v.CheckUpdates == 0; } }
         public static bool MascotForced { get { return current.Mascot == 0; } }
@@ -46,7 +48,7 @@ namespace Stackshot
         // Some setting is in the organization's hands.
         public static bool Any
         {
-            get { return FolderForced || ChecksForced || AutoForced || MascotForced || SensitiveForced || SearchForced; }
+            get { return FolderForced || ChecksForced || AutoForced || MascotForced || SensitiveForced || SearchForced || XmlFolder != null; }
         }
 
         // Reads the policies again and applies them to these settings. True when a setting in use changed.
@@ -74,7 +76,8 @@ namespace Stackshot
             try
             {
                 if (m == null && u == null) return v;
-                v.SaveFolder = FolderIn(m, "HKLM") ?? FolderIn(u, "HKCU");
+                v.SaveFolder = FolderIn(m, "HKLM", "SaveFolder") ?? FolderIn(u, "HKCU", "SaveFolder");
+                v.XmlFolder = FolderIn(m, "HKLM", "XmlWatchFolder") ?? FolderIn(u, "HKCU", "XmlWatchFolder");
                 // A 1 in a switch that only turns something off leaves it to the user, even over the user's key's 0.
                 v.CheckUpdates = Dword(m, u, "CheckUpdates") == 0 ? 0 : -1;
                 v.AutoUpdate = Dword(m, u, "AutoUpdate") == 0 ? 0 : -1;
@@ -119,9 +122,8 @@ namespace Stackshot
         }
 
         // A full folder path (drive or network); environment variables are expanded for both string types.
-        static string FolderIn(RegistryKey k, string where)
+        static string FolderIn(RegistryKey k, string where, string name)
         {
-            const string name = "SaveFolder";
             if (k == null) return null;
             try
             {
@@ -165,6 +167,7 @@ namespace Stackshot
         {
             List<string> l = new List<string>();
             if (v.SaveFolder != null) l.Add("SaveFolder = " + v.SaveFolder);
+            if (v.XmlFolder != null) l.Add("XmlWatchFolder = " + v.XmlFolder);
             if (v.CheckUpdates == 0) l.Add("CheckUpdates = 0");
             if (v.AutoUpdate == 0) l.Add("AutoUpdate = 0");
             if (v.Mascot == 0) l.Add("Mascot = 0");

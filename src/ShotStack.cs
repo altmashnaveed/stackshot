@@ -115,7 +115,7 @@ namespace Stackshot
             hotkeys.Pressed += OnHotkey;
             RegisterHotkeys(true);
 
-            // A folder whose new XML files open in the viewer (Egara's SOAP messages); off unless turned on.
+            // A folder whose new XML files open in the viewer (SOAP messages); off unless turned on.
             xmlWatch = new XmlWatch(sync, OpenArrivedXml);
             xmlWatch.Apply(settings);
 
@@ -305,10 +305,13 @@ namespace Stackshot
             TellArrivedXml(path);
         }
 
+        internal const string NoXmlFolder = "Todav\u00EDa no hay ninguna carpeta de XML vigilada: el\u00EDgela en Ajustes > General > Avanzado.";
+
         // The tray's latest-XML entry: the newest file in the watched folder.
         void OpenLatestXml()
         {
             string dir = XmlWatch.FolderFor(settings);
+            if (dir == null) { Notify("Stackshot", NoXmlFolder); return; }
             string last = XmlWatch.Latest(dir);
             if (last == null) { Notify("Stackshot", "No hay ning\u00FAn XML en " + dir + "."); return; }
             OpenViewerFile(last);

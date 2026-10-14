@@ -129,7 +129,7 @@ namespace Stackshot
         public bool PlayerOpensVideos = true; // videos open in Stackshot's player (off: Windows' default app; Cine masters always in Stackshot)
         public int PlayerScaling = 0;       // picture scaling: 0 best (Lanczos), 1 fast (bilinear)
         public bool PlayerFill;             // enlarge the picture to fill the window; off: never above its real size (sharpest)
-        public bool XmlWatch;               // open the XML files that appear in XmlWatchFolder (Egara's C:\egarsat\temp when empty)
+        public bool XmlWatch;               // open the XML files that appear in XmlWatchFolder (or the XmlWatchFolder policy's)
         public string XmlWatchFolder = "";
         public int PlayerVolume = 100;      // 0..100
         public bool PlayerLoop = false;
@@ -527,7 +527,7 @@ namespace Stackshot
             b.AppendLine("PlayerLoop = " + (PlayerLoop ? "1" : "0"));
             b.AppendLine("# MP4 del editor: 0 m\u00E1xima, 1 alta, 2 ligera, 3 hasta 16 MB (WhatsApp), 4 hasta 25 MB (correo)");
             b.AppendLine("ExportQuality = " + ExportQuality);
-            b.AppendLine("# Visor XML: abrir solos los XML nuevos de una carpeta (1/0) y esa carpeta (vac\u00EDa = la de Egara, C:\\egarsat\\temp)");
+            b.AppendLine("# Visor XML: abrir solos los XML nuevos de una carpeta (1/0) y esa carpeta (vac\u00EDa = ninguna)");
             b.AppendLine("XmlWatch = " + (XmlWatch ? "1" : "0"));
             b.AppendLine("XmlWatchFolder = " + OneLine(XmlWatchFolder));
             b.AppendLine("# Capturas: puntero (1/0), nombre ({tipo} {fecha} {hora} {app} {ventana}), subcarpetas al guardar (0 no, 1 por mes, 2 por a\u00F1o y mes), tapar datos sensibles (1/0), buscar por el texto (1/0)");

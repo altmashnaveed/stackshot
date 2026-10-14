@@ -1590,7 +1590,7 @@ namespace Stackshot
 
         // ---- Input
 
-        // [ and ]: the XML before or after this one in its folder (Egara's messages one after another), outside a field.
+        // [ and ]: the XML before or after this one in its folder (messages one after another), outside a field.
         // Read as typed text: on a Spanish keyboard they come with AltGr.
         void OnTyped(object sender, TextCompositionEventArgs e)
         {

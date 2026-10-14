@@ -311,7 +311,7 @@ Open `.md` and `.xml` files from Explorer (optional; Windows keeps the final cho
 <img src="docs/screens/xml-compare.png" alt="The XML viewer comparing two SOAP responses: the summary bar shows the operation and OK, and changed, added and removed nodes are highlighted with a count of differences" width="720">
 </div>
 
-General > Avanzado can watch a folder: every new XML that appears in it opens by itself in the viewer, in front of everything, and <kbd>[</kbd> <kbd>]</kbd> go to the previous or next one. It is meant for Egara's Consulta WS, which leaves each SOAP message in `C:\egarsat\temp`: it only appears on PCs with Egara installed, and it is off by default. From the command line, `--last-xml` opens the newest one.
+General > Avanzado can watch a folder: every new XML that appears in it opens by itself in the viewer, in front of everything, and <kbd>[</kbd> <kbd>]</kbd> go to the previous or next one. It is meant for programs that leave each SOAP message as an XML file in a folder: it only appears when your IT department sets that folder (the `XmlWatchFolder` policy, see [docs/it-policies.md](docs/it-policies.md)) or where it was already set up, and it is off by default. From the command line, `--last-xml` opens the newest one.
 
 **Markdown for documentation**
 

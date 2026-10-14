@@ -290,7 +290,7 @@ namespace Stackshot.Tests
 
         static void Emails()
         {
-            foreach (string e in new string[] { "juan.perez@empresa.es", "maria_lopez+rrhh@mutua-egara.com", "a@b.co", "RRHH@Empresa.ES", "j.p-1@sub.dominio.org" })
+            foreach (string e in new string[] { "juan.perez@empresa.es", "maria_lopez+rrhh@mutua-ejemplo.com", "a@b.co", "RRHH@Empresa.ES", "j.p-1@sub.dominio.org" })
                 Yes(e, SensitiveKind.Email);
             Yes("Correo: juan.perez@empresa.es.", SensitiveKind.Email);
             Yes("juan.perez @empresa.es", SensitiveKind.Email);
