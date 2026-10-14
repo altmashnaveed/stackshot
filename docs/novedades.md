@@ -1,0 +1,18 @@
+# Novedades de Stackshot
+
+Lo que trae cada versión, contado para quien la usa. Stackshot lo enseña dentro de la app (en el aviso de versión nueva,
+al actualizar y en Inicio > Acerca de > Novedades) y también se publica en la página de cada versión.
+
+Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad: `- **Título.** Explicación breve.`
+
+## 2.2.0
+
+- **Avisa de un problema o propón una idea desde la app.** En Inicio > Acerca de > Informar de un problema lo cuentas sin salir de Stackshot y sin cuenta de GitHub, y en «Mis reportes» ves cómo va cada uno y las respuestas.
+- **Pausas saludables con tu mascota.** Te recuerda beber agua, descansar la vista, moverte y respirar, y si quieres hace la pausa contigo. Se ajusta en Mascota > Ajustes; siempre te dice qué ha hecho con tu respuesta.
+- **Más rápida y más fluida.** Los XML grandes se abren antes, y las miniaturas, el panel de la bandeja, el editor y el reproductor de vídeo van más suaves y gastan menos.
+- **Te confirma lo que haces.** Al copiar, guardar, ordenar o insertar un índice, el botón o un aviso te dice que está hecho; y si algo falla, te explica qué ha pasado.
+- **Los .md y .xml se abren al instante.** La ventana aparece ya con el documento, sin pantallas intermedias.
+- **Pegar justo después de capturar quita la miniatura.** También en navegadores, Teams y otras apps que pegan muy rápido.
+- **Dos personajes nuevos: Kero y Kamina.** Están en Mascota > Personaje, y sus piezas se pueden combinar con todo lo demás.
+- **Las novedades, dentro de la app.** Cuando hay una versión nueva o acabas de actualizar, Stackshot te cuenta qué trae, como ahora.
+- **Arreglos.** Las miniaturas ya no dejan sus botones a la vista al pasar el ratón por varias seguidas, la captura con desplazamiento guarda lo que lleva si falla a mitad, y copiar el texto de una captura está en el botón redondo «T».
