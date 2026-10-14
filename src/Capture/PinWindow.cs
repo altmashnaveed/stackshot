@@ -119,13 +119,33 @@ namespace Stackshot
         ContextMenuStrip BuildMenu()
         {
             ContextMenuStrip m = TrayMenu.Create();
-            m.Items.Add(TrayMenu.Item("Copiar", "copy", delegate { ShotStack.CopyImage(img); }));
+            m.Items.Add(TrayMenu.Item("Copiar", "copy", delegate { Copy(); }));
             if (ShotStack.Running != null) m.Items.Add(TrayMenu.Item("Copiar el texto", "textscan", delegate { ShotStack.Running.CopyText(img, null); }));
             m.Items.Add(TrayMenu.Item("Guardar como\u2026", "save", delegate { SaveAs(); }));
             m.Items.Add(TrayMenu.Item("Tama\u00F1o real", "actualsize", delegate { SetZoom(1f, new Point(body.Width / 2, body.Height / 2)); }));
             m.Items.Add(TrayMenu.Separator());
             m.Items.Add(TrayMenu.Item("Cerrar", "close", delegate { BeginInvoke((Action)Close); })); // after the menu finishes, since closing disposes it
             return m;
+        }
+
+        // The pinned picture has no room for a message of its own: the confirmation is a notice.
+        static void Tell(string title, string text, string folder)
+        {
+            if (ShotStack.Running != null) ShotStack.Running.Notify(title, text, folder);
+        }
+
+        void Copy()
+        {
+            try
+            {
+                ShotStack.CopyImage(img);
+                Tell("Imagen copiada", "Ya puedes pegarla donde quieras.", null);
+            }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Fijada, copiar: " + ex.Message);
+                Tell("No se pudo copiar", "Otro programa está usando el portapapeles. Vuelve a intentarlo.", null);
+            }
         }
 
         void SaveAs()
@@ -136,7 +156,11 @@ namespace Stackshot
                 d.FileName = "Stackshot " + DateTime.Now.ToString("yyyy-MM-dd HH.mm.ss") + ".png";
                 if (d.ShowDialog(this) == DialogResult.OK)
                 {
-                    try { img.Save(d.FileName, ImageFormat.Png); }
+                    try
+                    {
+                        img.Save(d.FileName, ImageFormat.Png);
+                        Tell("Imagen guardada", System.IO.Path.GetFileName(d.FileName), System.IO.Path.GetDirectoryName(d.FileName));
+                    }
                     catch (Exception ex)
                     {
                         ShotStack.Log("Guardar como " + d.FileName + ": " + ex);
@@ -373,7 +397,7 @@ namespace Stackshot
             base.OnKeyDown(e);
             Point center = new Point(body.Width / 2, body.Height / 2);
             if (e.KeyCode == Keys.Escape) Close();
-            else if (e.KeyData == (Keys.Control | Keys.C)) ShotStack.CopyImage(img);
+            else if (e.KeyData == (Keys.Control | Keys.C)) Copy();
             else if (e.KeyData == (Keys.Control | Keys.D0) || e.KeyData == (Keys.Control | Keys.NumPad0)) SetZoom(1f, center);
             else if (e.KeyData == (Keys.Control | Keys.Oemplus) || e.KeyData == (Keys.Control | Keys.Add)) SetZoom(zoom * 1.25f, center);
             else if (e.KeyData == (Keys.Control | Keys.OemMinus) || e.KeyData == (Keys.Control | Keys.Subtract)) SetZoom(zoom / 1.25f, center);
