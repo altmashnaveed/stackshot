@@ -22,7 +22,10 @@ namespace Stackshot
                                                        "Caballero", "Astronauta", "Mago sabio", "Superh\u00E9roe", "Kero", "Kamina",
                                                        "Desdentao", "Furia Luminosa", "Tormenta", "Colmillo", "Alb\u00F3ndiga",
                                                        "Stitch", "Kirby", "Grogu", "Eevee", "Charmander",
-                                                       "Bulbasaur", "Squirtle", "Jigglypuff", "Snorlax", "Gengar", "Mew" };
+                                                       "Bulbasaur", "Squirtle", "Jigglypuff", "Snorlax", "Gengar", "Mew",
+                                                       "Psyduck", "Togepi", "Meowth", "Piplup", "Mimikyu", "Lucario", "Dragonite", "Ditto", "Mewtwo",
+                                                       "Sin Cara", "Calcifer", "Kodama", "Yoshi", "Sonic", "Creeper", "Tripulante", "Blinky", "Slime",
+                                                       "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -33,7 +36,10 @@ namespace Stackshot
                                                              "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
                                                              "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
                                                              "Lilo y Stitch", "Kirby", "The Mandalorian", "Pok\u00E9mon", "Pok\u00E9mon",
-                                                             "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon" };
+                                                             "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon",
+                                                             "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon",
+                                                             "El viaje de Chihiro", "El castillo ambulante", "La princesa Mononoke", "Super Mario", "Sonic", "Minecraft",
+                                                             "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -90,7 +96,31 @@ namespace Stackshot
             { 30, 31, 7, 0, 0, 0 },
             { 31, 32, 7, 0, 0, 0 },
             { 32, 33, 7, 0, 0, 0 },
-            { 33, 31, 7, 0, 0, 0 }
+            { 33, 31, 7, 0, 0, 0 },
+            { 34, 34, 7, 0, 0, 0 },
+            { 35, 35, 7, 0, 0, 0 },
+            { 36, 35, 7, 0, 0, 0 },
+            { 37, 36, 7, 0, 0, 0 },
+            { 38, 37, 7, 0, 0, 0 },
+            { 39, 36, 7, 0, 0, 0 },
+            { 40, 38, 7, 0, 0, 0 },
+            { 41, 39, 7, 0, 0, 0 },
+            { 42, 40, 7, 0, 0, 0 },
+            { 43, 41, 7, 0, 0, 0 },
+            { 44, 42, 7, 0, 0, 0 },
+            { 45, 43, 7, 0, 0, 0 },
+            { 46, 44, 7, 0, 0, 0 },
+            { 47, 45, 7, 0, 0, 0 },
+            { 48, 46, 7, 0, 0, 0 },
+            { 49, 47, 7, 0, 0, 0 },
+            { 50, 48, 7, 0, 0, 0 },
+            { 51, 4, 7, 0, 0, 0 },
+            { 52, 49, 7, 0, 0, 0 },
+            { 53, 49, 7, 0, 0, 0 },
+            { 54, 23, 7, 0, 0, 0 },
+            { 55, 50, 7, 0, 0, 0 },
+            { 56, 51, 7, 0, 0, 0 },
+            { 57, 49, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so

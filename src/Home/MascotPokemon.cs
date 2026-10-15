@@ -262,9 +262,29 @@ namespace Stackshot
         // Snorlax's eyes are two flat lines, half asleep, unless something surprises it.
         bool PokemonEye(Graphics g, float x, float y, float D, bool surprised)
         {
+            if (Look.Kind == MascotParts.KindGengar) { GengarEye(g, x, y, D, surprised); return true; }
             if (Look.Kind != MascotParts.KindSnorlax || surprised) return false;
             MascotParts.Line(g, Color.FromArgb(230, 30, 34, 40), Math.Max(1.2f, D * 0.018f), x - D * 0.05f, y, x + D * 0.05f, y);
             return true;
+        }
+
+        // Gengar's eyes: all red, slanted down towards the middle in a sly V, with a tiny dark pupil and a glint.
+        void GengarEye(Graphics g, float x, float y, float D, bool surprised)
+        {
+            float s = x < 0 ? -1 : 1, w = 0.14f * D, h = (surprised ? 0.12f : 0.1f) * D;
+            using (GraphicsPath e = new GraphicsPath())
+            {
+                PointF inner = new PointF(x - s * w * 0.5f, y - h * 0.05f), outer = new PointF(x + s * w * 0.5f, y - h * 0.6f);
+                e.AddLine(inner, outer);
+                e.AddBezier(outer, new PointF(x + s * w * 0.62f, y + h * 0.3f), new PointF(x + s * w * 0.1f, y + h * 0.62f), new PointF(x - s * w * 0.22f, y + h * 0.45f));
+                e.AddBezier(new PointF(x - s * w * 0.22f, y + h * 0.45f), new PointF(x - s * w * 0.42f, y + h * 0.35f), new PointF(x - s * w * 0.52f, y + h * 0.15f), inner);
+                e.CloseFigure();
+                MascotParts.Fill(g, e, new RectangleF(x - w / 2, y - h * 0.6f, w, h * 1.2f), Color.FromArgb(255, 70, 80), Color.FromArgb(200, 20, 40), 90f);
+                MascotParts.Stroke(g, e, Color.FromArgb(220, 60, 20, 50), Math.Max(1f, D * 0.009f));
+            }
+            float r = 0.017f * D, px = x - s * w * 0.04f, py = y + h * 0.05f;
+            MascotParts.Ellipse(g, Color.FromArgb(240, 60, 8, 20), px - r, py - r, r * 2, r * 2);
+            MascotParts.Ellipse(g, Color.FromArgb(230, 255, 255, 255), x + s * w * 0.12f, y - h * 0.32f, w * 0.12f, h * 0.16f);
         }
 
         // Gengar's wide white grin, with lines between its teeth; Snorlax's small mouth with two little fangs.

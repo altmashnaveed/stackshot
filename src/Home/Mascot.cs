@@ -747,8 +747,9 @@ namespace Stackshot
                 double p = (now - blinkStart) / 150.0;
                 blink = (float)Math.Max(0.1, 1 - Math.Sin(Math.PI * Math.Min(1, p)) * 0.95);
             }
+            if (!visor && ExtraFace(g, D, geo, ex, ey)) return;
             float stroke = Math.Max(1.5f, D * (visor ? 0.03f : 0.026f));
-            bool cheeks = !visor || mood == Mood.Happy || mood == Mood.Love || mood == Mood.Wink;
+            bool cheeks = (!visor || mood == Mood.Happy || mood == Mood.Love || mood == Mood.Wink) && !MascotParts.NoCheeks(Look.Kind);
             if (cheeks)
             {
                 int a = mood == Mood.Happy || mood == Mood.Love ? 140 : 70;
@@ -761,6 +762,9 @@ namespace Stackshot
                 float x = (i == 0 ? -gap : gap) + ex, y = ey;
                 Mood m = mood;
                 if (m == Mood.Wink && i == 1) m = Mood.Sleep;
+                // Eyes that keep their own shape whatever the mood: Gengar's, the kodama's hollows, Mimikyu's painted ones.
+                if ((Look.Kind == MascotParts.KindGengar || Look.Kind == MascotParts.KindKodama) && m != Mood.Sleep && m != Mood.Yawn) m = Mood.Idle;
+                if (Look.Kind == MascotParts.KindMimikyu && m != Mood.Sleep && m != Mood.Yawn) m = Mood.Idle;
                 if (visor) MascotParts.Glow(g, x, y, D * 0.19f, D * 0.22f, m == Mood.Love ? LoveColor : EyeGlow, mood == Mood.Sleep ? 40 : 95);
                 Color core = m == Mood.Love ? (visor ? Mac.Mix(LoveColor, Color.White, 0.25) : LoveColor) : ink;
                 switch (m)
@@ -805,7 +809,7 @@ namespace Stackshot
 
         void EyeShape(Graphics g, float x, float y, float D, bool visor, float blink, Color core, bool surprised)
         {
-            if (ClassicEye(g, x, y, D, blink, surprised) || PokemonEye(g, x, y, D, surprised)) return;
+            if (ClassicEye(g, x, y, D, blink, surprised) || PokemonEye(g, x, y, D, surprised) || ExtraEye(g, x, y, D, blink, surprised)) return;
             if (Look.Eyes == MascotParts.EyesDragon) { DragonEye(g, x, y, D, blink, surprised); return; }
             int style = surprised ? 1 : Look.Eyes;
             float w, h;
@@ -883,7 +887,7 @@ namespace Stackshot
                 MascotParts.Ellipse(g, visor ? ink : Color.FromArgb(70, 30, 50), mx - r, my - r * 0.4f, r * 2, r * 2.4f);
                 return;
             }
-            if (!visor && mood != Mood.Sleep && (ClassicMouth(g, D, mx, fy, ink, lw, talking) || PokemonMouth(g, D, mx, fy, ink, lw, talking))) return;
+            if (!visor && mood != Mood.Sleep && (ClassicMouth(g, D, mx, fy, ink, lw, talking) || PokemonMouth(g, D, mx, fy, ink, lw, talking) || ExtraMouth(g, D, mx, fy, ink, lw, talking))) return;
             if (mood == Mood.Happy || mood == Mood.Love || (talking && !visor) || (Look.Kind == MascotParts.KindCharmander && mood == Mood.Idle && !visor))
             {
                 float w = D * 0.1f, h = D * 0.06f;

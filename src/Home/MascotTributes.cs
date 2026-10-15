@@ -61,6 +61,7 @@ namespace Stackshot
                 case KindNightFury:
                 case KindLightFury: e.W = 0.13f; e.H = 0.146f; e.Pupil = 0.6f; break;
             }
+            if (IsExtra(kind)) ExtraEyeSpec(kind, ref e);
             return e;
         }
 

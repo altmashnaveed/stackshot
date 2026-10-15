@@ -18,6 +18,7 @@ namespace Stackshot
             if (IsTribute(l.Kind)) { TributeBack(g, l, D, c1, c2, p); return; }
             if (IsClassic(l.Kind)) { ClassicBack(g, l, D, c1, c2, p); return; }
             if (IsPokemon(l.Kind)) { PokemonBack(g, l, D, c1, c2, p); return; }
+            if (IsExtra(l.Kind)) { ExtraBack(g, l, D, c1, c2, p); return; }
             switch (l.Kind)
             {
                 case KindPanda:

@@ -235,6 +235,7 @@ namespace Stackshot
             if (IsTribute(l.Kind)) TributeBody(g, l, D, body, c1, c2);
             if (IsClassic(l.Kind)) ClassicBody(g, l, D, body, c1, c2);
             if (IsPokemon(l.Kind)) PokemonBody(g, l, D, body, c1, c2);
+            if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2);
             Shine(g, body, b, l.Kind == 4 ? 150 : 105);
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             body.Dispose();
@@ -244,6 +245,7 @@ namespace Stackshot
         static GraphicsPath BodyPath(int kind, Geo geo, float D, double now)
         {
             float W = geo.HeadW * D, top = geo.Top * D, bottom = geo.Bottom * D;
+            if (IsExtra(kind)) { GraphicsPath xp = ExtraPath(kind, geo, D, now); if (xp != null) return xp; }
             if (kind == 3)
             {
                 GraphicsPath p = new GraphicsPath();
@@ -288,6 +290,7 @@ namespace Stackshot
             if (IsTribute(l.Kind)) TributeDetails(g, l, geo, D);
             if (IsClassic(l.Kind)) ClassicDetails(g, l, geo, D);
             if (IsPokemon(l.Kind)) PokemonDetails(g, l, geo, D);
+            if (IsExtra(l.Kind)) ExtraDetails(g, l, geo, D, p);
             if (l.Kind == 1)
             {
                 foreach (int s in new int[] { -1, 1 })
@@ -304,7 +307,7 @@ namespace Stackshot
         // ---- Hands and paws; the right one waves (wave 0-1).
         public static void PaintHands(Graphics g, MascotLook l, float D, Color c1, Color c2, MascotPose p)
         {
-            if (p.HideHands) return;
+            if (p.HideHands || NoHands(l.Kind)) return;
             Geo geo = GeoFor(l.Kind);
             foreach (int side in new int[] { -1, 1 })
             {

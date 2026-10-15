@@ -65,7 +65,11 @@ namespace Stackshot
                                                    "Furia Nocturna", "Furia Luminosa", "Nadder Mort\u00EDfero", "Pesadilla Monstruosa", "Gronckle",
                                                    "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra", "Rat\u00F3n el\u00E9ctrico",
                                                    "Consola", "Gato c\u00F3smico", "Esp\u00EDritu del bosque",
-                                                   "Semilla", "Tortuguita", "Globo cantor", "Dormil\u00F3n", "Sombra traviesa", "Gatito ps\u00EDquico" };
+                                                   "Semilla", "Tortuguita", "Globo cantor", "Dormil\u00F3n", "Sombra traviesa", "Gatito ps\u00EDquico",
+                                                   "Pato confuso", "Huevito", "Gato con moneda", "Ping\u00FCinito", "Disfrazado", "Chacal de aura",
+                                                   "Drag\u00F3n amable", "Masa", "Clon ps\u00EDquico", "Esp\u00EDritu sin cara", "Demonio de fuego", "Esp\u00EDritu del \u00E1rbol",
+                                                   "Dinosaurio verde", "Erizo azul", "Bloque verde", "Tripulante", "Fantasmita", "Gota azul",
+                                                   "Perrito blanco", "Gatita con lazo", "Arbolito", "Osito relajado", "Gata gordita", "Perrito orej\u00F3n" };
 
         public static readonly Color[,] Colors =
         {
@@ -102,10 +106,30 @@ namespace Stackshot
             { Color.FromArgb(160, 218, 246), Color.FromArgb(70, 152, 214) },
             { Color.FromArgb(255, 200, 220), Color.FromArgb(240, 136, 176) },
             { Color.FromArgb(76, 128, 146), Color.FromArgb(30, 74, 94) },
-            { Color.FromArgb(150, 110, 206), Color.FromArgb(72, 42, 124) }
+            { Color.FromArgb(150, 110, 206), Color.FromArgb(72, 42, 124) },
+            { Color.FromArgb(255, 226, 110), Color.FromArgb(236, 184, 50) },
+            { Color.FromArgb(255, 244, 206), Color.FromArgb(234, 212, 160) },
+            { Color.FromArgb(84, 142, 222), Color.FromArgb(36, 80, 160) },
+            { Color.FromArgb(240, 218, 130), Color.FromArgb(204, 172, 84) },
+            { Color.FromArgb(255, 184, 96), Color.FromArgb(232, 128, 44) },
+            { Color.FromArgb(214, 164, 228), Color.FromArgb(160, 108, 196) },
+            { Color.FromArgb(238, 232, 244), Color.FromArgb(186, 176, 206) },
+            { Color.FromArgb(58, 52, 64), Color.FromArgb(16, 14, 20) },
+            { Color.FromArgb(255, 186, 70), Color.FromArgb(236, 72, 30) },
+            { Color.FromArgb(244, 248, 238), Color.FromArgb(200, 208, 192) },
+            { Color.FromArgb(136, 214, 96), Color.FromArgb(54, 156, 56) },
+            { Color.FromArgb(56, 120, 230), Color.FromArgb(22, 56, 160) },
+            { Color.FromArgb(118, 196, 96), Color.FromArgb(56, 140, 52) },
+            { Color.FromArgb(230, 50, 54), Color.FromArgb(140, 20, 32) },
+            { Color.FromArgb(255, 64, 64), Color.FromArgb(206, 16, 30) },
+            { Color.FromArgb(255, 255, 255), Color.FromArgb(214, 216, 226) },
+            { Color.FromArgb(206, 152, 94), Color.FromArgb(150, 98, 52) },
+            { Color.FromArgb(196, 192, 198), Color.FromArgb(136, 130, 142) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
-                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado" };
+                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado",
+                                                       "Pato", "Crema", "Azul real", "Trapo", "Naranja", "Lila", "Perla", "Sombra", "Fuego", "Musgo blanco",
+                                                       "Yoshi", "Supers\u00F3nico", "Creeper", "Tripulante", "Blinky", "Blanco", "Osito", "Gris gato" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
@@ -202,6 +226,7 @@ namespace Stackshot
 
         public static Geo GeoFor(int kind)
         {
+            if (IsExtra(kind)) return ExtraGeo(kind);
             Geo g = new Geo();
             switch (kind)
             {
