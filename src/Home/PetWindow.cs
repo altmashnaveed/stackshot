@@ -1728,6 +1728,8 @@ namespace Stackshot
         static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }
 
         // The menu's card (without the arrow): its size from what it holds, above the mascot and inside the monitor.
+        bool menuDown;   // the menu had to come down over the mascot (no room above it)
+
         RectangleF MenuLayout(Graphics g)
         {
             Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
@@ -1754,6 +1756,11 @@ namespace Stackshot
                     h += ch.HeaderH;
                 }
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
+            // Sitting on a window near the top of the screen there is no room above it: the menu comes down to stay whole
+            // on screen, over the mascot, and loses the arrow that would point at nothing.
+            float top = wa.Top - wy + 6 * s;
+            menuDown = y < top;
+            if (menuDown) y = Math.Min(top, H - h - 4 * s);
             // On whole pixels, so its text, border and separators are sharp at any scale (125 %, 150 %...).
             menuRect = new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Round(w), (float)Math.Ceiling(h));
             return menuRect;
@@ -1814,16 +1821,20 @@ namespace Stackshot
             using (GraphicsPath tp = new GraphicsPath())
             {
                 MascotParts.FillSolid(g, cp, Fade(bg, a));
-                tp.AddPolygon(new PointF[] { new PointF(tailX - 7 * s, y + h - 0.5f), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h - 0.5f) });
-                MascotParts.FillSolid(g, tp, Fade(bg, a));
+                if (!menuDown)
+                {
+                    tp.AddPolygon(new PointF[] { new PointF(tailX - 7 * s, y + h - 0.5f), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h - 0.5f) });
+                    MascotParts.FillSolid(g, tp, Fade(bg, a));
+                }
                 MascotParts.Stroke(g, cp, Fade(border, a), 1);
                 // The arrow's two sides, drawn over the card border where they meet.
+                if (!menuDown)
                 using (Pen pen = new Pen(Fade(border, a), 1))
                 {
                     pen.LineJoin = LineJoin.Round;
                     g.DrawLines(pen, new PointF[] { new PointF(tailX - 7 * s, y + h), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h) });
                 }
-                using (SolidBrush cover = new SolidBrush(Fade(bg, a))) g.FillRectangle(cover, tailX - 6.2f * s, y + h - 1.5f, 12.4f * s, 2.2f);
+                if (!menuDown) using (SolidBrush cover = new SolidBrush(Fade(bg, a))) g.FillRectangle(cover, tailX - 6.2f * s, y + h - 1.5f, 12.4f * s, 2.2f);
             }
 
             Color label = Ds.Gdi(pal.Label), label2 = Ds.Gdi(pal.Label2);
