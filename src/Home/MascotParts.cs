@@ -146,14 +146,15 @@ namespace Stackshot
             { Color.FromArgb(255, 206, 60), Color.FromArgb(222, 138, 18) },
             { Color.FromArgb(180, 255, 150), Color.FromArgb(86, 200, 76) },
             { Color.FromArgb(255, 160, 80), Color.FromArgb(226, 104, 40) },
-            { Color.FromArgb(255, 192, 216), Color.FromArgb(242, 134, 176) }
+            { Color.FromArgb(255, 192, 216), Color.FromArgb(242, 134, 176) },
+            { Color.FromArgb(120, 214, 80), Color.FromArgb(36, 140, 44) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
                                                        "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado",
                                                        "Pato", "Crema", "Azul real", "Trapo", "Naranja", "Lila", "Perla", "Sombra", "Fuego", "Musgo blanco",
                                                        "Yoshi", "Azul intenso", "Creeper", "Tripulante", "Blinky", "Blanco", "Osito", "Gris gato",
                                                        "Comecocos", "Pinky", "Inky", "Clyde", "Goomba", "Piel", "Champi\u00F1\u00F3n", "Bob-omb", "P\u00E1jaro rojo", "Cerdito",
-                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee", "Kirby" };
+                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee", "Kirby", "1-Up" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 

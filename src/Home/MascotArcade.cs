@@ -384,7 +384,7 @@ namespace Stackshot
                         {
                             sp.AddEllipse(sr);
                             Fill(g, sp, sr, spot, toad ? Color.FromArgb(196, 24, 30) : Color.FromArgb(226, 226, 232), 90f);
-                            Stroke(g, sp, toad ? Color.FromArgb(120, 140, 20, 20) : Color.FromArgb(110, 150, 40, 40), D * 0.007f);
+                            Stroke(g, sp, toad ? Color.FromArgb(120, 140, 20, 20) : Color.FromArgb(110, Darker(c2, 0.3)), D * 0.007f);
                         }
                     }
                     // A gloss on top of the cap and the shadow it casts under its rim.
@@ -629,7 +629,7 @@ namespace Stackshot
                 {
                     // A clear dark outline round the whole shape and along the rim of the cap, like the originals.
                     bool toad = l.Kind == KindToad;
-                    Color edge = toad ? Color.FromArgb(200, 70, 50, 50) : Color.FromArgb(220, 90, 16, 16);
+                    Color edge = toad ? Color.FromArgb(200, 70, 50, 50) : Color.FromArgb(220, Darker(Colors[l.Color, 1], 0.5));
                     using (GraphicsPath sp = toad ? CapPath(D, -0.33f, 0.03f, 0.43f, 0.25f, 0.31f) : CapPath(D, -0.3f, 0.07f, 0.43f, 0.22f, 0.31f))
                         Stroke(g, sp, edge, D * 0.016f);
                     float capY = (toad ? 0.03f : 0.07f) * D, rim = capY + 0.04f * D, sw = (toad ? 0.25f : 0.22f) * D;

@@ -27,7 +27,7 @@ namespace Stackshot
                                                        "Sin Cara", "Calcifer", "Kodama", "Yoshi", "Pac-Man", "Creeper", "Tripulante", "Blinky", "Slime",
                                                        "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco",
                                                        "Pinky", "Inky", "Clyde", "Space Invader", "Goomba", "Boo", "Toad", "Champi\u00F1\u00F3n", "Bob-omb", "Chomp Cadenas",
-                                                       "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee" };
+                                                       "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee", "Champi\u00F1\u00F3n 1-Up" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -43,7 +43,7 @@ namespace Stackshot
                                                              "El viaje de Chihiro", "El castillo ambulante", "La princesa Mononoke", "Super Mario", "Pac-Man", "Minecraft",
                                                              "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio",
                                                              "Pac-Man", "Pac-Man", "Pac-Man", "Space Invaders", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario",
-                                                             "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby" };
+                                                             "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby", "Super Mario" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -145,7 +145,8 @@ namespace Stackshot
             { 72, 66, 7, 0, 0, 0 },
             { 73, 67, 7, 0, 0, 0 },
             { 74, 68, 7, 0, 0, 0 },
-            { 75, 69, 7, 0, 0, 0 }
+            { 75, 69, 7, 0, 0, 0 },
+            { 62, 71, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
