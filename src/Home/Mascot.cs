@@ -693,6 +693,9 @@ namespace Stackshot
             if (Facing > 0.2) tailLeft = true;
             else if (Facing < -0.2) tailLeft = false;
             pose.TailLeft = tailLeft;
+            if (Facing < -0.2) faceLeft = true;
+            else if (Facing > 0.2) faceLeft = false;
+            pose.FaceLeft = faceLeft;
             DragonPose();
 
             MascotParts.PaintBack(g, Look, D, c1, c2, pose);

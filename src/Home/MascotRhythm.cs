@@ -13,6 +13,7 @@ namespace Stackshot
         public bool Rhythm = true;     // follows the time of day (Mascota > Ajustes > Comportamiento)
         bool still;                    // a still render for pickers: shows the look itself
         bool tailLeft;                 // the side its tail trails on, kept from the last walk
+        bool faceLeft;                 // the way it last walked, for characters that turn to face it
         double flashUntil;
         const double FlashMs = 380;
 

@@ -324,16 +324,37 @@ namespace Stackshot
                     float rim = (toad ? 0.07f : 0.11f) * D;
                     Color cap = toad ? Color.FromArgb(252, 252, 252) : c1, cap2 = toad ? Color.FromArgb(222, 222, 230) : c2;
                     Color spot = toad ? Color.FromArgb(232, 44, 44) : Color.FromArgb(252, 252, 252);
-                    if (!toad) using (SolidBrush b = new SolidBrush(Color.FromArgb(252, 240, 214))) g.FillRectangle(b, -0.5f * D, rim - 0.01f * D, D, 0.4f * D);
+                    if (!toad)
+                    {
+                        // The stem: shaded under the cap, lighter lower down, with a soft gleam on its left.
+                        RectangleF st = new RectangleF(-0.5f * D, rim - 0.01f * D, D, 0.32f * D);
+                        using (GraphicsPath sp = new GraphicsPath())
+                        {
+                            sp.AddRectangle(st);
+                            Fill(g, sp, st, Color.FromArgb(222, 200, 160), Color.FromArgb(255, 246, 226), 90f);
+                        }
+                        Ellipse(g, Color.FromArgb(120, 255, 255, 255), -0.17f * D, rim + 0.05f * D, 0.06f * D, 0.12f * D);
+                    }
                     using (GraphicsPath cp = new GraphicsPath())
                     {
                         cp.AddRectangle(new RectangleF(-0.5f * D, -0.5f * D, D, 0.5f * D + rim));
                         if (toad) Fill(g, cp, new RectangleF(-0.5f * D, -0.34f * D, D, 0.34f * D + rim), cap, cap2, 90f);
                     }
-                    Ellipse(g, spot, -0.11f * D, -0.29f * D, 0.22f * D, 0.19f * D);
-                    Ellipse(g, spot, -0.48f * D, -0.14f * D, 0.17f * D, 0.17f * D);
-                    Ellipse(g, spot, 0.31f * D, -0.14f * D, 0.17f * D, 0.17f * D);
-                    Line(g, Color.FromArgb(70, 80, 60, 50), D * 0.008f, -0.4f * D, rim, 0.4f * D, rim);
+                    // The spots, each with a faint edge so they stand out from the cap.
+                    float[][] spots = { new float[] { -0.11f, -0.29f, 0.22f, 0.19f }, new float[] { -0.48f, -0.14f, 0.17f, 0.17f }, new float[] { 0.31f, -0.14f, 0.17f, 0.17f } };
+                    foreach (float[] s in spots)
+                    {
+                        RectangleF sr = new RectangleF(s[0] * D, s[1] * D, s[2] * D, s[3] * D);
+                        using (GraphicsPath sp = new GraphicsPath())
+                        {
+                            sp.AddEllipse(sr);
+                            Fill(g, sp, sr, spot, toad ? Color.FromArgb(196, 24, 30) : Color.FromArgb(226, 226, 232), 90f);
+                            Stroke(g, sp, toad ? Color.FromArgb(120, 140, 20, 20) : Color.FromArgb(110, 150, 40, 40), D * 0.007f);
+                        }
+                    }
+                    // A gloss on top of the cap and the shadow it casts under its rim.
+                    Ellipse(g, Color.FromArgb(70, 255, 255, 255), -0.3f * D, -0.27f * D, 0.22f * D, 0.1f * D);
+                    Glow(g, 0, rim + 0.02f * D, 0.56f * D, 0.08f * D, Color.FromArgb(110, 70, 40), 130);
                     break;
                 }
                 case KindRedBird:
@@ -534,6 +555,24 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(220, 40, 90, 20), 0.03f * D, fy + 0.11f * D, 0.04f * D, 0.06f * D);
                     break;
                 }
+                case KindToad:
+                case KindMushroom:
+                {
+                    // A clear dark outline round the whole shape and along the rim of the cap, like the originals.
+                    bool toad = l.Kind == KindToad;
+                    Color edge = toad ? Color.FromArgb(200, 70, 50, 50) : Color.FromArgb(220, 90, 16, 16);
+                    using (GraphicsPath sp = toad ? CapPath(D, -0.33f, 0.03f, 0.43f, 0.25f, 0.31f) : CapPath(D, -0.3f, 0.07f, 0.43f, 0.22f, 0.31f))
+                        Stroke(g, sp, edge, D * 0.016f);
+                    float capY = (toad ? 0.03f : 0.07f) * D, rim = capY + 0.04f * D, sw = (toad ? 0.25f : 0.22f) * D;
+                    using (Pen pen = new Pen(edge, D * 0.012f))
+                    {
+                        pen.StartCap = LineCap.Round;
+                        pen.EndCap = LineCap.Round;
+                        g.DrawBezier(pen, P(-0.42f * D, capY), P(-0.3f * D, rim + 0.005f * D), P(0.3f * D, rim + 0.005f * D), P(0.42f * D, capY));
+                        g.DrawLine(pen, -sw, rim, sw, rim);
+                    }
+                    break;
+                }
             }
         }
     }
@@ -547,7 +586,8 @@ namespace Stackshot
             if (k == MascotParts.KindPacman)
             {
                 float h = (mood == Mood.Sleep ? 0.012f : 0.07f) * D;
-                MascotParts.Ellipse(g, InkBlack, 0.02f * D + ex * 0.5f, -0.17f * D - h / 2, 0.05f * D, h);
+                float side = faceLeft ? -1 : 1;
+                MascotParts.Ellipse(g, InkBlack, side * 0.045f * D - 0.025f * D + ex * 0.5f, -0.17f * D - h / 2, 0.05f * D, h);
                 return true;
             }
             if (k == MascotParts.KindKnight)

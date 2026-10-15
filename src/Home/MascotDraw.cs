@@ -14,6 +14,7 @@ namespace Stackshot
         public double Fx;              // a tribute character's own effect while its trick runs (0-1)
         public double Facing;          // -1..1: the way it walks (tails trail on the other side)
         public bool TailLeft;          // the tail is on the left: it last walked to the right
+        public bool FaceLeft;          // it last walked to the left (Pac-Man turns its mouth that way)
         public int Power;
         public bool Sleeping, HideHands;
     }
@@ -206,6 +207,7 @@ namespace Stackshot
                 return vp;
             }
             GraphicsPath body = BodyPath(l.Kind, geo, D, p.Now);
+            if (l.Kind == KindPacman && p.FaceLeft) using (Matrix flip = new Matrix(-1, 0, 0, 1, 0, 0)) body.Transform(flip);
             RectangleF b = body.GetBounds();
             if (l.Kind == 3)
             {
