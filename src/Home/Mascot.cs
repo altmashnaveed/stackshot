@@ -10,7 +10,7 @@ namespace Stackshot
     // Drawn in code with simple physics: floats, blinks, follows the mouse (even outside its window), fidgets when
     // idle, yawns and falls asleep when ignored, and gets dizzy when poked too much. The owner feeds it the time and
     // mouse each frame; the look (character, colors, clothes) comes from MascotLook.
-    public class Mascot
+    public partial class Mascot
     {
         public enum Mood { Idle, Happy, Surprised, Sleep, Dizzy, Wink, Love, Yawn }
 
@@ -78,7 +78,7 @@ namespace Stackshot
             {
                 return LivelyParts || (mood != Mood.Idle && mood != Mood.Sleep) || (blinkStart >= 0 && mood != Mood.Sleep) || now < waveUntil || now < danceUntil || now < bowUntil || now < bubblesUntil || hopsLeft > 0 || pendingSleep > 0 ||
                        Math.Abs(jumpV) > 0.15 || Math.Abs(squashXV) > 0.15 || Math.Abs(squashYV) > 0.15 || Math.Abs(antennaV) > 60 ||
-                       act != MascotProps.None || Math.Abs(earLV) > 40 || appear < 0.99 || (BubbleAlpha > 0.02 && BubbleAlpha < 0.98) || Dangling;
+                       act != MascotProps.None || Math.Abs(earLV) > 40 || appear < 0.99 || (BubbleAlpha > 0.02 && BubbleAlpha < 0.98) || Dangling || PowerLively;
             }
         }
 
@@ -593,6 +593,7 @@ namespace Stackshot
                 if (p.Age > p.Life) { parts.RemoveAt(i); continue; }
                 double s = (p.Age - a0) / 1000.0;
                 if (s <= 0) continue;
+                if (DragonMove(p, s)) continue;
                 switch (p.Kind)
                 {
                     case 'p':
@@ -622,6 +623,7 @@ namespace Stackshot
                 }
                 p.Rot += p.Vr * s;
             }
+            DragonStep();
         }
 
         // Speed multiplied by perFrame every 1/60 s, over s seconds: exact distance and speed.
@@ -684,6 +686,7 @@ namespace Stackshot
             pose.HideHands = act != MascotProps.None && actKNow > 0.01;
             pose.Wave = now < waveUntil ? Math.Min(1, (waveUntil - now) / 1800.0 * 3) : 0;
             pose.WaveRot = Math.Sin(now / 90.0) * 28;
+            DragonPose();
 
             MascotParts.PaintBack(g, Look, D, c1, c2, pose);
             if (Look.Kind != 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
@@ -701,6 +704,7 @@ namespace Stackshot
                 else PaintFace(g, D, geo, false);
             }
             MascotParts.PaintDetails(g, Look, D, c2, pose);
+            MascotParts.PaintDragonFront(g, Look, D, pose);
             if (Look.Kind == 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
             MascotParts.PaintOutfit(g, Look, D, now);
             if (MascotParts.CoversEyes(Look))
@@ -791,6 +795,7 @@ namespace Stackshot
 
         void EyeShape(Graphics g, float x, float y, float D, bool visor, float blink, Color core, bool surprised)
         {
+            if (Look.Eyes == MascotParts.EyesDragon) { DragonEye(g, x, y, D, blink, surprised); return; }
             int style = surprised ? 1 : Look.Eyes;
             float w, h;
             switch (style)
@@ -922,6 +927,7 @@ namespace Stackshot
                 GraphicsState st = g.Save();
                 g.TranslateTransform(x, y);
                 g.RotateTransform((float)p.Rot * (p.Kind == 'z' || p.Kind == 'b' || p.Kind == 'n' ? 0.08f : p.Kind == 'o' ? 0 : 1));
+                if (IsDragonParticle(p.Kind)) { PaintDragonParticle(g, p.Kind, s, a); g.Restore(st); continue; }
                 switch (p.Kind)
                 {
                     case 'h':

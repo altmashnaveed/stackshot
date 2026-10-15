@@ -741,6 +741,8 @@ namespace Stackshot
 
         void DoTrick()
         {
+            // A dragon often shows its own power instead.
+            if (m.HasPower && rnd.NextDouble() < 0.4) { m.WakeUp(); m.Power(); return; }
             int t;
             do t = TrickSet[rnd.Next(TrickSet.Length)]; while (t == lastTrick || t == lastTrick2);
             lastTrick2 = lastTrick;
@@ -1661,6 +1663,7 @@ namespace Stackshot
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
             Add("sparkle", "Haz un truco", null, DoTrick);
+            if (m.HasPower) Add("flame", MascotParts.PowerName(m.Look.Kind), null, delegate { m.WakeUp(); m.Power(); });
             Add("bot", m.Sleeping ? "Despierta" : "Echa una siesta", null, delegate { if (m.Sleeping) { m.WakeUp(); m.Hop(1.2); } else { m.SleepNow(); state = State.Idle; } });
             AddSep();
             Add("logo", "Abrir Stackshot", null, delegate { owner.ShowHome("home", false); });

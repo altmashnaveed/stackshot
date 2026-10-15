@@ -73,6 +73,13 @@ namespace Stackshot
         {
             List<MenuEntry> m = new List<MenuEntry>();
             m.Add(MenuEntry.Title("P\u00EDdele algo a " + settings.MascotName));
+            // A dragon's own power comes first.
+            if (settings.MascotOn && mascot.HasPower)
+            {
+                MenuEntry pe = MenuEntry.Item(MascotParts.PowerName(mascot.Look.Kind), "flame", false, delegate { ApplyMascotBehavior(); mascot.Power(); Wake(); });
+                pe.Detail = MascotParts.PowerHint(mascot.Look.Kind);
+                m.Add(pe);
+            }
             for (int i = 0; i < MascotCmd.Count; i++)
             {
                 int c = i;

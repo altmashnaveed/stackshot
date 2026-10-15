@@ -56,7 +56,8 @@ namespace Stackshot
 
     public static partial class MascotParts
     {
-        public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado" };
+        public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado",
+                                                   "Furia Nocturna", "Furia Luminosa", "Nadder Mort\u00EDfero", "Pesadilla Monstruosa", "Gronckle" };
 
         public static readonly Color[,] Colors =
         {
@@ -84,12 +85,13 @@ namespace Stackshot
             { Color.FromArgb(236, 150, 118), Color.FromArgb(196, 98, 70) },
             { Color.FromArgb(78, 80, 92), Color.FromArgb(22, 24, 30) },
             { Color.FromArgb(196, 128, 82), Color.FromArgb(120, 68, 38) },
-            { Color.FromArgb(255, 222, 100), Color.FromArgb(238, 164, 40) }
+            { Color.FromArgb(255, 222, 100), Color.FromArgb(238, 164, 40) },
+            { Color.FromArgb(236, 82, 52), Color.FromArgb(150, 30, 22) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
-                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel" };
+                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa" };
 
-        public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as" };
+        public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
         public const int HatPumpkin = 4, HatSanta = 11, HatCrown = 13, HatHalo = 14;
         public static readonly string[] HatNames = { "Ninguno", "Gorra", "Gorro de lana", "Sombrero de bruja", "Calabaza", "Cuernos",
@@ -195,6 +197,10 @@ namespace Stackshot
                 case 7: // chibi
                 case 12: // reindeer
                 case 13: // winged lion
+                case 14: // Night Fury
+                case 15: // Light Fury
+                case 16: // Deadly Nadder
+                case 17: // Monstrous Nightmare
                     g.HeadW = 0.70f; g.Top = -0.31f; g.FaceY = -0.05f; g.EyeGap = 0.125f; g.NeckY = 0.12f; g.NeckW = 0.60f;
                     g.Bottom = 0.31f; g.HandX = 0.33f; g.HandY = 0.21f; g.HatW = 0.58f;
                     break;
@@ -210,6 +216,10 @@ namespace Stackshot
                 case 4: // slime
                     g.HeadW = 0.78f; g.Top = -0.22f; g.FaceY = 0.03f; g.EyeGap = 0.13f; g.NeckY = 0.17f; g.NeckW = 0.70f;
                     g.Bottom = 0.33f; g.HandX = 0.40f; g.HandY = 0.21f; g.HatW = 0.50f;
+                    break;
+                case 18: // Gronckle: round and wide
+                    g.HeadW = 0.78f; g.Top = -0.28f; g.FaceY = -0.03f; g.EyeGap = 0.14f; g.NeckY = 0.15f; g.NeckW = 0.66f;
+                    g.Bottom = 0.32f; g.HandX = 0.38f; g.HandY = 0.22f; g.HatW = 0.56f;
                     break;
                 case 11: // frog
                     g.HeadW = 0.80f; g.Top = -0.24f; g.FaceY = -0.2f; g.EyeGap = 0.17f; g.NeckY = 0.15f; g.NeckW = 0.70f;

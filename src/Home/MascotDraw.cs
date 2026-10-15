@@ -10,6 +10,8 @@ namespace Stackshot
     public class MascotPose
     {
         public double Now, EarL, EarR, Antenna, Pulse, Wave, WaveRot;
+        public double Fire, Charge;    // a dragon on fire, and the glow of a power charging in its mouth (0-1)
+        public int Power;
         public bool Sleeping, HideHands;
     }
 
@@ -226,6 +228,7 @@ namespace Stackshot
             if (l.Kind == KindDog) DogMuzzle(g, geo, D);
             if (l.Kind == KindReindeer) ReindeerMuzzle(g, geo, D);
             if (l.Kind >= KindPenguin && l.Kind <= KindFox) PaintBodyMore(g, l, geo, D, body);
+            if (IsDragon(l.Kind)) DragonBody(g, l, D, body, c1);
             Shine(g, body, b, l.Kind == 4 ? 150 : 105);
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             body.Dispose();
@@ -273,6 +276,7 @@ namespace Stackshot
             float fy = geo.FaceY * D;
             if (l.Kind == KindDog) { DogEars(g, D, c2, p); DogNose(g, geo, D); }
             PaintDetailsMore(g, l, geo, D);
+            if (IsDragon(l.Kind)) DragonDetails(g, l, geo, D, p);
             if (l.Kind == 1)
             {
                 foreach (int s in new int[] { -1, 1 })
