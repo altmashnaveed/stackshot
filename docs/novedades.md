@@ -7,7 +7,12 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 
 ## 2.2.0
 
-- **Miniaturas que se apartan.** Si no las usas, se esconden en el borde y solo asoma un trocito, con una pestaña que dice cuántas hay; pasa el ratón y vuelven. Se ajusta en General > Al capturar.
+- **Miniaturas que se apartan.** Si no las usas, se esconden en el borde y solo asoma un trocito, con una pestaña que dice cuántas hay; pasa el ratón por el borde y van saliendo una a una, como un dock. Se ajusta en General > Al capturar.
+- **Cuentagotas y regla.** Al elegir un área, pulsa C para ver los píxeles con lupa y copiar su color, o arrastra con Mayús para medir.
+- **Captura con temporizador.** Eliges el área, cuenta atrás 3, 5 o 10 segundos y captura con el menú o el aviso ya abiertos.
+- **Une dos capturas.** Suelta una miniatura encima de otra y se juntan en una sola imagen.
+- **Tu mascota, según la hora.** Café por la mañana, gorro de dormir por la noche, fiesta los viernes y un flash en cada captura.
+- **Cinco personajes más.** Stitch, Kirby, Grogu, Eevee y Charmander, cada uno con su truco.
 - **Ves cómo se guarda tu vídeo.** Al parar una grabación, en la pila aparece una tarjeta que dice que se está guardando, y luego la miniatura en su sitio.
 - **Dragones.** Desdentao, Furia Luminosa, Tormenta, Colmillo y Albóndiga, cada uno con su forma y su poder: plasma, camuflaje, púas, fuego o lava.
 - **Captura con desplazamiento, más fácil.** La primera vez te enseña cómo va, te avisa si la página no baja y te dice cuántas pantallas llevas.

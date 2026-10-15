@@ -374,7 +374,7 @@ Te presentamos a **Pixel**: doce especies, 23 colores, estilos de ojos, decenas 
 
 Si quieres, vive en tu escritorio: pasea sobre la barra de tareas, salta a la ventana que tienes delante, viaja con ella si la mueves y se echa la siesta cuando no estás. Y es invisible para las capturas, las grabaciones y al compartir pantalla, así que nunca sale en tus capturas.
 
-La sección **Personajes** la disfraza con homenajes fan a personajes de anime, series, cómics y videojuegos, y algunos originales: **39 en total**. Un clic y se convierte en Goku, Chopper o Spider-Man; al pasar el ratón por un disfraz se ve de dónde sale.
+La sección **Personajes** la disfraza con homenajes fan a personajes de anime, series, cómics y videojuegos, y algunos originales: **51 en total**. Un clic y se convierte en Goku, Chopper o Spider-Man; al pasar el ratón por un disfraz se ve de dónde sale.
 
 <details>
 <summary>Los 39 disfraces de personajes</summary>
@@ -681,4 +681,4 @@ FFmpeg no se incluye. Se descarga aparte, con su propia licencia (GPL), solo al 
 
 CleanShot X, ShareX, Snagit, Greenshot y Lightshot se mencionan solo para explicar qué tipo de herramienta es Stackshot. Sus nombres pertenecen a sus respectivos dueños, y Stackshot no tiene relación con ninguno de ellos ni cuenta con su respaldo.
 
-Los disfraces de la sección «Personajes» son homenajes fan sin ánimo de lucro, dibujados desde cero con el estilo de la mascota. Los personajes y sus nombres (Finn, Jake, BMO, Pakkun, Naruto, Sasuke, Kakashi, Edward Elric, Eren Jaeger, Levi, Luffy, Zoro, Chopper, Goku, Vegeta, Tanjiro, Nezuko, Gojo, Gon, Killua, Hisoka, Saitama, Shin-chan, Pikachu, Doraemon, Totoro, Kratos, Doom Slayer, Spider-Man, Iron Man, Batman, Superman, Flash, Claude, Codex) pertenecen a sus respectivos dueños, y Stackshot no tiene relación con ninguno de ellos ni cuenta con su respaldo. Si tienes los derechos de alguno y quieres que se retire, abre una incidencia y se quitará.
+Los disfraces de la sección «Personajes» son homenajes fan sin ánimo de lucro, dibujados desde cero con el estilo de la mascota. Los personajes y sus nombres (Finn, Jake, BMO, Pakkun, Naruto, Sasuke, Kakashi, Edward Elric, Eren Jaeger, Levi, Luffy, Zoro, Chopper, Goku, Vegeta, Tanjiro, Nezuko, Gojo, Gon, Killua, Hisoka, Saitama, Shin-chan, Pikachu, Doraemon, Totoro, Kratos, Doom Slayer, Spider-Man, Iron Man, Batman, Superman, Flash, Claude, Codex, Kero, Kamina, Desdentao, Furia Luminosa, Tormenta, Colmillo, Albóndiga, Stitch, Kirby, Grogu, Eevee, Charmander) pertenecen a sus respectivos dueños, y Stackshot no tiene relación con ninguno de ellos ni cuenta con su respaldo. Si tienes los derechos de alguno y quieres que se retire, abre una incidencia y se quitará.
