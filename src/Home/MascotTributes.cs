@@ -274,28 +274,29 @@ namespace Stackshot
                 }
                 case KindEevee:
                 {
-                    // The fluffy mane on its chest: low, wider than the body, with tufts falling from it.
-                    float cy = 0.215f * D;
-                    Color cream1 = Color.FromArgb(253, 248, 234), cream2 = Color.FromArgb(228, 208, 172);
-                    for (int i = 0; i < 4; i++)
+                    // The fluffy mane on its chest, in one piece like a bib of fur: a soft curve on top following the body,
+                    // and a fringe of rounded tufts below, the middle ones longest, the outer ones sweeping out past the sides.
+                    Color cream1 = Color.FromArgb(253, 248, 234), cream2 = Color.FromArgb(226, 205, 168);
+                    using (GraphicsPath mane = new GraphicsPath())
                     {
-                        GraphicsState st = g.Save();
-                        g.TranslateTransform((-0.21f + i * 0.14f) * D, cy + 0.045f * D);
-                        g.RotateTransform(180 + (i - 1.5f) * 14);
-                        using (GraphicsPath t = Leaf(0.07f * D, 0.09f * D, D)) Fill(g, t, new RectangleF(-0.07f * D, -0.09f * D, 0.14f * D, 0.1f * D), cream2, cream1, 90f);
-                        g.Restore(st);
-                    }
-                    using (GraphicsPath ruff = new GraphicsPath(FillMode.Winding))
-                    {
-                        for (int i = 0; i < 7; i++)
+                        mane.AddBezier(P(-0.37f * D, 0.1f * D), P(-0.2f * D, 0.19f * D), P(0.2f * D, 0.19f * D), P(0.37f * D, 0.1f * D));
+                        PointF[] fringe =
                         {
-                            float t = (i - 3) / 3f, x = t * 0.3f * D, r = (0.085f - Math.Abs(t) * 0.02f) * D, y = cy - Math.Abs(t) * 0.03f * D;
-                            ruff.AddEllipse(x - r, y - r, r * 2, r * 2);
-                        }
-                        RectangleF rb = new RectangleF(-0.38f * D, cy - 0.1f * D, 0.76f * D, 0.2f * D);
-                        Fill(g, ruff, rb, cream1, cream2, 90f);
-                        Stroke(g, ruff, Color.FromArgb(60, 160, 128, 90), D * 0.006f);
+                            P(0.37f * D, 0.1f * D), P(0.41f * D, 0.21f * D), P(0.27f * D, 0.215f * D), P(0.22f * D, 0.31f * D), P(0.11f * D, 0.27f * D),
+                            P(0, 0.345f * D), P(-0.11f * D, 0.27f * D), P(-0.22f * D, 0.31f * D), P(-0.27f * D, 0.215f * D), P(-0.41f * D, 0.21f * D),
+                            P(-0.37f * D, 0.1f * D)
+                        };
+                        mane.AddCurve(fringe, 0.45f);
+                        mane.CloseFigure();
+                        RectangleF mb = new RectangleF(-0.42f * D, 0.1f * D, 0.84f * D, 0.25f * D);
+                        Fill(g, mane, mb, cream1, cream2, 90f);
+                        Stroke(g, mane, Color.FromArgb(70, 160, 128, 90), D * 0.006f);
                     }
+                    // A few soft strands so it reads as fur.
+                    Color strand = Color.FromArgb(70, 176, 146, 104);
+                    Line(g, strand, D * 0.007f, -0.12f * D, 0.2f * D, -0.15f * D, 0.26f * D);
+                    Line(g, strand, D * 0.007f, 0.12f * D, 0.2f * D, 0.15f * D, 0.26f * D);
+                    Line(g, strand, D * 0.007f, 0, 0.22f * D, 0, 0.29f * D);
                     Ellipse(g, Color.FromArgb(200, 70, 44, 30), -0.016f * D, fy + 0.055f * D, 0.032f * D, 0.022f * D);
                     break;
                 }

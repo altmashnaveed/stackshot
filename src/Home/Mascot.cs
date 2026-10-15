@@ -877,7 +877,7 @@ namespace Stackshot
                 MascotParts.Ellipse(g, visor ? ink : Color.FromArgb(70, 30, 50), mx - r, my - r * 0.4f, r * 2, r * 2.4f);
                 return;
             }
-            if (mood == Mood.Happy || mood == Mood.Love || (talking && !visor))
+            if (mood == Mood.Happy || mood == Mood.Love || (talking && !visor) || (Look.Kind == MascotParts.KindCharmander && mood == Mood.Idle && !visor))
             {
                 float w = D * 0.1f, h = D * 0.06f;
                 if (talking && mood == Mood.Idle) h *= (float)(0.45 + 0.55 * Math.Abs(Math.Sin(now / 110.0)));

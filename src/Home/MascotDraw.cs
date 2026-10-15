@@ -268,7 +268,7 @@ namespace Stackshot
                 p.CloseFigure();
                 return p;
             }
-            return Squircle(new RectangleF(-W / 2, top, W, bottom - top), kind == 2 ? 2.2 : kind == KindKirby ? 2.05 : 2.5);
+            return Squircle(new RectangleF(-W / 2, top, W, bottom - top), kind == 2 || kind == KindCharmander ? 2.2 : kind == KindKirby ? 2.05 : 2.5);
         }
 
         // Small details in front of the face (whiskers, nostrils).
