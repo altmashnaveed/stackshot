@@ -33,7 +33,7 @@ namespace Stackshot
         {
             return kind == KindMimikyu || kind == KindDitto || kind == KindNoFace || kind == KindCalcifer || kind == KindKodama ||
                    kind == KindCreeper || kind == KindCrewmate || kind == KindBlinky || kind == KindKitty || kind == KindSnoopy ||
-                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindPsyduck || (IsArcade(kind) && ArcadeNoCheeks(kind));
+                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindPsyduck || kind == KindKirby || (IsArcade(kind) && ArcadeNoCheeks(kind));
         }
 
         static Geo G(float headW, float top, float faceY, float eyeGap, float neckY, float neckW, float bottom, float handX, float handY, float hatW)

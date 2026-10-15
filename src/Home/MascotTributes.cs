@@ -119,14 +119,22 @@ namespace Stackshot
                                 Lighter(c1, 0.05), c2, Color.FromArgb(220, 236, 150, 196));
                     break;
                 case KindKirby:
+                    // Red oval feet tucked under the ball, toes turned a little out; they step in turn while it walks.
                     foreach (int s in Sides)
                     {
-                        RectangleF f = new RectangleF(s * 0.17f * D - 0.12f * D, 0.24f * D, 0.24f * D, 0.13f * D);
+                        float step = Math.Abs(p.Facing) > 0.2 ? (float)Math.Max(0, Math.Sin(p.Now / 95.0 + (s < 0 ? 0 : Math.PI))) * 0.03f * D : 0;
+                        GraphicsState fs = g.Save();
+                        g.TranslateTransform(s * 0.15f * D, 0.29f * D - step);
+                        g.RotateTransform(s * 14);
+                        RectangleF f = new RectangleF(-0.105f * D, -0.06f * D, 0.21f * D, 0.12f * D);
                         using (GraphicsPath fp = new GraphicsPath())
                         {
                             fp.AddEllipse(f);
-                            Fill(g, fp, f, Color.FromArgb(242, 74, 96), Color.FromArgb(186, 30, 58), 90f);
+                            Fill(g, fp, f, Color.FromArgb(246, 70, 92), Color.FromArgb(184, 22, 52), 90f);
+                            Stroke(g, fp, Color.FromArgb(200, 120, 10, 34), D * 0.011f);
                         }
+                        Ellipse(g, Color.FromArgb(90, 255, 255, 255), f.X + f.Width * 0.2f, f.Y + f.Height * 0.15f, f.Width * 0.32f, f.Height * 0.28f);
+                        g.Restore(fs);
                     }
                     break;
                 case KindGrogu:
@@ -438,6 +446,18 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(110, Ink), -0.035f * D, fy + 0.06f * D, 0.014f * D, 0.011f * D);
                     Ellipse(g, Color.FromArgb(110, Ink), 0.021f * D, fy + 0.06f * D, 0.014f * D, 0.011f * D);
                     break;
+                case KindKirby:
+                {
+                    // Its pink blush: two soft ovals under and just outside the eyes.
+                    float gap = geo.EyeGap * D;
+                    foreach (int s in Sides)
+                    {
+                        float cx = s * (gap + 0.085f * D), cy = fy + 0.085f * D;
+                        Glow(g, cx, cy, 0.12f * D, 0.065f * D, Color.FromArgb(250, 100, 140), 120);
+                        Ellipse(g, Color.FromArgb(150, 246, 104, 146), cx - 0.04f * D, cy - 0.02f * D, 0.08f * D, 0.04f * D);
+                    }
+                    break;
+                }
                 case KindPikachu:
                 {
                     // Round red cheeks out on the sides of the face, and a tiny nose.

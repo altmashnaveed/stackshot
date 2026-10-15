@@ -502,7 +502,7 @@ namespace Stackshot
 
         public bool HasPower { get { return MascotParts.HasPower(Look.Kind); } }
 
-        bool PowerLively { get { return powerStart >= 0 || now < fireUntil || now < hideUntil || now < flashUntil; } }
+        bool PowerLively { get { return powerStart >= 0 || now < fireUntil || now < hideUntil || now < flashUntil || ventStart >= 0; } }
 
         // Starts the dragon's own power (each has one, two for the Light Fury and Stormfly).
         public void Power()

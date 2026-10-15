@@ -145,14 +145,15 @@ namespace Stackshot
             { Color.FromArgb(246, 176, 176), Color.FromArgb(214, 128, 136) },
             { Color.FromArgb(255, 206, 60), Color.FromArgb(222, 138, 18) },
             { Color.FromArgb(180, 255, 150), Color.FromArgb(86, 200, 76) },
-            { Color.FromArgb(255, 160, 80), Color.FromArgb(226, 104, 40) }
+            { Color.FromArgb(255, 160, 80), Color.FromArgb(226, 104, 40) },
+            { Color.FromArgb(255, 192, 216), Color.FromArgb(242, 134, 176) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
                                                        "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado",
                                                        "Pato", "Crema", "Azul real", "Trapo", "Naranja", "Lila", "Perla", "Sombra", "Fuego", "Musgo blanco",
                                                        "Yoshi", "Azul intenso", "Creeper", "Tripulante", "Blinky", "Blanco", "Osito", "Gris gato",
                                                        "Comecocos", "Pinky", "Inky", "Clyde", "Goomba", "Piel", "Champi\u00F1\u00F3n", "Bob-omb", "P\u00E1jaro rojo", "Cerdito",
-                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee" };
+                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee", "Kirby" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
@@ -287,8 +288,8 @@ namespace Stackshot
                     g.Bottom = 0.33f; g.HandX = 0.40f; g.HandY = 0.21f; g.HatW = 0.50f;
                     break;
                 case 20: // pink ball: round, arms high at its sides
-                    g.HeadW = 0.74f; g.Top = -0.32f; g.FaceY = -0.04f; g.EyeGap = 0.12f; g.NeckY = 0.14f; g.NeckW = 0.62f;
-                    g.Bottom = 0.31f; g.HandX = 0.37f; g.HandY = 0.12f; g.HatW = 0.56f;
+                    g.HeadW = 0.72f; g.Top = -0.31f; g.FaceY = -0.06f; g.EyeGap = 0.072f; g.NeckY = 0.14f; g.NeckW = 0.62f;
+                    g.Bottom = 0.31f; g.HandX = 0.335f; g.HandY = 0.08f; g.HatW = 0.56f;
                     break;
                 case 18: // Gronckle: round and wide
                     g.HeadW = 0.78f; g.Top = -0.28f; g.FaceY = -0.03f; g.EyeGap = 0.14f; g.NeckY = 0.15f; g.NeckW = 0.66f;

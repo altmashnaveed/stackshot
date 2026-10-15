@@ -401,14 +401,23 @@ namespace Stackshot
             leaving = true;
             m.WakeUp();
             if (state == State.Walk) state = State.Idle; // the current stroll ends here; the walk out starts after the wave
-            m.Greet(settings.MascotTalks ? "\u00A1Me voy a casa! \u00A1Hasta luego!" : null);
+            m.Greet(settings.MascotTalks ? (m.CanVent ? "Me voy por la alcantarilla\u2026 \u00A1que nadie me vea!" : "\u00A1Me voy a casa! \u00A1Hasta luego!") : null);
             nextIdea = Anim.Now + 1300; // wave first
             if (perch != IntPtr.Zero) HopDown();
         }
 
+        // The crewmate leaves through a vent instead, right where it stands.
+        double ventDone;
+
         void WalkOff()
         {
             if (Anim.Now < nextIdea) return;
+            if (m.CanVent)
+            {
+                if (ventDone == 0) { m.Vent(); ventDone = Anim.Now + Mascot.VentTime; }
+                else if (Anim.Now >= ventDone) { ventDone = 0; BeginInvoke((Action)Gone); }
+                return;
+            }
             bool left = bx + D / 2.0 < wa.Left + wa.Width / 2.0;
             strollDest = null;
             targetX = left ? wa.Left - D * 1.4 : wa.Right + D * 0.4;
@@ -419,6 +428,8 @@ namespace Stackshot
         void Gone()
         {
             leaving = false;
+            ventDone = 0;
+            m.EndVent();
             settings.MascotDesktop = false;
             owner.MascotChanged();
             owner.ApplySettings();
@@ -1163,6 +1174,8 @@ namespace Stackshot
             CloseMenu();
             perch = IntPtr.Zero;
             leaving = false;
+            ventDone = 0;
+            m.EndVent();
             slide = vx = vy = 0;
             Rectangle fw = free.WorkingArea;
             Place(free, fw.Left + fw.Width * Math.Max(0.05, Math.Min(0.95, settings.MascotSpot / 1000.0)));
@@ -1941,6 +1954,8 @@ namespace Stackshot
                 menuDue = 0;
                 perch = IntPtr.Zero;
                 leaving = false;
+                ventDone = 0;
+                m.EndVent();
                 m.WakeUp();
                 if (settings.MascotTalks) m.Say(MascotTalk.Drag(settings), 1700);
             }

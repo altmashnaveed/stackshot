@@ -666,7 +666,17 @@ namespace Stackshot
             if (act == MascotProps.Breathe) scale *= (float)(1 + 0.07 * MascotProps.BreathAmt(actTNow) * actKNow);
             float breathe = (float)(mood == Mood.Sleep ? Math.Sin(now / 900.0) * 0.02 : Math.Sin(now / 1300.0) * 0.007);
 
-            if (ShowShadow)
+            // The crewmate dropping into a vent: the vent first, then the body sinking, cut off at the floor.
+            double vt = ventStart >= 0 ? now - ventStart : -1;
+            if (vt >= 0)
+            {
+                float floorY = box.Y + D * 0.87f;
+                PaintVent(g, cx, floorY, D, vt);
+                cy += VentOffset(vt) * D;
+                if (vt >= 650) g.SetClip(new RectangleF(box.X - D, box.Y - D * 2, D * 3, floorY - (box.Y - D * 2)), CombineMode.Intersect);
+            }
+
+            if (ShowShadow && vt < 0)
             {
                 float lift = Math.Max(0, -(bob + jy)) / D;
                 float sw = D * 0.5f * (1 - lift * 1.6f) * scale, sh = D * 0.075f * (1 - lift * 1.2f) * scale;

@@ -286,6 +286,13 @@ namespace Stackshot
                 return p;
             }
             if (kind == KindTotoro) return PearPath(D);
+            if (kind == KindKirby)
+            {
+                // A true ball, a touch wider than tall.
+                GraphicsPath kp = new GraphicsPath();
+                kp.AddEllipse(-W / 2, top, W, bottom - top);
+                return kp;
+            }
             if (kind == KindBmo) return Theme.Round(new RectangleF(-W / 2, top, W, bottom - top), 0.07f * D);
             return Squircle(new RectangleF(-W / 2, top, W, bottom - top), kind == KindDoraemon || kind == KindJigglypuff ? 2.0 : kind == KindSnorlax || kind == KindGengar ? 2.2 : kind == 2 || kind == KindCharmander || kind == KindPikachu ? 2.2 : kind == KindKirby ? 2.05 : 2.5);
         }
@@ -346,13 +353,15 @@ namespace Stackshot
                 }
                 else
                 {
-                    float w = l.Kind == 3 ? 0.1f : 0.105f, h = l.Kind == 3 ? 0.13f : 0.09f;
+                    bool kirby = l.Kind == KindKirby;
+                    float w = l.Kind == 3 ? 0.1f : kirby ? 0.15f : 0.105f, h = l.Kind == 3 ? 0.13f : kirby ? 0.115f : 0.09f;
                     RectangleF paw = new RectangleF(-w * D / 2, -h * D / 2, w * D, h * D);
                     if (l.Kind == 3) g.RotateTransform(side * 25);
+                    if (kirby) g.RotateTransform(side * -28);   // stubby arms tucked against the ball, pointing out and up
                     using (GraphicsPath pp = new GraphicsPath())
                     {
                         pp.AddEllipse(paw);
-                        Fill(g, pp, paw, Mac.Mix(c1, c2, 0.4), c2, 70f);
+                        Fill(g, pp, paw, kirby ? Lighter(c1, 0.05) : Mac.Mix(c1, c2, 0.4), kirby ? Mac.Mix(c1, c2, 0.6) : c2, 70f);
                         if (Inked(l.Kind)) Stroke(g, pp, Color.FromArgb(190, Darker(c2, 0.5)), Math.Max(1f, D * 0.011f));
                         Stroke(g, pp, Color.FromArgb(50, 255, 255, 255), Math.Max(1f, D * 0.006f));
                     }
