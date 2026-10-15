@@ -18,6 +18,7 @@ namespace Stackshot
         static void ExtraBack(Graphics g, MascotLook l, float D, Color c1, Color c2, MascotPose p)
         {
             if (IsArcade(l.Kind)) { ArcadeBack(g, l, D, c1, c2, p); return; }
+            if (IsKlei(l.Kind)) { KleiBack(g, l, D, c1, c2, p); return; }
             Color e1 = Lighter(c1, 0.05);
             float earL = (float)p.EarL, earR = (float)p.EarR;
             switch (l.Kind)
@@ -424,6 +425,7 @@ namespace Stackshot
         static void ExtraDetails(Graphics g, MascotLook l, Geo geo, float D, MascotPose p)
         {
             if (IsArcade(l.Kind)) { ArcadeDetails(g, l, geo, D, p); return; }
+            if (IsKlei(l.Kind)) { KleiDetails(g, l, geo, D, p); return; }
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             switch (l.Kind)
             {

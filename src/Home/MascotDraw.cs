@@ -246,7 +246,7 @@ namespace Stackshot
             if (IsClassic(l.Kind)) ClassicBody(g, l, D, body, c1, c2);
             if (IsPokemon(l.Kind)) PokemonBody(g, l, D, body, c1, c2);
             if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2, p);
-            Shine(g, body, b, l.Kind == 4 ? 150 : 105);
+            if (!IsKlei(l.Kind)) Shine(g, body, b, l.Kind == 4 ? 150 : 105);   // Klei's characters are flat, inked drawings
             if (Inked(l.Kind)) Stroke(g, body, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             body.Dispose();

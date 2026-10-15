@@ -27,7 +27,8 @@ namespace Stackshot
                                                        "Sin Cara", "Calcifer", "Kodama", "Yoshi", "Pac-Man", "Creeper", "Tripulante", "Blinky", "Slime",
                                                        "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco",
                                                        "Pinky", "Inky", "Clyde", "Space Invader", "Goomba", "Boo", "Toad", "Champi\u00F1\u00F3n", "Bob-omb", "Chomp Cadenas",
-                                                       "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee", "Champi\u00F1\u00F3n 1-Up" };
+                                                       "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee", "Champi\u00F1\u00F3n 1-Up",
+                                                       "Wilson", "Willow", "Bumpo", "Ollmeister" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -43,7 +44,8 @@ namespace Stackshot
                                                              "El viaje de Chihiro", "El castillo ambulante", "La princesa Mononoke", "Super Mario", "Pac-Man", "Minecraft",
                                                              "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio",
                                                              "Pac-Man", "Pac-Man", "Pac-Man", "Space Invaders", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario",
-                                                             "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby", "Super Mario" };
+                                                             "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby", "Super Mario",
+                                                             "Don't Starve Together", "Don't Starve Together", "Oxygen Not Included", "Oxygen Not Included" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -146,13 +148,18 @@ namespace Stackshot
             { 73, 67, 7, 0, 0, 0 },
             { 74, 68, 7, 0, 0, 0 },
             { 75, 69, 7, 0, 0, 0 },
-            { 62, 71, 7, 0, 0, 0 }
+            { 62, 71, 7, 0, 0, 0 },
+            { 76, 72, 7, 0, 0, 0 },
+            { 77, 72, 7, 0, 0, 0 },
+            { 78, 73, 7, 0, 0, 0 },
+            { 79, 74, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
         // every Pokemon or every dragon sit together. Only the order shown: the indices the settings store stay.
         static int[] animeOrder;
-        static readonly string[,] Beside = { { "Champiñón 1-Up", "Champiñón" } };
+        static readonly string[] LastSeries = { "Don't Starve Together", "Oxygen Not Included" };
+        static readonly string[,] Beside = { { "Champi\u00F1\u00F3n 1-Up", "Champi\u00F1\u00F3n" } };
         public static int[] AnimeOrder
         {
             get
@@ -162,8 +169,12 @@ namespace Stackshot
                 foreach (string s in AnimeInspiration) if (s != null && !series.Contains(s)) series.Add(s);
                 System.Collections.Generic.List<int> o = new System.Collections.Generic.List<int>();
                 foreach (string s in series)
-                    for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
+                    if (Array.IndexOf(LastSeries, s) < 0)
+                        for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
                 for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == null) o.Add(i);
+                // Klei's games come last of all, in their own drawn style.
+                foreach (string s in LastSeries)
+                    for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
                 // Variants sit right next to the one they come from (the green 1-Up beside the red mushroom).
                 for (int k = 0; k < Beside.GetLength(0); k++)
                 {

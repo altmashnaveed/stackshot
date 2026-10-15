@@ -94,6 +94,12 @@ namespace Stackshot
         // ---- Each character's own lines, mixed in with the usual ones (null when it has none).
         public static string[] OwnLines(int kind)
         {
+            if (IsKlei(kind)) return KleiLines(kind);
+            return OwnLinesOf(kind);
+        }
+
+        static string[] OwnLinesOf(int kind)
+        {
             switch (kind)
             {
                 case KindNightFury: return new string[] { "Mrrr\u2026 \u00BFtienes pescado?", "\u00A1Plasma listo!" };

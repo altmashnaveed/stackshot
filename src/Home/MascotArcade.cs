@@ -32,7 +32,7 @@ namespace Stackshot
         public static bool KeepsOwnEyes(int kind)
         {
             return kind == KindGoomba || kind == KindBobomb || kind == KindChomp || kind == KindRedBird || kind == KindGreenPig ||
-                   kind == KindPooka || kind == KindMushroom;
+                   kind == KindPooka || kind == KindMushroom || kind == KindWillow;
         }
 
         static bool ArcadeNoCheeks(int kind) { return kind != KindToad && kind != KindWaddleDee && kind != KindFallGuy; }
