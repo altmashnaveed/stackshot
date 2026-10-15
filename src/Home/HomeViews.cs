@@ -1024,9 +1024,19 @@ namespace Stackshot
             {
                 StackPanel mp = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
                 MascotHost host = new MascotHost(mascot, 58, true);
-                host.HorizontalAlignment = HorizontalAlignment.Center;
-                host.Margin = new Thickness(0, -22, 0, -4);
-                mp.Children.Add(host);
+                // The glow of the other homes, sized to the tile.
+                Grid spot = new Grid { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, -22, 0, -4) };
+                if (!pal.High)
+                {
+                    const double gs = 136;
+                    Border halo = MascotHalo(gs, gs, 0.55);
+                    halo.Margin = new Thickness(-gs / 2, -gs / 2, -gs / 2, -gs / 2);
+                    halo.HorizontalAlignment = HorizontalAlignment.Center;
+                    halo.VerticalAlignment = VerticalAlignment.Center;
+                    spot.Children.Add(halo);
+                }
+                spot.Children.Add(host);
+                mp.Children.Add(spot);
                 UseMascot(host);
                 FrameworkElement mn = HomeNameTag(Ds.Semibold, 13, pal.Label, true, 0);
                 mp.Children.Add(mn);
@@ -1036,12 +1046,6 @@ namespace Stackshot
                 lv.HorizontalAlignment = HorizontalAlignment.Center;
                 mp.Children.Add(lv);
                 mw.Children.Add(mp);
-                // A small play glyph in the corner hints that the tile opens the command menu.
-                GlyphView playGlyph = new GlyphView("play", 12, pal.Label3, 1.5);
-                playGlyph.HorizontalAlignment = HorizontalAlignment.Right;
-                playGlyph.VerticalAlignment = VerticalAlignment.Bottom;
-                playGlyph.IsHitTestVisible = false;
-                mw.Children.Add(playGlyph);
                 mw.ToolTip = "P\u00EDdele algo a " + settings.MascotName;
                 // A click that only closes the name field (to confirm it) stays here.
                 mw.MouseLeftButtonUp += delegate { if (!host.IsMouseOver && !homeNameDismissed) CommandMenu(mw); };
