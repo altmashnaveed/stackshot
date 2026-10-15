@@ -91,17 +91,103 @@ namespace Stackshot
             if (tab != null && !tab.IsDisposed) tab.Away();
         }
 
-        // A sliver was touched (only if the pointer really moved since they tucked).
-        public void TuckTouched()
+        readonly Timer scrubTimer = new Timer { Interval = 30 };
+        bool scrubbing, scrubHooked;
+        Card scrubOn;                 // the card out under the pointer
+        double scrubAway = -1;        // when the pointer left the slivers (Anim.Now), or -1
+
+        // The pointer on a sliver (pressed: it counts without moving): the card under it slides out and its neighbours
+        // peek a little, like the dock on the mascot page; running along the slivers brings each one out in turn.
+        public void TuckTouched(bool pressed)
         {
-            if (!tucked || Control.MousePosition == tuckMouse) return;
-            Untuck();
+            if (!tucked || (!pressed && Control.MousePosition == tuckMouse)) return;
+            if (!scrubHooked)
+            {
+                scrubHooked = true;
+                scrubTimer.Tick += delegate
+                {
+                    try { ScrubTick(); }
+                    catch (Exception ex) { Log("Esconder miniaturas: " + ex.Message); StopScrub(true); }
+                };
+            }
+            if (!scrubbing)
+            {
+                scrubbing = true;
+                HideTab();   // it would sit over the card coming out
+                scrubOn = null;
+                scrubAway = -1;
+                scrubTimer.Start();
+            }
+            ScrubTick();
+        }
+
+        // The tab: all of them out.
+        public void TabTouched()
+        {
+            if (tucked && Control.MousePosition != tuckMouse) Untuck();
+        }
+
+        void ScrubTick()
+        {
+            if (!tucked || exiting) { StopScrub(false); return; }
+            List<Card> shown = new List<Card>();
+            foreach (Card c in cards) if (!c.Parked && !c.Leaving) shown.Add(c);
+            if (shown.Count == 0) { StopScrub(false); return; }
+            foreach (Card c in shown) if (c.Busy) return;   // pressed, swiped or dragged: it stays as it is
+            shown.Sort(delegate(Card a, Card b) { return a.Home.Top.CompareTo(b.Home.Top); });
+            Point m = Control.MousePosition;
+            Screen scr = AnchorScreen();
+            float s = ScaleFor(scr);
+            int edge = scr.WorkingArea.Left;
+            // The slivers' strip, or the whole column while a card is out (to reach its buttons).
+            int right = edge + (int)Math.Round((scrubOn != null ? 16 + 256 + 24 : Card.Peek + 14) * s);
+            int top = shown[0].Home.Top - (int)Math.Round(20 * s), bottom = shown[shown.Count - 1].Home.Bottom + (int)Math.Round(20 * s);
+            if (m.X < edge - 2 || m.X > right || m.Y < top || m.Y > bottom)
+            {
+                // Gone from them for a moment: they all slide back in.
+                if (scrubAway < 0) scrubAway = Anim.Now;
+                if (Anim.Now - scrubAway > 160) StopScrub(true);
+                return;
+            }
+            scrubAway = -1;
+            // The card under the pointer, or the nearest one when it is in a gap between two.
+            Card on = null;
+            int best = int.MaxValue;
+            foreach (Card c in shown)
+            {
+                int d = m.Y < c.Home.Top ? c.Home.Top - m.Y : m.Y > c.Home.Bottom ? m.Y - c.Home.Bottom : 0;
+                if (d < best) { best = d; on = c; }
+            }
+            if (on == scrubOn) return;
+            scrubOn = on;
+            int k = shown.IndexOf(on);
+            for (int i = 0; i < shown.Count; i++)
+            {
+                int d = Math.Abs(i - k);
+                shown[i].Reveal(d == 0 ? 1 : d == 1 ? 0.26 : 0);
+            }
+        }
+
+        void StopScrub(bool backIn)
+        {
+            scrubTimer.Stop();
+            scrubbing = false;
+            scrubOn = null;
+            scrubAway = -1;
+            if (backIn)
+            {
+                foreach (Card c in cards) c.Reveal(0);
+                PlaceTab(220);
+            }
+            // A card sliding back under a still pointer is not a new touch.
+            tuckMouse = Control.MousePosition;
         }
 
         // Everything back out, the card nearest the pointer first, then the pills; the wait to tuck starts again.
         public void Untuck()
         {
             if (!tucked) { TuckAwake(); return; }
+            StopScrub(false);
             tucked = false;
             peeked = true;
             HideTab();
@@ -174,7 +260,7 @@ namespace Stackshot
             base.OnMouseMove(e);
             if (away) return;
             if (!hot) { hot = true; Redraw(); }
-            owner.TuckTouched();
+            owner.TabTouched();
         }
 
         protected override void OnMouseLeave(EventArgs e)

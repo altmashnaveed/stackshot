@@ -79,7 +79,31 @@ namespace Stackshot
         public int Middle { get { return home.Y + home.Height / 2; } }
 
         // Where it sits for that slot: there, or tucked into the screen edge with only a sliver showing.
-        int SlotX(Rectangle r) { return tucked ? tuckEdge - r.Width + P(Peek) : r.X; }
+        // A tucked card can be partly or fully out (reveal 0-1) while the pointer runs along the slivers.
+        int SlotX(Rectangle r)
+        {
+            if (!tucked) return r.X;
+            int inX = tuckEdge - r.Width + P(Peek);
+            return (int)Math.Round(inX + (r.X - inX) * reveal);
+        }
+
+        double reveal;
+
+        // Fully out of a tucked stack: it is used like any other card.
+        public bool Out { get { return tucked && reveal > 0.9; } }
+
+        // How far out of the edge it comes while the pointer runs along the slivers, with a quick spring, like the
+        // mascot page's dock: 1 under the pointer, a little for its neighbours, 0 back in.
+        public void Reveal(double k)
+        {
+            if (!tucked || Leaving || parked || migrating || !Visible || Math.Abs(k - reveal) < 0.01) return;
+            bool wasOut = Out;
+            reveal = k;
+            if (wasOut && !Out) { hover = false; SetHot(-1); UpdateHover(); }
+            MoveTo(SlotX(home), home.Y, 560, 0.78, 0);
+            peekT.Go(0.82 + 0.18 * k, 140, 0, Ease.OutCubic, null);
+            Anim.Wake(this);
+        }
 
         // Screen x past which a tucked card (or one on its way out or back) is not drawn: the edge of its monitor, so the
         // hidden part never shows on a monitor next to it. int.MinValue: no cut.
@@ -91,6 +115,7 @@ namespace Stackshot
         {
             if (on == tucked) return;
             tucked = on;
+            reveal = 0;
             if (on) { tuckEdge = edge; clipEdge = edge; }
             if (Leaving || parked || migrating || !Visible) { peekT.Set(on ? 0.82 : 1); return; }
             if (on)
@@ -827,7 +852,7 @@ namespace Stackshot
         {
             base.OnMouseDown(e);
             // A press on a tucked sliver only brings the stack out.
-            if (tucked) { swallowUp = true; if (!Leaving) owner.Untuck(); return; }
+            if (tucked && !Out) { swallowUp = true; if (!Leaving) owner.TuckTouched(true); return; }
             Point p = Local(e.Location);
             if (Leaving || e.Button != MouseButtons.Left || !Inside(p)) return;
             pressed = true;
@@ -848,7 +873,7 @@ namespace Stackshot
         {
             base.OnMouseMove(e);
             if (Leaving) return;
-            if (tucked) { owner.TuckTouched(); return; }
+            if (tucked && !Out) { owner.TuckTouched(false); return; }
             if (swiping) { SwipeMove(); return; }
             Point p = Local(e.Location);
             bool inside = Inside(p);
