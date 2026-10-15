@@ -630,6 +630,14 @@ namespace Stackshot
 
         public void Say(string text, bool good) { Flash(text, good); }
 
+        bool dragCancelled;   // the drag ended with Esc (or the right button): a drop on a card is not meant then
+
+        protected override void OnQueryContinueDrag(QueryContinueDragEventArgs e)
+        {
+            base.OnQueryContinueDrag(e);
+            if (e.EscapePressed || (e.KeyState & 2) != 0) dragCancelled = true;
+        }
+
         // A quick dip and back, as the two captures go into one.
         public void Pulse()
         {
@@ -1076,6 +1084,7 @@ namespace Stackshot
             try
             {
                 Point grab = pressPt;
+                dragCancelled = false;
                 owner.MergeWatch(this);
                 Bitmap ghost;
                 int w = Math.Max(1, body.Width), h = Math.Max(1, body.Height);
@@ -1092,7 +1101,7 @@ namespace Stackshot
             catch (Exception ex) { ShotStack.Log("Arrastrar: " + ex.Message); }
             dragging = false;
             // Let go over another thumbnail: they join (or it says why not).
-            owner.MergeEnd(this, result == DragDropEffects.None);
+            owner.MergeEnd(this, result == DragDropEffects.None && !dragCancelled);
             if (IsDisposed) return;
             if (closeAfterDrag) { Close(); return; }
             // Dropped into another app: done, remove it.

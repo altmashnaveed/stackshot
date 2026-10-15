@@ -40,7 +40,7 @@ namespace Stackshot
         bool ToolKey(Keys k)
         {
             if (adjusting) return false;
-            if (k == Keys.C) { loupe = !loupe; interacted = true; Present(); return true; }
+            if (k == Keys.C && (Control.ModifierKeys & (Keys.Control | Keys.Alt)) == 0) { loupe = !loupe; interacted = true; Present(); return true; }
             if (k == Keys.Enter && loupe) { CopyColor(); return true; }
             if (k == Keys.Escape && (loupe || measured))
             {

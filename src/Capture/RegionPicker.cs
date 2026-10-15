@@ -936,7 +936,14 @@ namespace Stackshot
             if (e.Location == cur) return;
             cur = e.Location;
             if (!curMon.Contains(cur)) TrackMonitor();
-            if (measuring) { MeasureTo(cur); Present(); return; }
+            if (measuring)
+            {
+                // The button went up where no release reached us (Alt+Tab, a system prompt): the measure ends there.
+                if ((e.Button & MouseButtons.Left) == 0) { measuring = false; measured = true; }
+                else MeasureTo(cur);
+                Present();
+                return;
+            }
             if (adjusting)
             {
                 if (grab >= 0)

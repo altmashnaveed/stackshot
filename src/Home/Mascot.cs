@@ -720,7 +720,7 @@ namespace Stackshot
             else MascotParts.PaintFaceAccessory(g, Look, D);
             MascotParts.PaintAccessory(g, Look, D, now, false);
             int hat = Look.EffectiveHat(DateTime.Now);
-            if (hat == MascotParts.HatNightcap && still) hat = 0;   // pickers show the look itself
+            if (still && hat == MascotParts.HatNightcap && Look.Hat != MascotParts.HatNightcap) hat = 0;   // pickers show the look itself, without the night one
             MascotParts.PaintHat(g, Look, hat, D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
             if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY);

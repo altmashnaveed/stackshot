@@ -52,7 +52,7 @@ namespace Stackshot
             if (mergeOn != null) mergeOn.MergeHint(0);
             mergeOn = null;
             mergeFrom = null;
-            if (!dropped) return false;
+            if (!dropped || from.Leaving || from.IsDisposed || cards.IndexOf(from) < 0) return false;
             Card on = CardAt(Control.MousePosition, from);
             if (on == null) return false;
             if (on.IsMedia || from.IsMedia) { on.Say("Solo im\u00E1genes", false); return true; }

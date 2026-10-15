@@ -36,12 +36,27 @@ namespace Stackshot
                 Delay(90, delegate
                 {
                     if (exiting) return;
-                    try { SaveCapture(Grabber.Grab(r), "Captura"); }
+                    // Like an area capture: the pointer if wanted, a window's rounded corners, and Repetir área.
+                    CaptureStart start = BeginCapture();
+                    try
+                    {
+                        Bitmap shot = Grabber.Grab(r);
+                        start.DrawPointer(shot, r.Location);
+                        string name = "Captura";
+                        if (window != IntPtr.Zero)
+                        {
+                            name = Grabber.ProcessName(window) ?? name;
+                            if (WindowIsRounded(window, r)) shot = Grabber.RoundCorners(shot, 8 * ScaleFor(Screen.FromRectangle(r)));
+                        }
+                        RememberArea(r, window);
+                        SaveCapture(shot, name, start);
+                    }
                     catch (Exception ex)
                     {
                         Log("Captura con temporizador: " + ex.Message);
                         Notify("No se pudo capturar", "Ha fallado algo inesperado. Vuelve a intentarlo.");
                     }
+                    finally { EndCapture(); }
                 });
             };
             c.Begin();
