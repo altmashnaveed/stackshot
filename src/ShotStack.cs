@@ -1967,7 +1967,7 @@ namespace Stackshot
                 oldest.Dismiss(Card.Exit.Slide, 0);
             }
             int n = cards.Count;
-            if (n == 0) { HideChips(); tucked = false; return; }
+            if (n == 0) { HideChips(); tucked = false; HideTab(); return; }
             Screen scr = AnchorScreen();
             Rectangle wa = scr.WorkingArea;
             float s = ScaleFor(scr);
@@ -2012,8 +2012,8 @@ namespace Stackshot
                 cards[i].Place(new Rectangle(left, above, sz.Width, sz.Height), scr.DeviceName, s, 0, false);
                 above -= gap;
             }
-            // Tucked: the pills stay away until the cards come back out.
-            if (tucked) HideChips();
+            // Tucked: the pills stay away until the cards come back out, and the tab follows the cards.
+            if (tucked) { HideChips(); PlaceTab(0); }
         }
 
         // With the top card at index top, the lowest index that still fits (leaving room for the pills).

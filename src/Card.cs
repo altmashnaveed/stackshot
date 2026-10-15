@@ -53,7 +53,7 @@ namespace Stackshot
                        flashT = new Tween(0), badgeT = new Tween(1), wait = new Tween(0), peekT = new Tween(1);
         bool tucked, swallowUp;
         int tuckEdge;
-        const int Peek = 22;          // how much of a tucked card still shows (logical px)
+        public const int Peek = 22;   // how much of a tucked card still shows (logical px)
 
         public Card(ShotStack owner, string path)
         {
@@ -71,6 +71,9 @@ namespace Stackshot
         public bool Parked { get { return parked; } }
 
         public bool Hovered { get { return hover; } }
+
+        // Its slot in the stack (screen pixels).
+        public Rectangle Home { get { return home; } }
 
         // Its slot's vertical middle (screen pixels), to bring back first the cards nearest the pointer.
         public int Middle { get { return home.Y + home.Height / 2; } }
