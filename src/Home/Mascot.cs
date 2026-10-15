@@ -678,6 +678,9 @@ namespace Stackshot
             g.TranslateTransform(cx, cy);
             g.RotateTransform((float)(tilt + spin % 360));
             g.ScaleTransform((float)squashX * scale * (1 - breathe) * (float)(1 - 0.04 * stretch - 0.06 * Pull), (float)squashY * scale * (1 + breathe) * (float)(1 + 0.1 * stretch + 0.12 * Pull));
+            // Characters with a front (Pac-Man, Boo, Chomp, the crewmate) turn whole to face the way they last walked.
+            flipped = faceLeft && MascotParts.TurnsToWalk(Look.Kind);
+            if (flipped) g.ScaleTransform(-1, 1);
 
             pose.Now = now;
             pose.EarL = earL;
@@ -744,6 +747,8 @@ namespace Stackshot
             Color ink = visor ? EyeCore : Ink;
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             float ex = (float)(lookX * D * (visor ? 0.075 : 0.05)), ey = fy + (float)(lookY * D * (visor ? 0.055 : 0.035));
+            if (flipped) ex = -ex;
+            if (Look.Kind == MascotParts.KindBoo || Look.Kind == MascotParts.KindChomp) ex += 0.05f * D;   // the face sits towards its front
             float blink = 1;
             if (blinkStart >= 0)
             {
@@ -767,7 +772,7 @@ namespace Stackshot
                 if (m == Mood.Wink && i == 1) m = Mood.Sleep;
                 // Eyes that keep their own shape whatever the mood: Gengar's, the kodama's hollows, Mimikyu's painted ones.
                 if ((Look.Kind == MascotParts.KindGengar || Look.Kind == MascotParts.KindKodama) && m != Mood.Sleep && m != Mood.Yawn) m = Mood.Idle;
-                if (Look.Kind == MascotParts.KindMimikyu && m != Mood.Sleep && m != Mood.Yawn) m = Mood.Idle;
+                if ((Look.Kind == MascotParts.KindMimikyu || MascotParts.KeepsOwnEyes(Look.Kind)) && m != Mood.Sleep && m != Mood.Yawn) m = Mood.Idle;
                 if (visor) MascotParts.Glow(g, x, y, D * 0.19f, D * 0.22f, m == Mood.Love ? LoveColor : EyeGlow, mood == Mood.Sleep ? 40 : 95);
                 Color core = m == Mood.Love ? (visor ? Mac.Mix(LoveColor, Color.White, 0.25) : LoveColor) : ink;
                 switch (m)

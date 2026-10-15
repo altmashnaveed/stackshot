@@ -87,6 +87,9 @@ namespace Stackshot
             {
                 Fill(g, ear, new RectangleF(-0.12f * D, -0.2f * D, 0.24f * D, 0.26f * D), c1, c2, 70f);
                 Stroke(g, ear, Mac.Mix(c1, c2, 0.5), D * 0.03f);
+                // The ink line just outside the thick rounded edge.
+                using (GraphicsPath outline = Poly(P(-0.135f * D, 0.07f * D), P(s * 0.01f * D, -0.225f * D), P(0.135f * D, 0.07f * D)))
+                    Stroke(g, outline, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
             }
             using (GraphicsPath inner = Poly(P(-0.06f * D, 0.03f * D), P(s * 0.008f * D, -0.12f * D), P(0.06f * D, 0.03f * D)))
                 FillSolid(g, inner, Color.FromArgb(200, Pink));
@@ -103,6 +106,7 @@ namespace Stackshot
             {
                 ep.AddEllipse(ear);
                 Fill(g, ep, ear, c1, c2, 80f);
+                Stroke(g, ep, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
             }
             RectangleF inner = new RectangleF(-0.035f * D, -0.36f * D, 0.07f * D, 0.32f * D);
             Ellipse(g, Color.FromArgb(190, Pink), inner.X, inner.Y, inner.Width, inner.Height);
@@ -117,6 +121,7 @@ namespace Stackshot
                 h.AddBezier(P(s * 0.25f * D, -0.44f * D), P(s * 0.22f * D, -0.36f * D), P(s * 0.22f * D, -0.3f * D), P(s * 0.2f * D, -0.24f * D));
                 h.CloseFigure();
                 Fill(g, h, new RectangleF(-0.26f * D, -0.45f * D, 0.52f * D, 0.22f * D), Color.FromArgb(255, 244, 214), Color.FromArgb(210, 170, 110), 90f);
+                Stroke(g, h, Color.FromArgb(180, 120, 84, 40), D * 0.01f);
             }
         }
 
@@ -192,6 +197,7 @@ namespace Stackshot
                 {
                     Fill(g, hp, head, c1, c2, 55f);
                     Shine(g, hp, head, 110);
+                    Stroke(g, hp, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
                     Stroke(g, hp, Color.FromArgb(70, 255, 255, 255), Math.Max(1f, D * 0.008f));
                 }
                 float vw = W * 0.8f, vh = H * 0.6f;
@@ -207,7 +213,7 @@ namespace Stackshot
                 return vp;
             }
             GraphicsPath body = BodyPath(l.Kind, geo, D, p.Now);
-            if (l.Kind == KindPacman && p.FaceLeft) using (Matrix flip = new Matrix(-1, 0, 0, 1, 0, 0)) body.Transform(flip);
+
             RectangleF b = body.GetBounds();
             if (l.Kind == 3)
             {
@@ -239,6 +245,7 @@ namespace Stackshot
             if (IsPokemon(l.Kind)) PokemonBody(g, l, D, body, c1, c2);
             if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2);
             Shine(g, body, b, l.Kind == 4 ? 150 : 105);
+            if (Inked(l.Kind)) Stroke(g, body, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             body.Dispose();
             return null;
@@ -344,6 +351,7 @@ namespace Stackshot
                     {
                         pp.AddEllipse(paw);
                         Fill(g, pp, paw, Mac.Mix(c1, c2, 0.4), c2, 70f);
+                        if (Inked(l.Kind)) Stroke(g, pp, Color.FromArgb(190, Darker(c2, 0.5)), Math.Max(1f, D * 0.011f));
                         Stroke(g, pp, Color.FromArgb(50, 255, 255, 255), Math.Max(1f, D * 0.006f));
                     }
                 }

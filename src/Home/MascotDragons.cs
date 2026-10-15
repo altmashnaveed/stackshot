@@ -202,6 +202,7 @@ namespace Stackshot
                 tp.AddLines(right);
                 tp.CloseFigure();
                 Fill(g, tp, tp.GetBounds(), a, b, 70f);
+                Stroke(g, tp, Color.FromArgb(190, Darker(b, 0.5)), D * 0.011f);
             }
             PointF dd = BezD(p0, p1, p2, p3, 1);
             angle = (float)(Math.Atan2(dd.Y, dd.X) * 180 / Math.PI);

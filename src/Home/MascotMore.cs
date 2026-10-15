@@ -58,11 +58,14 @@ namespace Stackshot
             g.TranslateTransform(s * 0.2f * D, -0.23f * D);
             g.RotateTransform((float)(s * (12 + twitch)));
             using (GraphicsPath ear = Poly(P(-0.13f * D, 0.07f * D), P(s * 0.02f * D, -0.27f * D), P(0.13f * D, 0.07f * D)))
+            {
                 Fill(g, ear, new RectangleF(-0.13f * D, -0.27f * D, 0.26f * D, 0.34f * D), c1, c2, 70f);
-            using (GraphicsPath tip = Poly(P(-0.045f * D, -0.15f * D), P(s * 0.02f * D, -0.27f * D), P(0.06f * D, -0.15f * D)))
-                FillSolid(g, tip, PandaInk);
-            using (GraphicsPath inner = Poly(P(-0.06f * D, 0.04f * D), P(s * 0.01f * D, -0.13f * D), P(0.06f * D, 0.04f * D)))
-                FillSolid(g, inner, Color.FromArgb(220, 255, 244, 230));
+                using (GraphicsPath tip = Poly(P(-0.045f * D, -0.15f * D), P(s * 0.02f * D, -0.27f * D), P(0.06f * D, -0.15f * D)))
+                    FillSolid(g, tip, PandaInk);
+                using (GraphicsPath inner = Poly(P(-0.06f * D, 0.04f * D), P(s * 0.01f * D, -0.13f * D), P(0.06f * D, 0.04f * D)))
+                    FillSolid(g, inner, Color.FromArgb(220, 255, 244, 230));
+                Stroke(g, ear, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
+            }
             g.Restore(st);
         }
 
@@ -76,8 +79,13 @@ namespace Stackshot
             {
                 tp.AddEllipse(t);
                 Fill(g, tp, t, c1, c2, 0f);
+                Region old = g.Clip;
+                g.SetClip(tp, CombineMode.Intersect);
+                Ellipse(g, Color.FromArgb(255, 252, 245), 0.24f * D, -0.065f * D, 0.13f * D, 0.13f * D);
+                g.Clip = old;
+                old.Dispose();
+                Stroke(g, tp, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
             }
-            Ellipse(g, Color.FromArgb(255, 252, 245), 0.24f * D, -0.065f * D, 0.13f * D, 0.13f * D);
             g.Restore(st);
         }
 

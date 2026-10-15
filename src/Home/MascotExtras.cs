@@ -19,6 +19,9 @@ namespace Stackshot
 
         public static bool IsExtra(int kind) { return kind >= KindPsyduck && kind <= KindWaddleDee; }
 
+        // A dark outline in the body's own shade, for a crisp drawn look; not on the see-through or glowing ones, nor the pixels.
+        public static bool Inked(int kind) { return kind != 3 && kind != KindCalcifer && kind != KindMetroid && kind != KindInvader; }
+
         // Characters without paws of their own, and the ones whose face has no pink blush.
         public static bool NoHands(int kind)
         {

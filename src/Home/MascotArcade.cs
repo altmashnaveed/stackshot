@@ -25,6 +25,16 @@ namespace Stackshot
                    kind == KindPooka || kind == KindMcPig || kind == KindQBlock || kind == KindMetroid;
         }
 
+        // Characters with a front that turn whole to face the way they walk.
+        public static bool TurnsToWalk(int kind) { return kind == KindPacman || kind == KindBoo || kind == KindChomp || kind == KindCrewmate; }
+
+        // Eyes that are part of the character and stay whatever its mood (no happy arcs on an angry Goomba).
+        public static bool KeepsOwnEyes(int kind)
+        {
+            return kind == KindGoomba || kind == KindBobomb || kind == KindChomp || kind == KindRedBird || kind == KindGreenPig ||
+                   kind == KindPooka || kind == KindMushroom;
+        }
+
         static bool ArcadeNoCheeks(int kind) { return kind != KindToad && kind != KindWaddleDee && kind != KindFallGuy; }
 
         // Faces drawn whole on the body (pixels, a glyph, a cube's heart) or by the face code itself.
@@ -189,7 +199,19 @@ namespace Stackshot
             switch (l.Kind)
             {
                 case KindGoomba:
-                    foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(110, 62, 32), Color.FromArgb(66, 34, 16), p);
+                    // Big dark shoes, each with a clear outline, stepping in turn while it walks.
+                    foreach (int s in Sides)
+                    {
+                        float step = Math.Abs(p.Facing) > 0.2 ? (float)Math.Max(0, Math.Sin(p.Now / 95.0 + (s < 0 ? 0 : Math.PI))) * 0.03f * D : 0;
+                        RectangleF f = new RectangleF(s * 0.14f * D - 0.12f * D, 0.24f * D - step, 0.24f * D, 0.12f * D);
+                        using (GraphicsPath fp = new GraphicsPath())
+                        {
+                            fp.AddEllipse(f);
+                            Fill(g, fp, f, Color.FromArgb(120, 70, 38), Color.FromArgb(62, 32, 14), 90f);
+                            Stroke(g, fp, Color.FromArgb(230, 44, 22, 10), D * 0.014f);
+                        }
+                        Ellipse(g, Color.FromArgb(70, 255, 255, 255), f.X + f.Width * 0.2f, f.Y + f.Height * 0.15f, f.Width * 0.3f, f.Height * 0.25f);
+                    }
                     break;
                 case KindToad:
                     foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(150, 90, 46), Color.FromArgb(96, 54, 24), p);
@@ -217,16 +239,20 @@ namespace Stackshot
                 }
                 case KindChomp:
                 {
-                    // The chain trailing down behind it.
-                    GraphicsState st = TailSide(g, p);
-                    using (Pen pen = new Pen(Color.FromArgb(150, 150, 160), D * 0.022f))
+                    // The chain trailing down behind it (on its back side; the drawing turns as it walks): steel links,
+                    // each with a dark edge and a glint, swaying a little.
+                    float sway = (float)Math.Sin(p.Now / 400.0) * 0.012f;
+                    using (Pen edge = new Pen(Color.FromArgb(230, 40, 42, 50), D * 0.034f))
+                    using (Pen steel = new Pen(Color.FromArgb(176, 180, 192), D * 0.02f))
+                    using (Pen glint = new Pen(Color.FromArgb(200, 240, 244, 252), D * 0.007f))
                         for (int i = 0; i < 4; i++)
                         {
-                            float x = (0.26f + i * 0.08f) * D, y = (0.24f + i * 0.04f) * D;
-                            if (i % 2 == 0) g.DrawEllipse(pen, x - 0.05f * D, y - 0.03f * D, 0.1f * D, 0.06f * D);
-                            else g.DrawEllipse(pen, x - 0.025f * D, y - 0.04f * D, 0.05f * D, 0.08f * D);
+                            float x = -(0.27f + i * 0.08f) * D, y = (0.24f + i * 0.045f + sway * i) * D;
+                            RectangleF r = i % 2 == 0 ? new RectangleF(x - 0.05f * D, y - 0.03f * D, 0.1f * D, 0.06f * D) : new RectangleF(x - 0.025f * D, y - 0.04f * D, 0.05f * D, 0.08f * D);
+                            g.DrawEllipse(edge, r);
+                            g.DrawEllipse(steel, r);
+                            g.DrawArc(glint, r, 200, 70);
                         }
-                    g.Restore(st);
                     break;
                 }
                 case KindRedBird:
@@ -313,9 +339,18 @@ namespace Stackshot
             switch (l.Kind)
             {
                 case KindGoomba:
-                    // The tan body under the head.
-                    using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 206, 156))) g.FillRectangle(b, -0.3f * D, 0.165f * D, 0.6f * D, 0.2f * D);
+                {
+                    // The tan body under the head, shaded where the head overhangs it; a gloss on top of the head.
+                    RectangleF bd = new RectangleF(-0.3f * D, 0.16f * D, 0.6f * D, 0.16f * D);
+                    using (GraphicsPath bp = new GraphicsPath())
+                    {
+                        bp.AddRectangle(bd);
+                        Fill(g, bp, bd, Color.FromArgb(212, 172, 120), Color.FromArgb(250, 222, 176), 90f);
+                    }
+                    Glow(g, 0, 0.17f * D, 0.42f * D, 0.06f * D, Color.FromArgb(90, 50, 20), 140);
+                    Ellipse(g, Color.FromArgb(60, 255, 240, 220), -0.26f * D, -0.27f * D, 0.24f * D, 0.1f * D);
                     break;
+                }
                 case KindToad:
                 case KindMushroom:
                 {
@@ -503,11 +538,21 @@ namespace Stackshot
             switch (l.Kind)
             {
                 case KindGoomba:
-                    // Thick angry brows.
+                {
+                    // A clear dark outline and the line where the head meets the body, then the thick angry brows.
+                    Color edge = Color.FromArgb(230, 52, 26, 10);
+                    using (GraphicsPath gp = ArcadePath(KindGoomba, geo, D, p.Now)) Stroke(g, gp, edge, D * 0.016f);
+                    using (Pen pen = new Pen(edge, D * 0.012f))
+                    {
+                        pen.StartCap = LineCap.Round;
+                        pen.EndCap = LineCap.Round;
+                        g.DrawBezier(pen, P(-0.4f * D, 0.13f * D), P(-0.3f * D, 0.175f * D), P(0.3f * D, 0.175f * D), P(0.4f * D, 0.13f * D));
+                    }
                     foreach (int s in Sides)
-                        using (GraphicsPath b = Poly(P(s * 0.17f * D, fy - 0.11f * D), P(s * 0.03f * D, fy - 0.06f * D), P(s * 0.03f * D, fy - 0.025f * D), P(s * 0.17f * D, fy - 0.075f * D)))
-                            FillSolid(g, b, ExBlack);
+                        using (GraphicsPath b = Poly(P(s * 0.19f * D, fy - 0.12f * D), P(s * 0.025f * D, fy - 0.055f * D), P(s * 0.025f * D, fy - 0.01f * D), P(s * 0.19f * D, fy - 0.07f * D)))
+                            FillSolid(g, b, Color.FromArgb(28, 18, 14));
                     break;
+                }
                 case KindBobomb:
                 {
                     // The fuse cap, the wick and its spark.
@@ -586,8 +631,8 @@ namespace Stackshot
             if (k == MascotParts.KindPacman)
             {
                 float h = (mood == Mood.Sleep ? 0.012f : 0.07f) * D;
-                float side = faceLeft ? -1 : 1;
-                MascotParts.Ellipse(g, InkBlack, side * 0.045f * D - 0.025f * D + ex * 0.5f, -0.17f * D - h / 2, 0.05f * D, h);
+                // On the front side; the whole drawing turns when it walks the other way.
+                MascotParts.Ellipse(g, InkBlack, 0.02f * D + ex * 0.5f, -0.17f * D - h / 2, 0.05f * D, h);
                 return true;
             }
             if (k == MascotParts.KindKnight)

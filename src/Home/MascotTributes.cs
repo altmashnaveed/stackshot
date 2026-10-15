@@ -173,7 +173,7 @@ namespace Stackshot
                 using (SolidBrush b = new SolidBrush(PikaBlack)) g.FillRectangle(b, -w, -L - 1, w * 2, L * 0.3f + 1);
                 g.Clip = old;
                 old.Dispose();
-                Stroke(g, e, Color.FromArgb(70, Darker(c2, 0.3)), D * 0.007f);
+                Stroke(g, e, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
             }
             g.Restore(st);
         }
@@ -223,6 +223,7 @@ namespace Stackshot
             {
                 fp.AddEllipse(f);
                 Fill(g, fp, f, a, b, 90f);
+                Stroke(g, fp, Color.FromArgb(190, Darker(b, 0.5)), D * 0.011f);
             }
         }
 
@@ -236,7 +237,7 @@ namespace Stackshot
             using (GraphicsPath e = Leaf(w, L, D))
             {
                 Fill(g, e, new RectangleF(-w, -L, w * 2, L + 0.03f * D), a, b, 80f);
-                Stroke(g, e, Color.FromArgb(70, Darker(b, 0.3)), D * 0.007f);
+                Stroke(g, e, Color.FromArgb(b.A == 0 ? 0 : 190, Darker(b, 0.5)), D * 0.011f);
             }
             g.TranslateTransform(0, -L * 0.12f);
             using (GraphicsPath i = Leaf(w * 0.55f, L * 0.68f, D)) FillSolid(g, i, inner);
