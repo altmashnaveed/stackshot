@@ -16,6 +16,7 @@ namespace Stackshot
         {
             if (IsDragon(l.Kind)) { DragonBack(g, l, D, c1, c2, p); return; }
             if (IsTribute(l.Kind)) { TributeBack(g, l, D, c1, c2, p); return; }
+            if (IsClassic(l.Kind)) { ClassicBack(g, l, D, c1, c2, p); return; }
             switch (l.Kind)
             {
                 case KindPanda:

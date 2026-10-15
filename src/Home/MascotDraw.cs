@@ -233,6 +233,7 @@ namespace Stackshot
             if (l.Kind >= KindPenguin && l.Kind <= KindFox) PaintBodyMore(g, l, geo, D, body);
             if (IsDragon(l.Kind)) DragonBody(g, l, D, body, c1);
             if (IsTribute(l.Kind)) TributeBody(g, l, D, body, c1, c2);
+            if (IsClassic(l.Kind)) ClassicBody(g, l, D, body, c1, c2);
             Shine(g, body, b, l.Kind == 4 ? 150 : 105);
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             body.Dispose();
@@ -270,7 +271,9 @@ namespace Stackshot
                 p.CloseFigure();
                 return p;
             }
-            return Squircle(new RectangleF(-W / 2, top, W, bottom - top), kind == 2 || kind == KindCharmander || kind == KindPikachu ? 2.2 : kind == KindKirby ? 2.05 : 2.5);
+            if (kind == KindTotoro) return PearPath(D);
+            if (kind == KindBmo) return Theme.Round(new RectangleF(-W / 2, top, W, bottom - top), 0.07f * D);
+            return Squircle(new RectangleF(-W / 2, top, W, bottom - top), kind == KindDoraemon ? 2.0 : kind == 2 || kind == KindCharmander || kind == KindPikachu ? 2.2 : kind == KindKirby ? 2.05 : 2.5);
         }
 
         // Small details in front of the face (whiskers, nostrils).
@@ -282,6 +285,7 @@ namespace Stackshot
             PaintDetailsMore(g, l, geo, D);
             if (IsDragon(l.Kind)) DragonDetails(g, l, geo, D, p);
             if (IsTribute(l.Kind)) TributeDetails(g, l, geo, D);
+            if (IsClassic(l.Kind)) ClassicDetails(g, l, geo, D);
             if (l.Kind == 1)
             {
                 foreach (int s in new int[] { -1, 1 })
@@ -625,6 +629,8 @@ namespace Stackshot
                 case 16: Chef(g, u); break;
                 case 17: Flowers(g, u, now); break;
                 case HatNightcap: NightCap(g, u, now); break;
+                case HatGoku: GokuHair(g, u, now); break;
+                case HatVegeta: VegetaHair(g, u, now); break;
                 default: PaintAnimeHat(g, hat, u, now); break;
             }
             g.Restore(st);

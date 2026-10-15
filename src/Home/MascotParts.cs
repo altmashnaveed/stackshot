@@ -63,7 +63,8 @@ namespace Stackshot
     {
         public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado",
                                                    "Furia Nocturna", "Furia Luminosa", "Nadder Mort\u00EDfero", "Pesadilla Monstruosa", "Gronckle",
-                                                   "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra", "Rat\u00F3n el\u00E9ctrico" };
+                                                   "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra", "Rat\u00F3n el\u00E9ctrico",
+                                                   "Consola", "Gato c\u00F3smico", "Esp\u00EDritu del bosque" };
 
         public static readonly Color[,] Colors =
         {
@@ -108,7 +109,8 @@ namespace Stackshot
                                                      "Corona", "Aureola", "Boina", "Gorro de chef", "Flores", "Pelo rubio", "Pelo casta\u00F1o", "Pelo de punta", "Pelo blanco", "Pelo granate", "Capucha de oso", "Banda ninja", "Sombrero de paja", "Pelo negro", "Ninja rubio", "Casco de marine", "Casco de caballero", "Casco de astronauta", "Chispa",
                                                      "Pelo de punta oscuro", "Pelo magenta", "Ninja de pelo oscuro", "Pelo verde", "Pelo de llamas", "Melena negra",
                                                      "Ninja de pelo plateado", "Capucha de murci\u00E9lago", "Casco rel\u00E1mpago", "Pelo con rizo", "Casco de armadura",
-                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir" };
+                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir",
+                                                     "Pelo de saiyan", "Llama de pr\u00EDncipe" };
         public static readonly string[] OutfitNames = { "Nada", "Bufanda", "Pajarita", "Corbata", "Capa de vampiro", "Capa de h\u00E9roe",
                                                         "Cascabel", "Cadena de oro", "Capa verde", "Abrigo rojo", "Chaleco ninja", "Kimono de lucha", "Haori a cuadros", "Mochila", "Chaleco rojo", "Camiseta roja", "Botones de consola", "Panza del bosque", "Ch\u00E1ndal naranja",
                                                         "Hombrera", "Armadura verde", "Traje espacial", "Chaqueta verde", "Camiseta morada", "Traje de buf\u00F3n",
@@ -238,6 +240,18 @@ namespace Stackshot
                 case 18: // Gronckle: round and wide
                     g.HeadW = 0.78f; g.Top = -0.28f; g.FaceY = -0.03f; g.EyeGap = 0.14f; g.NeckY = 0.15f; g.NeckW = 0.66f;
                     g.Bottom = 0.32f; g.HandX = 0.38f; g.HandY = 0.22f; g.HatW = 0.56f;
+                    break;
+                case 25: // console: a tall box, the face on its screen
+                    g.HeadW = 0.6f; g.Top = -0.33f; g.FaceY = -0.15f; g.EyeGap = 0.1f; g.NeckY = 0.02f; g.NeckW = 0.5f;
+                    g.Bottom = 0.33f; g.HandX = 0.33f; g.HandY = 0.12f; g.HatW = 0.52f;
+                    break;
+                case 26: // cosmic cat: a big round head, eyes close together
+                    g.HeadW = 0.74f; g.Top = -0.33f; g.FaceY = -0.12f; g.EyeGap = 0.06f; g.NeckY = 0.1f; g.NeckW = 0.6f;
+                    g.Bottom = 0.32f; g.HandX = 0.37f; g.HandY = 0.17f; g.HatW = 0.56f;
+                    break;
+                case 27: // forest spirit: pear-shaped, eyes high
+                    g.HeadW = 0.7f; g.Top = -0.29f; g.FaceY = -0.17f; g.EyeGap = 0.12f; g.NeckY = 0.0f; g.NeckW = 0.56f;
+                    g.Bottom = 0.33f; g.HandX = 0.35f; g.HandY = 0.12f; g.HatW = 0.5f;
                     break;
                 case 11: // frog
                     g.HeadW = 0.80f; g.Top = -0.24f; g.FaceY = -0.2f; g.EyeGap = 0.17f; g.NeckY = 0.15f; g.NeckW = 0.70f;
