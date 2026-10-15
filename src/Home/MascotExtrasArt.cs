@@ -17,6 +17,7 @@ namespace Stackshot
         // ---- Behind the body.
         static void ExtraBack(Graphics g, MascotLook l, float D, Color c1, Color c2, MascotPose p)
         {
+            if (IsArcade(l.Kind)) { ArcadeBack(g, l, D, c1, c2, p); return; }
             Color e1 = Lighter(c1, 0.05);
             float earL = (float)p.EarL, earR = (float)p.EarR;
             switch (l.Kind)
@@ -88,7 +89,7 @@ namespace Stackshot
                         using (GraphicsPath w = Leaf(0.14f * D, 0.2f * D, D)) Fill(g, w, new RectangleF(-0.08f * D, -0.2f * D, 0.16f * D, 0.22f * D), Lighter(wing, 0.1), Darker(wing, 0.2), 80f);
                         g.Restore(ws);
                     }
-                    { GraphicsState ts = TailSide(g, p); float a; TaperTail(g, D, e1, c2, p.Now, 0.12f, 0.04f, out a); g.Restore(ts); }
+                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, e1, c2, p.Now, 0.12f, 0.05f, 0, ExNone); g.Restore(ts); }
                     using (Pen an = new Pen(Darker(c2, 0.1), Math.Max(1f, D * 0.014f)))
                     {
                         an.StartCap = LineCap.Round;
@@ -109,7 +110,7 @@ namespace Stackshot
                         g.DrawBezier(tube, P(0.16f * D, -0.22f * D), P(0.36f * D, -0.2f * D), P(0.4f * D, 0.02f * D), P(0.24f * D, 0.1f * D));
                     }
                     foreach (int s in Sides) SoftEar(g, D, s * 0.13f * D, -0.27f * D, s * 28, 0.1f, 1.0f, e1, c2, ExNone);
-                    { GraphicsState ts = TailSide(g, p); float a; TaperTail(g, D, Color.FromArgb(176, 128, 212), Color.FromArgb(112, 70, 160), p.Now, 0.1f, 0.06f, out a); g.Restore(ts); }
+                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, Color.FromArgb(176, 128, 212), Color.FromArgb(112, 70, 160), p.Now, 0.12f, 0.08f, 0.065f, ExNone); g.Restore(ts); }
                     foreach (int s in Sides) Foot(g, D, s, e1, c2, p);
                     break;
                 }
@@ -129,36 +130,6 @@ namespace Stackshot
                     }
                     foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(244, 120, 64), Color.FromArgb(204, 64, 30), p);
                     break;
-                case KindSonic:
-                {
-                    // Big quills sweeping back and out on both sides, then the ears.
-                    float[][] q = { new float[] { -0.52f, -0.08f }, new float[] { -0.46f, 0.16f }, new float[] { -0.42f, -0.32f }, new float[] { 0.52f, -0.08f }, new float[] { 0.46f, 0.16f }, new float[] { 0.42f, -0.32f } };
-                    float sw = (float)Math.Sin(p.Now / 500.0) * 0.01f;
-                    foreach (float[] t in q)
-                    {
-                        PointF tip = P((t[0] + sw) * D, (t[1] - sw) * D);
-                        float bx = Math.Sign(t[0]) * 0.12f * D, by = t[1] * 0.4f * D - 0.02f * D;
-                        float nx = -(tip.Y - by), ny = tip.X - bx, len = (float)Math.Sqrt(nx * nx + ny * ny);
-                        nx = nx / len * 0.1f * D;
-                        ny = ny / len * 0.1f * D;
-                        using (GraphicsPath sp = new GraphicsPath())
-                        {
-                            sp.AddBezier(P(bx - nx, by - ny), P(bx - nx * 0.4f + (tip.X - bx) * 0.5f, by - ny * 0.4f + (tip.Y - by) * 0.5f), tip, tip);
-                            sp.AddBezier(tip, tip, P(bx + nx * 0.6f + (tip.X - bx) * 0.5f, by + ny * 0.6f + (tip.Y - by) * 0.5f), P(bx + nx, by + ny));
-                            sp.CloseFigure();
-                            Fill(g, sp, sp.GetBounds(), e1, c2, 80f);
-                            Stroke(g, sp, Color.FromArgb(70, Darker(c2, 0.4)), D * 0.007f);
-                        }
-                    }
-                    foreach (int s in Sides)
-                        SoftEar(g, D, s * 0.17f * D, -0.25f * D, s * (22 + (s < 0 ? earL : earR) * 0.5f), 0.16f, 0.72f, e1, c2, Color.FromArgb(240, 242, 202, 160));
-                    foreach (int s in Sides)
-                    {
-                        Foot(g, D, s, Color.FromArgb(240, 50, 50), Color.FromArgb(170, 20, 24), p);
-                        Line(g, Color.FromArgb(240, 255, 255, 255), D * 0.022f, s * 0.15f * D - 0.02f * D, 0.27f * D, s * 0.15f * D + 0.02f * D, 0.33f * D);
-                    }
-                    break;
-                }
                 case KindCreeper:
                     foreach (int s in Sides)
                     {
@@ -227,8 +198,7 @@ namespace Stackshot
                         SoftEar(g, D, s * 0.25f * D, -0.16f * D, s * (30 + (s < 0 ? earL : earR) * 0.5f), 0.13f, 0.95f, e1, c2, ExNone);
                     // A thick striped tail behind.
                     GraphicsState ts = TailSide(g, p);
-                    float a;
-                    TaperTail(g, D, e1, c2, p.Now, 0.1f, 0.08f, out a);
+                    RoundTail(g, D, e1, c2, p.Now, 0.1f, 0.085f, 0, Color.FromArgb(150, 92, 88, 100));
                     g.Restore(ts);
                     break;
                 }
@@ -241,9 +211,34 @@ namespace Stackshot
             }
         }
 
+        // A tail that ends round instead of cut off: a bulb on Mewtwo, a round tip elsewhere, and tabby bands if given.
+        static void RoundTail(Graphics g, float D, Color a, Color b, double now, float w0, float w1, float bulb, Color band)
+        {
+            float angle;
+            PointF tip = TaperTail(g, D, a, b, now, w0, w1, out angle);
+            float r = Math.Max(w1 / 2, bulb) * D;
+            RectangleF c = new RectangleF(tip.X - r, tip.Y - r, r * 2, r * 2);
+            using (GraphicsPath cp = new GraphicsPath())
+            {
+                cp.AddEllipse(c);
+                // The same gradient box as the tail, so the round end matches it.
+                Fill(g, cp, new RectangleF(0.04f * D, 0.12f * D, 0.6f * D, 0.32f * D), a, b, 70f);
+            }
+            if (band.A == 0) return;
+            double t = angle * Math.PI / 180;
+            float dx = (float)Math.Cos(t), dy = (float)Math.Sin(t), hw = w1 * D * 0.5f;
+            using (Pen p = new Pen(band, D * 0.022f))
+                for (int i = 1; i <= 2; i++)
+                {
+                    float bx = tip.X - dx * i * 0.06f * D, by = tip.Y - dy * i * 0.06f * D;
+                    g.DrawLine(p, bx + dy * hw, by - dx * hw, bx - dy * hw, by + dx * hw);
+                }
+        }
+
         // ---- On the body (clipped to it, before the face).
         static void ExtraBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2)
         {
+            if (IsArcade(l.Kind)) { ArcadeBody(g, l, D, body, c1, c2); return; }
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             Region old = g.Clip;
@@ -360,24 +355,6 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(250, 255, 255, 255), -0.25f * D, 0.0f * D, 0.5f * D, 0.22f * D);
                     Ellipse(g, Color.FromArgb(250, 255, 255, 255), -0.19f * D, 0.1f * D, 0.38f * D, 0.3f * D);
                     break;
-                case KindSonic:
-                {
-                    // The tan muzzle under the eyes and the tan belly.
-                    Color t1 = Color.FromArgb(248, 214, 172), t2 = Color.FromArgb(226, 182, 138);
-                    RectangleF mz = new RectangleF(-0.17f * D, fy + 0.02f * D, 0.34f * D, 0.17f * D);
-                    using (GraphicsPath mp = new GraphicsPath())
-                    {
-                        mp.AddEllipse(mz);
-                        Fill(g, mp, mz, t1, t2, 90f);
-                    }
-                    RectangleF bl = new RectangleF(-0.17f * D, 0.12f * D, 0.34f * D, 0.28f * D);
-                    using (GraphicsPath bp = new GraphicsPath())
-                    {
-                        bp.AddEllipse(bl);
-                        Fill(g, bp, bl, t1, t2, 90f);
-                    }
-                    break;
-                }
                 case KindCreeper:
                 {
                     // Pixel texture, then the face: square eyes and the mouth.
@@ -446,6 +423,7 @@ namespace Stackshot
         // ---- In front of the face.
         static void ExtraDetails(Graphics g, MascotLook l, Geo geo, float D, MascotPose p)
         {
+            if (IsArcade(l.Kind)) { ArcadeDetails(g, l, geo, D, p); return; }
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             switch (l.Kind)
             {
@@ -532,10 +510,6 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(170, 30, 70, 30), 0.035f * D, fy + 0.1f * D, 0.025f * D, 0.035f * D);
                     break;
                 }
-                case KindSonic:
-                    Ellipse(g, ExBlack, -0.022f * D, fy + 0.072f * D, 0.044f * D, 0.032f * D);
-                    Ellipse(g, Color.FromArgb(160, 255, 255, 255), -0.012f * D, fy + 0.077f * D, 0.014f * D, 0.01f * D);
-                    break;
                 case KindCrewmate:
                     // Its thick dark outline.
                     using (GraphicsPath bp = ExtraPath(l.Kind, geo, D, p.Now)) Stroke(g, bp, Color.FromArgb(240, 20, 18, 26), D * 0.022f);
@@ -557,8 +531,18 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(150, 255, 255, 255), n.X + nw * 0.2f, n.Y + nh * 0.15f, nw * 0.3f, nh * 0.3f);
                     if (snoopy)
                     {
-                        RectangleF band = new RectangleF(-0.25f * D, geo.NeckY * D - 0.02f * D, 0.5f * D, 0.04f * D);
-                        using (GraphicsPath bp = Theme.Round(band, 0.02f * D)) Fill(g, bp, band, Color.FromArgb(232, 44, 52), Color.FromArgb(176, 20, 30), 90f);
+                        // The collar wraps round the body: a band curving down with it, cut at the body's edges.
+                        using (GraphicsPath body = BodyPath(l.Kind, geo, D, p.Now))
+                        {
+                            Region old = g.Clip;
+                            g.SetClip(body, CombineMode.Intersect);
+                            RectangleF arc = new RectangleF(-0.42f * D, 0.06f * D, 0.84f * D, 0.16f * D);
+                            using (Pen dark = new Pen(Color.FromArgb(150, 20, 26), 0.05f * D)) g.DrawArc(dark, arc, 0, 180);
+                            using (Pen red = new Pen(Color.FromArgb(232, 44, 52), 0.036f * D)) g.DrawArc(red, RectangleF.Inflate(arc, 0, -0.004f * D), 0, 180);
+                            using (Pen hl = new Pen(Color.FromArgb(110, 255, 255, 255), 0.008f * D)) g.DrawArc(hl, RectangleF.Inflate(arc, 0, -0.016f * D), 30, 120);
+                            g.Clip = old;
+                            old.Dispose();
+                        }
                     }
                     break;
                 }

@@ -1,5 +1,5 @@
 // Stackshot - The big batch of tributes: more Pokemon (Psyduck, Togepi, Meowth, Piplup, Mimikyu, Lucario, Dragonite,
-// Ditto, Mewtwo), Ghibli spirits (No-Face, Calcifer, a kodama), game icons (Yoshi, Sonic, a Creeper, an Among Us
+// Ditto, Mewtwo), Ghibli spirits (No-Face, Calcifer, a kodama), game icons (Yoshi, Pac-Man, a Creeper, an Among Us
 // crewmate, a Pac-Man ghost, a Dragon Quest slime) and classic cuties (Snoopy, Hello Kitty, Baby Groot, Rilakkuma,
 // Pusheen, Pochacco). This file holds their shapes, eyes and mouths; MascotExtrasArt.cs draws their pieces. Fan
 // tributes, not affiliated with their owners (see the README).
@@ -14,23 +14,23 @@ namespace Stackshot
     {
         public const int KindPsyduck = 34, KindTogepi = 35, KindMeowth = 36, KindPiplup = 37, KindMimikyu = 38, KindLucario = 39,
                          KindDragonite = 40, KindDitto = 41, KindMewtwo = 42, KindNoFace = 43, KindCalcifer = 44, KindKodama = 45,
-                         KindYoshi = 46, KindSonic = 47, KindCreeper = 48, KindCrewmate = 49, KindBlinky = 50, KindDqSlime = 51,
+                         KindYoshi = 46, KindPacman = 47, KindCreeper = 48, KindCrewmate = 49, KindBlinky = 50, KindDqSlime = 51,
                          KindSnoopy = 52, KindKitty = 53, KindGroot = 54, KindRilakkuma = 55, KindPusheen = 56, KindPochacco = 57;
 
-        public static bool IsExtra(int kind) { return kind >= KindPsyduck && kind <= KindPochacco; }
+        public static bool IsExtra(int kind) { return kind >= KindPsyduck && kind <= KindWaddleDee; }
 
         // Characters without paws of their own, and the ones whose face has no pink blush.
         public static bool NoHands(int kind)
         {
             return kind == KindMimikyu || kind == KindNoFace || kind == KindCalcifer || kind == KindCreeper || kind == KindCrewmate ||
-                   kind == KindBlinky || kind == KindDqSlime;
+                   kind == KindBlinky || kind == KindDqSlime || (IsArcade(kind) && ArcadeNoHands(kind));
         }
 
         public static bool NoCheeks(int kind)
         {
             return kind == KindMimikyu || kind == KindDitto || kind == KindNoFace || kind == KindCalcifer || kind == KindKodama ||
                    kind == KindCreeper || kind == KindCrewmate || kind == KindBlinky || kind == KindKitty || kind == KindSnoopy ||
-                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindSonic || kind == KindPsyduck;
+                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindPsyduck || (IsArcade(kind) && ArcadeNoCheeks(kind));
         }
 
         static Geo G(float headW, float top, float faceY, float eyeGap, float neckY, float neckW, float bottom, float handX, float handY, float hatW)
@@ -43,6 +43,7 @@ namespace Stackshot
 
         static Geo ExtraGeo(int kind)
         {
+            if (IsArcade(kind)) return ArcadeGeo(kind);
             switch (kind)
             {
                 case KindPsyduck: return G(0.74f, -0.3f, -0.08f, 0.11f, 0.14f, 0.62f, 0.31f, 0.37f, 0.17f, 0.56f);
@@ -58,7 +59,6 @@ namespace Stackshot
                 case KindCalcifer: return G(0.64f, -0.22f, 0.0f, 0.11f, 0.2f, 0.56f, 0.3f, 0.33f, 0.2f, 0.48f);
                 case KindKodama: return G(0.62f, -0.32f, -0.1f, 0.1f, 0.08f, 0.54f, 0.31f, 0.3f, 0.18f, 0.5f);
                 case KindYoshi: return G(0.72f, -0.28f, -0.13f, 0.08f, 0.14f, 0.6f, 0.31f, 0.36f, 0.2f, 0.54f);
-                case KindSonic: return G(0.7f, -0.3f, -0.09f, 0.056f, 0.12f, 0.6f, 0.31f, 0.35f, 0.2f, 0.54f);
                 case KindCreeper: return G(0.62f, -0.31f, -0.1f, 0.1f, 0.2f, 0.6f, 0.31f, 0.33f, 0.2f, 0.62f);
                 case KindCrewmate: return G(0.58f, -0.32f, -0.12f, 0.1f, 0.1f, 0.56f, 0.33f, 0.3f, 0.2f, 0.5f);
                 case KindBlinky: return G(0.66f, -0.32f, -0.1f, 0.12f, 0.12f, 0.6f, 0.32f, 0.34f, 0.2f, 0.56f);
@@ -75,6 +75,7 @@ namespace Stackshot
         // Body outlines that are not the usual rounded square; null keeps the squircle, with this roundness.
         static GraphicsPath ExtraPath(int kind, Geo geo, float D, double now)
         {
+            if (IsArcade(kind)) return ArcadePath(kind, geo, D, now);
             float W = geo.HeadW * D, top = geo.Top * D, bottom = geo.Bottom * D;
             switch (kind)
             {
@@ -215,6 +216,7 @@ namespace Stackshot
         bool ExtraFace(Graphics g, float D, MascotParts.Geo geo, float ex, float ey)
         {
             int k = Look.Kind;
+            if (MascotParts.IsArcade(k)) return ArcadeFace(g, D, geo, ex, ey);
             if (k == MascotParts.KindCreeper || k == MascotParts.KindCrewmate) return true;
             if (k != MascotParts.KindBlinky) return false;
             float dir = (float)Math.Max(-1, Math.Min(1, lookX + Facing));
@@ -234,6 +236,7 @@ namespace Stackshot
         {
             int k = Look.Kind;
             if (!MascotParts.IsExtra(k)) return false;
+            if (MascotParts.IsArcade(k)) return ArcadeEye(g, x, y, D, blink, surprised);
             float sk = surprised ? 1.15f : 1f;
             switch (k)
             {
@@ -295,18 +298,6 @@ namespace Stackshot
                     MascotParts.Ellipse(g, Color.White, px - pw * 0.3f, py - ph * 0.32f, pw * 0.36f, ph * 0.3f);
                     return true;
                 }
-                case MascotParts.KindSonic:
-                {
-                    // White eyes that join in the middle, green irises.
-                    float w = 0.12f * D * sk, h = 0.16f * D * sk * blink;
-                    if (h < D * 0.02f) { ClosedEye(g, x, y, w, D); return true; }
-                    MascotParts.Ellipse(g, Color.White, x - w / 2, y - h / 2, w, h);
-                    float iw = w * 0.48f, ih = h * 0.56f, ix = x + (x < 0 ? 0.05f : -0.05f) * w;
-                    MascotParts.Ellipse(g, Color.FromArgb(60, 170, 80), ix - iw / 2, y - ih / 2 + h * 0.04f, iw, ih);
-                    MascotParts.Ellipse(g, InkBlack, ix - iw * 0.26f, y - ih * 0.3f + h * 0.04f, iw * 0.52f, ih * 0.6f);
-                    MascotParts.Ellipse(g, Color.White, ix - iw * 0.3f, y - ih * 0.36f, iw * 0.3f, ih * 0.24f);
-                    return true;
-                }
                 case MascotParts.KindDqSlime:
                     WhiteEye(g, x, y, 0.11f * D * sk, 0.11f * D * sk * blink, 0.028f * D, 0, 0.012f * D, D);
                     return true;
@@ -350,6 +341,7 @@ namespace Stackshot
         {
             int k = Look.Kind;
             if (!MascotParts.IsExtra(k)) return false;
+            if (MascotParts.IsArcade(k)) return ArcadeMouth(g, D, mx, fy, ink, lw, talking);
             bool open = talking || mood == Mood.Happy || mood == Mood.Love;
             switch (k)
             {
@@ -407,7 +399,6 @@ namespace Stackshot
                 case MascotParts.KindPochacco:
                 case MascotParts.KindRilakkuma:
                 case MascotParts.KindLucario:
-                case MascotParts.KindSonic:
                 {
                     float my = fy + (k == MascotParts.KindSnoopy ? 0.13f : 0.11f) * D;
                     if (open) OpenMouth(g, mx, my, 0.08f * D, 0.05f * D, D);

@@ -24,8 +24,10 @@ namespace Stackshot
                                                        "Stitch", "Kirby", "Grogu", "Eevee", "Charmander",
                                                        "Bulbasaur", "Squirtle", "Jigglypuff", "Snorlax", "Gengar", "Mew",
                                                        "Psyduck", "Togepi", "Meowth", "Piplup", "Mimikyu", "Lucario", "Dragonite", "Ditto", "Mewtwo",
-                                                       "Sin Cara", "Calcifer", "Kodama", "Yoshi", "Sonic", "Creeper", "Tripulante", "Blinky", "Slime",
-                                                       "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco" };
+                                                       "Sin Cara", "Calcifer", "Kodama", "Yoshi", "Pac-Man", "Creeper", "Tripulante", "Blinky", "Slime",
+                                                       "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco",
+                                                       "Pinky", "Inky", "Clyde", "Space Invader", "Goomba", "Boo", "Toad", "Champi\u00F1\u00F3n", "Bob-omb", "Chomp Cadenas",
+                                                       "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -38,8 +40,10 @@ namespace Stackshot
                                                              "Lilo y Stitch", "Kirby", "The Mandalorian", "Pok\u00E9mon", "Pok\u00E9mon",
                                                              "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon",
                                                              "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon",
-                                                             "El viaje de Chihiro", "El castillo ambulante", "La princesa Mononoke", "Super Mario", "Sonic", "Minecraft",
-                                                             "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio" };
+                                                             "El viaje de Chihiro", "El castillo ambulante", "La princesa Mononoke", "Super Mario", "Pac-Man", "Minecraft",
+                                                             "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio",
+                                                             "Pac-Man", "Pac-Man", "Pac-Man", "Space Invaders", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario",
+                                                             "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -110,7 +114,7 @@ namespace Stackshot
             { 44, 42, 7, 0, 0, 0 },
             { 45, 43, 7, 0, 0, 0 },
             { 46, 44, 7, 0, 0, 0 },
-            { 47, 45, 7, 0, 0, 0 },
+            { 47, 52, 7, 0, 0, 0 },
             { 48, 46, 7, 0, 0, 0 },
             { 49, 47, 7, 0, 0, 0 },
             { 50, 48, 7, 0, 0, 0 },
@@ -120,7 +124,28 @@ namespace Stackshot
             { 54, 23, 7, 0, 0, 0 },
             { 55, 50, 7, 0, 0, 0 },
             { 56, 51, 7, 0, 0, 0 },
-            { 57, 49, 7, 0, 0, 0 }
+            { 57, 49, 7, 0, 0, 0 },
+            { 50, 53, 7, 0, 0, 0 },
+            { 50, 54, 7, 0, 0, 0 },
+            { 50, 55, 7, 0, 0, 0 },
+            { 58, 46, 7, 0, 0, 0 },
+            { 59, 56, 7, 0, 0, 0 },
+            { 60, 49, 7, 0, 0, 0 },
+            { 61, 57, 7, 0, 0, 0 },
+            { 62, 58, 7, 0, 0, 0 },
+            { 63, 59, 7, 0, 0, 0 },
+            { 64, 59, 7, 0, 0, 0 },
+            { 65, 60, 7, 0, 0, 0 },
+            { 66, 61, 7, 0, 0, 0 },
+            { 67, 62, 7, 0, 0, 0 },
+            { 68, 63, 7, 0, 0, 0 },
+            { 69, 49, 7, 0, 0, 0 },
+            { 70, 64, 7, 0, 0, 0 },
+            { 71, 65, 7, 0, 0, 0 },
+            { 72, 66, 7, 0, 0, 0 },
+            { 73, 67, 7, 0, 0, 0 },
+            { 74, 68, 7, 0, 0, 0 },
+            { 75, 69, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
