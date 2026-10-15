@@ -116,16 +116,39 @@ namespace Stackshot
             Color skin = c1;
             if (l.Kind == KindWillow)
             {
-                // Two little pigtails sticking out, tied with red.
-                Color hair = Color.FromArgb(52, 36, 32);
+                // Two long braided pigtails hanging down her sides to the shoulders, each curling out into a spiral at
+                // the end, tied with red at the top; they sway a little.
+                Color hair = Color.FromArgb(40, 30, 30);
                 foreach (int s in Sides)
                 {
-                    GraphicsState st = g.Save();
-                    g.TranslateTransform(s * 0.25f * D, -0.1f * D);
-                    g.RotateTransform(s * (62 + (float)Math.Sin(p.Now / 600.0 + s) * 4));
-                    using (GraphicsPath t = Leaf(0.1f * D, 0.15f * D, D)) KleiShape(g, t, Lighter(hair, 0.1), hair, D);
-                    g.Restore(st);
-                    Ellipse(g, Color.FromArgb(176, 40, 40), s * 0.25f * D - 0.025f * D, -0.125f * D, 0.05f * D, 0.05f * D);
+                    float sw = (float)Math.Sin(p.Now / 700.0 + s) * 0.01f;
+                    PointF a = P(s * 0.24f * D, -0.13f * D), b = P(s * 0.33f * D, -0.04f * D), c = P(s * 0.3f * D, 0.08f * D), e = P((s * 0.34f + sw) * D, 0.15f * D);
+                    using (Pen ink = new Pen(KInk, 0.075f * D))
+                    using (Pen fill = new Pen(hair, 0.05f * D))
+                    using (Pen braid = new Pen(Color.FromArgb(110, 120, 100, 96), Math.Max(1f, D * 0.007f)))
+                    {
+                        ink.StartCap = ink.EndCap = fill.StartCap = fill.EndCap = LineCap.Round;
+                        g.DrawBezier(ink, a, b, c, e);
+                        g.DrawBezier(fill, a, b, c, e);
+                        // The braid's crossings along it.
+                        for (int i = 1; i < 5; i++)
+                        {
+                            float t = i / 5f, u = 1 - t;
+                            float x = u * u * u * a.X + 3 * u * u * t * b.X + 3 * u * t * t * c.X + t * t * t * e.X;
+                            float y = u * u * u * a.Y + 3 * u * u * t * b.Y + 3 * u * t * t * c.Y + t * t * t * e.Y;
+                            g.DrawLine(braid, x - 0.018f * D, y - 0.008f * D, x + 0.018f * D, y + 0.008f * D);
+                        }
+                    }
+                    // The curl at the end, turning outwards.
+                    using (Pen ink = new Pen(KInk, 0.05f * D))
+                    using (Pen fill = new Pen(hair, 0.028f * D))
+                    {
+                        ink.StartCap = ink.EndCap = fill.StartCap = fill.EndCap = LineCap.Round;
+                        RectangleF cr = new RectangleF(e.X + (s > 0 ? -0.01f : -0.07f) * D, e.Y - 0.01f * D, 0.08f * D, 0.08f * D);
+                        g.DrawArc(ink, cr, s > 0 ? 180 : 0, s > 0 ? -250 : 250);
+                        g.DrawArc(fill, cr, s > 0 ? 180 : 0, s > 0 ? -250 : 250);
+                    }
+                    Ellipse(g, Color.FromArgb(196, 46, 40), a.X - 0.028f * D, a.Y - 0.022f * D, 0.056f * D, 0.044f * D);
                 }
             }
             // The neck.
@@ -149,7 +172,7 @@ namespace Stackshot
             }
             else if (l.Kind == KindWillow)
             {
-                Color top = Color.FromArgb(150, 40, 44), skirt = Color.FromArgb(40, 36, 44), sock = Color.FromArgb(62, 58, 66);
+                Color top = Color.FromArgb(206, 62, 52), skirt = Color.FromArgb(36, 32, 40), sock = Color.FromArgb(30, 28, 34);
                 KLimb(g, D, sock, 0.03f, -0.045f, 0.27f, -0.05f, 0.33f);
                 KLimb(g, D, sock, 0.03f, 0.045f, 0.27f, 0.05f, 0.33f);
                 KShoe(g, D, -0.06f, 0.345f, Color.FromArgb(30, 26, 30));
@@ -185,9 +208,11 @@ namespace Stackshot
             {
                 case KindWilson:
                 {
-                    // The swept-up black hair: two big points and a smaller one, a widow's peak over the forehead.
-                    using (GraphicsPath h = KCurve(D, 0.22f, -0.255f, -0.08f, -0.29f, -0.3f, -0.36f, -0.56f, -0.16f, -0.4f, -0.02f, -0.5f, 0.08f, -0.38f,
-                                                   0.36f, -0.54f, 0.28f, -0.28f, 0.255f, -0.08f, 0.2f, -0.2f, 0.06f, -0.24f, 0, -0.17f, -0.06f, -0.24f, -0.2f, -0.2f))
+                    // The swept-up black hair, as in the game: a tall crown of five points, the middle one highest, and a
+                    // widow's peak over the forehead.
+                    using (GraphicsPath h = KCurve(D, 0.2f, -0.255f, -0.08f, -0.29f, -0.28f, -0.38f, -0.5f, -0.2f, -0.38f, -0.2f, -0.6f, -0.06f, -0.4f,
+                                                   0.02f, -0.65f, 0.1f, -0.4f, 0.22f, -0.6f, 0.22f, -0.36f, 0.38f, -0.48f, 0.28f, -0.26f, 0.255f, -0.08f,
+                                                   0.2f, -0.2f, 0.06f, -0.24f, 0, -0.17f, -0.06f, -0.24f, -0.2f, -0.2f))
                     {
                         KleiShape(g, h, Color.FromArgb(52, 48, 56), Color.FromArgb(22, 20, 26), D);
                         Region old = g.Clip;
@@ -310,8 +335,8 @@ namespace Stackshot
             if (k == MascotParts.KindWilson || k == MascotParts.KindWillow)
             {
                 bool willow = k == MascotParts.KindWillow;
-                float w = (willow ? 0.1f : 0.085f) * D * sk, h = (willow ? 0.1f : 0.1f) * D * sk * blink;
-                if (willow) MascotParts.Ellipse(g, Color.FromArgb(90, 70, 60, 70), x - w * 0.6f, y - h * 0.4f, w * 1.2f, h * 1.1f);
+                float w = (willow ? 0.112f : 0.085f) * D * sk, h = (willow ? 0.112f : 0.1f) * D * sk * blink;
+                MascotParts.Ellipse(g, Color.FromArgb(willow ? 110 : 70, 70, 60, 70), x - w * 0.62f, y - h * 0.42f, w * 1.24f, h * 1.14f);   // the dark rings round their eyes
                 if (h < D * 0.02f) { ClosedEye(g, x, y, w, D); return true; }
                 using (GraphicsPath ep = Ellipse(new RectangleF(x - w / 2, y - h / 2, w, h)))
                 {

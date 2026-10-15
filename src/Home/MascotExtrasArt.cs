@@ -19,6 +19,7 @@ namespace Stackshot
         {
             if (IsArcade(l.Kind)) { ArcadeBack(g, l, D, c1, c2, p); return; }
             if (IsKlei(l.Kind)) { KleiBack(g, l, D, c1, c2, p); return; }
+            if (IsFigure(l.Kind)) { FigBack(g, l, D, c1, c2, p); return; }
             Color e1 = Lighter(c1, 0.05);
             float earL = (float)p.EarL, earR = (float)p.EarR;
             switch (l.Kind)
@@ -240,6 +241,15 @@ namespace Stackshot
         static void ExtraBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2, MascotPose p)
         {
             if (IsArcade(l.Kind)) { ArcadeBody(g, l, D, body, c1, c2, p); return; }
+            if (IsFigure(l.Kind))
+            {
+                Region old0 = g.Clip;
+                g.SetClip(body, CombineMode.Intersect);
+                FigOnHead(g, l, D, p, c1, c2);
+                g.Clip = old0;
+                old0.Dispose();
+                return;
+            }
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             Region old = g.Clip;
@@ -426,6 +436,7 @@ namespace Stackshot
         {
             if (IsArcade(l.Kind)) { ArcadeDetails(g, l, geo, D, p); return; }
             if (IsKlei(l.Kind)) { KleiDetails(g, l, geo, D, p); return; }
+            if (IsFigure(l.Kind)) { FigDetails(g, l, geo, D, p); return; }
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             switch (l.Kind)
             {
