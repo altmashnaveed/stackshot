@@ -2,8 +2,10 @@
 
 ## Unreleased
 
-- **Thumbnails that step aside.** After a while unused (10 s by default; General > Al capturar > "Esconder las miniaturas": no, 5, 10 or 30 s), the stack slides into the left edge one card after another until only a sliver of each shows. Moving the pointer onto a sliver, the wheel or a new capture brings them back, the nearest first. Not on a monitor with another one or the taskbar at its left, where the hidden part would show.
-- **A living logo.** While the main window is open, the sidebar logo now and then "takes a shot" (a short shutter press and a glint), and again when the pointer comes over it.
+- **Thumbnails that step aside.** After a while unused (10 s by default; General > Al capturar > "Esconder las miniaturas": no, 5, 10 or 30 s), the stack slides into the left edge one card after another until only a sliver of each shows. A tab beside them shows how many there are. Moving the pointer onto a sliver or the tab, the wheel or a new capture brings them back, the nearest first; brought out only to look, they go back 2.5 s after the pointer leaves. Tucked, the stack no longer follows the mouse to another monitor. Not on a monitor with another one or the taskbar at its left, where the hidden part would show.
+- **Saving a recording shows in the stack.** When a recording stops, a card where its thumbnail will appear says it is being saved, with a spinner or the percentage of the final pass, and gives way to the thumbnail.
+- **Dragons.** Toothless, the Light Fury, Stormfly, Hookfang and Meatlug (How to Train Your Dragon) join the characters as five new kinds with their own build (ear plates and the red prosthetic tail fin, spiked crest and nose horn, horns and clawed wings, buzzing little wings and a club tail), dragon eyes with slit pupils and a power of their own in the mascot's menu and among its tricks: plasma blasts, vanishing, tail spines, magnesium fire, setting itself on fire, or eating a rock and spitting lava.
+- **A living logo.** While the main window is open, a glint crosses the sidebar logo now and then, and again when the pointer comes over it.
 - **Scrolling capture for first-timers.** The first three times, a card beside the bar shows how it works; "¿No baja? Pulsa Auto" when nothing moves; Listo with nothing scrolled asks once more; the bar tells how many screens it has and what each button does.
 - **Automatic saves stay quiet.** With "Guardar todas las capturas", the thumbnail shows it is saved without the "Guardada" flash, kept for the Guardar button.
 
