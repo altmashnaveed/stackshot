@@ -15,23 +15,25 @@ namespace Stackshot
 
         // Fan tributes: the characters' own names and where each comes from (shown on hover). Not affiliated with or
         // endorsed by their owners; see the README. Ready-made costumes below: kind, color, eyes, hat, outfit, face.
-        public static readonly string[] AnimeNames = { "Finn", "Jake", "Pakkun", "Edward Elric", "Eren Jaeger", "Luffy", "Goku", "Tanjiro", "Gojo",
+        public static readonly string[] AnimeNames = { "Finn", "Jake", "Pakkun", "Edward Elric", "Eren Jaeger", "Luffy", "Tanjiro", "Gojo",
                                                        "Shin-chan", "BMO", "Pikachu", "Doraemon", "Naruto", "Totoro", "Kratos", "Doom Slayer", "Claude",
-                                                       "Codex", "Gon", "Killua", "Hisoka", "Sasuke", "Kakashi", "Zoro", "Chopper", "Vegeta", "Saitama", "Levi",
+                                                       "Codex", "Gon", "Killua", "Hisoka", "Sasuke", "Kakashi", "Zoro", "Chopper", "Saitama", "Levi",
                                                        "Nezuko", "Spider-Man", "Batman", "Flash", "Superman", "Iron Man",
                                                        "Caballero", "Astronauta", "Mago sabio", "Superh\u00E9roe", "Kero", "Kamina",
                                                        "Desdentao", "Furia Luminosa", "Tormenta", "Colmillo", "Alb\u00F3ndiga",
-                                                       "Stitch", "Kirby", "Grogu", "Eevee", "Charmander" };
+                                                       "Stitch", "Kirby", "Grogu", "Eevee", "Charmander",
+                                                       "Bulbasaur", "Squirtle", "Jigglypuff", "Snorlax", "Gengar", "Mew" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
-                                                             "One Piece", "Dragon Ball", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
+                                                             "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
                                                              "Anthropic", "OpenAI", "Hunter x Hunter", "Hunter x Hunter", "Hunter x Hunter", "Naruto", "Naruto",
-                                                             "One Piece", "One Piece", "Dragon Ball", "One Punch Man", "Ataque a los titanes", "Kimetsu no Yaiba",
+                                                             "One Piece", "One Piece", "One Punch Man", "Ataque a los titanes", "Kimetsu no Yaiba",
                                                              "Marvel", "DC", "DC", "DC", "Marvel", null, null, null, null,
                                                              "Cardcaptor Sakura", "Tengen Toppa Gurren Lagann",
                                                              "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
                                                              "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
-                                                             "Lilo y Stitch", "Kirby", "The Mandalorian", "Pok\u00E9mon", "Pok\u00E9mon" };
+                                                             "Lilo y Stitch", "Kirby", "The Mandalorian", "Pok\u00E9mon", "Pok\u00E9mon",
+                                                             "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon", "Pok\u00E9mon" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -40,7 +42,6 @@ namespace Stackshot
             { 7, 17, 3, 18, 9, 0 },
             { 7, 17, 4, 19, 8, 0 },
             { 7, 17, 1, 25, 14, 0 },
-            { 7, 17, 3, 46, 11, 0 },
             { 7, 17, 1, 22, 12, 0 },
             { 7, 17, 0, 21, 0, 8 },
             { 7, 17, 2, 26, 15, 9 },
@@ -60,7 +61,6 @@ namespace Stackshot
             { 7, 17, 4, 38, 30, 17 },
             { 7, 17, 4, 35, 26, 0 },
             { 12, 23, 1, 43, 36, 19 },
-            { 7, 17, 4, 47, 27, 0 },
             { 7, 17, 2, 0, 28, 0 },
             { 7, 17, 4, 26, 8, 0 },
             { 7, 17, 1, 37, 29, 16 },
@@ -84,7 +84,13 @@ namespace Stackshot
             { 20, 8, 7, 0, 0, 0 },
             { 21, 27, 7, 0, 0, 0 },
             { 22, 18, 7, 0, 0, 0 },
-            { 23, 9, 7, 0, 0, 0 }
+            { 23, 9, 7, 0, 0, 0 },
+            { 28, 29, 7, 0, 0, 0 },
+            { 29, 30, 7, 0, 0, 0 },
+            { 30, 31, 7, 0, 0, 0 },
+            { 31, 32, 7, 0, 0, 0 },
+            { 32, 33, 7, 0, 0, 0 },
+            { 33, 31, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so

@@ -13,6 +13,7 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 - **Une dos capturas.** Suelta una miniatura encima de otra y se juntan en una sola imagen.
 - **Tu mascota, según la hora.** Café por la mañana, gorro de dormir por la noche, fiesta los viernes y un flash en cada captura.
 - **Cinco personajes más.** Stitch, Kirby, Grogu, Eevee y Charmander, cada uno con su truco.
+- **Seis Pokémon más.** Bulbasaur, Squirtle, Jigglypuff, Snorlax, Gengar y Mew, cada uno con su forma. BMO, Doraemon y Totoro, redibujados más fieles.
 - **Ves cómo se guarda tu vídeo.** Al parar una grabación, en la pila aparece una tarjeta que dice que se está guardando, y luego la miniatura en su sitio.
 - **Dragones.** Desdentao, Furia Luminosa, Tormenta, Colmillo y Albóndiga, cada uno con su forma y su poder: plasma, camuflaje, púas, fuego o lava.
 - **Captura con desplazamiento, más fácil.** La primera vez te enseña cómo va, te avisa si la página no baja y te dice cuántas pantallas llevas.

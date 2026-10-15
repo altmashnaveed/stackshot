@@ -19,7 +19,7 @@ namespace Stackshot
             l.Kind = Clamp(s.MascotKind, MascotParts.Kinds.Length);
             l.Color = Clamp(s.MascotColor, MascotParts.ColorNames.Length);
             l.Eyes = Clamp(s.MascotEyes, MascotParts.EyeNames.Length);
-            l.Hat = Clamp(s.MascotHat, MascotParts.HatNames.Length);
+            l.Hat = s.MascotHat >= MascotParts.HatNames.Length ? 0 : Clamp(s.MascotHat, MascotParts.HatNames.Length);
             l.Outfit = Clamp(s.MascotOutfit, MascotParts.OutfitNames.Length);
             l.Face = Clamp(s.MascotFace, MascotParts.FaceNames.Length);
             l.Personality = Clamp(s.MascotPersonality, MascotParts.Personalities.Length);
@@ -64,7 +64,8 @@ namespace Stackshot
         public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado",
                                                    "Furia Nocturna", "Furia Luminosa", "Nadder Mort\u00EDfero", "Pesadilla Monstruosa", "Gronckle",
                                                    "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra", "Rat\u00F3n el\u00E9ctrico",
-                                                   "Consola", "Gato c\u00F3smico", "Esp\u00EDritu del bosque" };
+                                                   "Consola", "Gato c\u00F3smico", "Esp\u00EDritu del bosque",
+                                                   "Semilla", "Tortuguita", "Globo cantor", "Dormil\u00F3n", "Sombra traviesa", "Gatito ps\u00EDquico" };
 
         public static readonly Color[,] Colors =
         {
@@ -96,10 +97,15 @@ namespace Stackshot
             { Color.FromArgb(236, 82, 52), Color.FromArgb(150, 30, 22) },
             { Color.FromArgb(108, 150, 236), Color.FromArgb(52, 86, 182) },
             { Color.FromArgb(172, 208, 152), Color.FromArgb(98, 142, 92) },
-            { Color.FromArgb(255, 226, 84), Color.FromArgb(238, 178, 30) }
+            { Color.FromArgb(255, 226, 84), Color.FromArgb(238, 178, 30) },
+            { Color.FromArgb(150, 222, 196), Color.FromArgb(62, 160, 140) },
+            { Color.FromArgb(160, 218, 246), Color.FromArgb(70, 152, 214) },
+            { Color.FromArgb(255, 200, 220), Color.FromArgb(240, 136, 176) },
+            { Color.FromArgb(76, 128, 146), Color.FromArgb(30, 74, 94) },
+            { Color.FromArgb(150, 110, 206), Color.FromArgb(72, 42, 124) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
-                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico" };
+                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
@@ -109,8 +115,7 @@ namespace Stackshot
                                                      "Corona", "Aureola", "Boina", "Gorro de chef", "Flores", "Pelo rubio", "Pelo casta\u00F1o", "Pelo de punta", "Pelo blanco", "Pelo granate", "Capucha de oso", "Banda ninja", "Sombrero de paja", "Pelo negro", "Ninja rubio", "Casco de marine", "Casco de caballero", "Casco de astronauta", "Chispa",
                                                      "Pelo de punta oscuro", "Pelo magenta", "Ninja de pelo oscuro", "Pelo verde", "Pelo de llamas", "Melena negra",
                                                      "Ninja de pelo plateado", "Capucha de murci\u00E9lago", "Casco rel\u00E1mpago", "Pelo con rizo", "Casco de armadura",
-                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir",
-                                                     "Pelo de saiyan", "Llama de pr\u00EDncipe" };
+                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir" };
         public static readonly string[] OutfitNames = { "Nada", "Bufanda", "Pajarita", "Corbata", "Capa de vampiro", "Capa de h\u00E9roe",
                                                         "Cascabel", "Cadena de oro", "Capa verde", "Abrigo rojo", "Chaleco ninja", "Kimono de lucha", "Haori a cuadros", "Mochila", "Chaleco rojo", "Camiseta roja", "Botones de consola", "Panza del bosque", "Ch\u00E1ndal naranja",
                                                         "Hombrera", "Armadura verde", "Traje espacial", "Chaqueta verde", "Camiseta morada", "Traje de buf\u00F3n",
@@ -252,6 +257,27 @@ namespace Stackshot
                 case 27: // forest spirit: pear-shaped, eyes high
                     g.HeadW = 0.7f; g.Top = -0.29f; g.FaceY = -0.17f; g.EyeGap = 0.12f; g.NeckY = 0.0f; g.NeckW = 0.56f;
                     g.Bottom = 0.33f; g.HandX = 0.35f; g.HandY = 0.12f; g.HatW = 0.5f;
+                    break;
+                case 28: // seed: wide and low, the bulb above
+                    g.HeadW = 0.76f; g.Top = -0.25f; g.FaceY = -0.02f; g.EyeGap = 0.15f; g.NeckY = 0.14f; g.NeckW = 0.64f;
+                    g.Bottom = 0.31f; g.HandX = 0.38f; g.HandY = 0.2f; g.HatW = 0.54f;
+                    break;
+                case 29: // little turtle
+                case 33: // psychic kitten
+                    g.HeadW = 0.68f; g.Top = -0.3f; g.FaceY = -0.06f; g.EyeGap = 0.13f; g.NeckY = 0.12f; g.NeckW = 0.58f;
+                    g.Bottom = 0.31f; g.HandX = 0.33f; g.HandY = 0.18f; g.HatW = 0.54f;
+                    break;
+                case 30: // singing balloon: a round ball, big eyes
+                    g.HeadW = 0.74f; g.Top = -0.31f; g.FaceY = -0.04f; g.EyeGap = 0.14f; g.NeckY = 0.14f; g.NeckW = 0.62f;
+                    g.Bottom = 0.31f; g.HandX = 0.37f; g.HandY = 0.12f; g.HatW = 0.56f;
+                    break;
+                case 31: // sleeper: big and wide
+                    g.HeadW = 0.82f; g.Top = -0.27f; g.FaceY = -0.08f; g.EyeGap = 0.1f; g.NeckY = 0.12f; g.NeckW = 0.66f;
+                    g.Bottom = 0.33f; g.HandX = 0.42f; g.HandY = 0.15f; g.HatW = 0.5f;
+                    break;
+                case 32: // shadow: wide, eyes far apart
+                    g.HeadW = 0.78f; g.Top = -0.26f; g.FaceY = -0.07f; g.EyeGap = 0.13f; g.NeckY = 0.14f; g.NeckW = 0.64f;
+                    g.Bottom = 0.31f; g.HandX = 0.4f; g.HandY = 0.14f; g.HatW = 0.56f;
                     break;
                 case 11: // frog
                     g.HeadW = 0.80f; g.Top = -0.24f; g.FaceY = -0.2f; g.EyeGap = 0.17f; g.NeckY = 0.15f; g.NeckW = 0.70f;

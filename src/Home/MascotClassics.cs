@@ -2,7 +2,7 @@
 // with a screen for a face, the yellow cross, red, blue and green buttons and a cartridge slot), Doraemon (round and
 // blue, a white face and belly with the pocket, white eyes side by side, the red nose with whiskers and the collar with
 // its bell) and Totoro (big, grey and pear-shaped, small pointed ears, a light belly with its chevrons, round white
-// eyes and whiskers); and Goku's and Vegeta's own hair. Fan tributes, not affiliated with their owners (see the README).
+// eyes and whiskers). Fan tributes, not affiliated with their owners (see the README).
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
 using System.Drawing;
@@ -13,7 +13,6 @@ namespace Stackshot
     public static partial class MascotParts
     {
         public const int KindBmo = 25, KindDoraemon = 26, KindTotoro = 27;
-        public const int HatGoku = 46, HatVegeta = 47;
 
         public static bool IsClassic(int kind) { return kind >= KindBmo && kind <= KindTotoro; }
 
@@ -182,86 +181,6 @@ namespace Stackshot
             }
             Ellipse(g, Color.FromArgb(150, 255, 255, 255), x - r * 0.5f, y - r * 0.6f, r * 0.5f, r * 0.4f);
         }
-
-        // ---- Goku's hair: one black mass, bigger than the head, of wide spikes that fan up and out, and uneven points
-        // over the forehead.
-        static void GokuHair(Graphics g, float u, double now)
-        {
-            // Tips: angle from straight up, length past the head, and how much the spike turns to point upwards.
-            float[][] tips =
-            {
-                new float[] { -104, 0.34f, 0.05f }, new float[] { -76, 0.5f, 0.15f }, new float[] { -46, 0.6f, 0.25f }, new float[] { -16, 0.62f, 0.15f },
-                new float[] { 16, 0.58f, 0.1f }, new float[] { 48, 0.56f, 0.2f }, new float[] { 78, 0.48f, 0.15f }, new float[] { 106, 0.32f, 0.05f }
-            };
-            float[][] bangs = { new float[] { 0.5f, 0.2f }, new float[] { 0.36f, 0.3f }, new float[] { 0.22f, 0.14f }, new float[] { 0.06f, 0.32f },
-                                new float[] { -0.06f, 0.14f }, new float[] { -0.22f, 0.34f }, new float[] { -0.36f, 0.16f }, new float[] { -0.5f, 0.28f } };
-            FlameHair(g, u, tips, bangs, 0.68f, 0.5f, Color.FromArgb(44, 46, 60), Color.FromArgb(8, 8, 12), now);
-        }
-
-        // ---- Vegeta's hair: a tall black flame standing straight up from the temples, and the deep widow's peak.
-        static void VegetaHair(Graphics g, float u, double now)
-        {
-            float[][] tips =
-            {
-                new float[] { -62, 0.42f, 0.75f }, new float[] { -40, 0.66f, 0.7f }, new float[] { -18, 0.84f, 0.6f }, new float[] { 4, 0.9f, 0.5f },
-                new float[] { 26, 0.78f, 0.6f }, new float[] { 48, 0.6f, 0.7f }, new float[] { 68, 0.4f, 0.75f }
-            };
-            float[][] peak = { new float[] { 0.5f, 0.14f }, new float[] { 0.28f, 0.06f }, new float[] { 0.12f, 0.14f }, new float[] { 0, 0.32f },
-                               new float[] { -0.12f, 0.14f }, new float[] { -0.28f, 0.06f }, new float[] { -0.5f, 0.14f } };
-            FlameHair(g, u, tips, peak, 0.6f, 0.46f, Color.FromArgb(48, 44, 56), Color.FromArgb(10, 8, 12), now);
-        }
-
-        // A single outline of hair: from the left temple up through wide spikes whose bases touch (each tip as its
-        // angle, its length past the head and its turn upwards), down to the right temple and back along the hairline
-        // (x, y in u, right to left). The edges curve in, like flames; one shape, so it shades as one.
-        static void FlameHair(Graphics g, float u, float[][] tips, float[][] line, float rx, float ry, Color a, Color b, double now)
-        {
-            float sway = (float)Math.Sin(now / 900.0) * 0.02f;
-            int n = tips.Length;
-            using (GraphicsPath h = new GraphicsPath())
-            {
-                PointF prev = P(-0.64f * u, 0.5f * u);
-                for (int i = 0; i <= n; i++)
-                {
-                    float va = i == 0 ? tips[0][0] - (tips[1][0] - tips[0][0]) / 2 : i == n ? tips[n - 1][0] + (tips[n - 1][0] - tips[n - 2][0]) / 2 : (tips[i - 1][0] + tips[i][0]) / 2;
-                    PointF v = OnHead(va, u, rx, ry);
-                    if (i == 0) h.AddLine(prev, v);
-                    else
-                    {
-                        float[] t = tips[i - 1];
-                        PointF bse = OnHead(t[0], u, rx, ry);
-                        double d = t[0] * (1 - t[2]) * Math.PI / 180;
-                        PointF tip = P(bse.X + ((float)Math.Sin(d) + sway) * t[1] * u, bse.Y - (float)Math.Cos(d) * t[1] * u);
-                        PointF m1 = Mid(prev, bse), m2 = Mid(v, bse);
-                        h.AddBezier(prev, Lerp(m1, tip, 0.35f), Lerp(m1, tip, 0.75f), tip);
-                        h.AddBezier(tip, Lerp(m2, tip, 0.75f), Lerp(m2, tip, 0.35f), v);
-                    }
-                    prev = v;
-                }
-                h.AddLine(prev, P(0.64f * u, 0.5f * u));
-                prev = P(0.64f * u, 0.5f * u);
-                foreach (float[] q in line)
-                {
-                    h.AddLine(prev, P(q[0] * u, q[1] * u));
-                    prev = P(q[0] * u, q[1] * u);
-                }
-                h.AddLine(prev, P(-0.64f * u, 0.5f * u));
-                h.CloseFigure();
-                RectangleF r = new RectangleF(-1.3f * u, -1.1f * u, 2.6f * u, 1.7f * u);
-                Fill(g, h, r, a, b, 80f);
-                Shine(g, h, new RectangleF(-0.8f * u, -0.9f * u, 1.6f * u, 1.4f * u), 60);
-                Stroke(g, h, Color.FromArgb(70, 0, 0, 0), u * 0.014f);
-            }
-        }
-
-        static PointF OnHead(float deg, float u, float rx, float ry)
-        {
-            double a = deg * Math.PI / 180;
-            return P((float)Math.Sin(a) * rx * u, 0.42f * u - (float)Math.Cos(a) * ry * u);
-        }
-
-        static PointF Mid(PointF a, PointF b) { return P((a.X + b.X) / 2, (a.Y + b.Y) / 2); }
-        static PointF Lerp(PointF a, PointF b, float t) { return P(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t); }
     }
 
     public partial class Mascot

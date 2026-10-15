@@ -53,6 +53,11 @@ namespace Stackshot
                 case KindEevee: e.W = 0.115f; e.H = 0.14f; e.Pupil = 0.58f; e.Lid = true; e.LidColor = Color.FromArgb(62, 36, 22); break;
                 case KindCharmander: e.W = 0.115f; e.H = 0.138f; e.Pupil = 0.5f; break;
                 case KindGronckle: e.W = 0.112f; e.H = 0.122f; e.Pupil = 0.5f; break;
+                case KindBulbasaur: e.W = 0.115f; e.H = 0.13f; e.Pupil = 0.48f; e.Iris = Color.FromArgb(204, 44, 60); break;
+                case KindSquirtle: e.W = 0.118f; e.H = 0.14f; e.Pupil = 0.52f; e.Iris = Color.FromArgb(150, 52, 44); break;
+                case KindJigglypuff: e.W = 0.15f; e.H = 0.16f; e.Pupil = 0.46f; e.Iris = Color.FromArgb(40, 150, 180); break;
+                case KindGengar: e.W = 0.13f; e.H = 0.1f; e.Pupil = 0.36f; e.Iris = Color.FromArgb(236, 50, 70); e.Lid = true; e.LidColor = Color.FromArgb(52, 24, 74); break;
+                case KindMew: e.W = 0.135f; e.H = 0.155f; e.Pupil = 0.54f; e.Iris = Color.FromArgb(52, 120, 214); break;
                 case KindNightFury:
                 case KindLightFury: e.W = 0.13f; e.H = 0.146f; e.Pupil = 0.6f; break;
             }

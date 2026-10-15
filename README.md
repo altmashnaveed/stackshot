@@ -374,7 +374,7 @@ Meet **Pixel**: twelve species, 23 colors, eye styles, dozens of hats, outfits a
 
 If you want, it lives on your desktop: it walks above the taskbar, hops onto the window in front of you, rides along when you move it and naps when you are away. And it is invisible to screenshots, recordings and screen sharing, so it never ends up in your captures.
 
-The **Personajes** (Characters) section dresses it up as fan tributes to characters from anime, series, comics and games, plus a few originals: **51 in total**. One click and it becomes Goku, Chopper or Spider-Man; hovering a costume shows where it comes from.
+The **Personajes** (Characters) section dresses it up as fan tributes to characters from anime, series, comics and games, plus a few originals: **55 in total**. One click and it becomes Pikachu, Chopper or Spider-Man; hovering a costume shows where it comes from.
 
 <details>
 <summary>All 39 character costumes</summary>
@@ -681,4 +681,4 @@ FFmpeg is not bundled. It is downloaded separately, under its own license (GPL),
 
 CleanShot X, ShareX, Snagit, Greenshot and Lightshot are mentioned only to say what kind of tool Stackshot is. Their names belong to their respective owners, and Stackshot is not affiliated with or endorsed by any of them.
 
-The mascot costumes under **Personajes** (Characters) are non-commercial fan tributes drawn from scratch in the mascot's own style. The characters and names (Finn, Jake, BMO, Pakkun, Naruto, Sasuke, Kakashi, Edward Elric, Eren Jaeger, Levi, Luffy, Zoro, Chopper, Goku, Vegeta, Tanjiro, Nezuko, Gojo, Gon, Killua, Hisoka, Saitama, Shin-chan, Pikachu, Doraemon, Totoro, Kratos, Doom Slayer, Spider-Man, Iron Man, Batman, Superman, Flash, Claude, Codex, Kero, Kamina, Toothless, the Light Fury, Stormfly, Hookfang, Meatlug, Stitch, Kirby, Grogu, Eevee, Charmander) belong to their respective owners, and Stackshot is not affiliated with or endorsed by any of them. If you hold the rights to one of them and want it removed, open an issue and it will be taken out.
+The mascot costumes under **Personajes** (Characters) are non-commercial fan tributes drawn from scratch in the mascot's own style. The characters and names (Finn, Jake, BMO, Pakkun, Naruto, Sasuke, Kakashi, Edward Elric, Eren Jaeger, Levi, Luffy, Zoro, Chopper, Tanjiro, Nezuko, Gojo, Gon, Killua, Hisoka, Saitama, Shin-chan, Pikachu, Doraemon, Totoro, Kratos, Doom Slayer, Spider-Man, Iron Man, Batman, Superman, Flash, Claude, Codex, Kero, Kamina, Toothless, the Light Fury, Stormfly, Hookfang, Meatlug, Stitch, Kirby, Grogu, Eevee, Charmander, Bulbasaur, Squirtle, Jigglypuff, Snorlax, Gengar, Mew) belong to their respective owners, and Stackshot is not affiliated with or endorsed by any of them. If you hold the rights to one of them and want it removed, open an issue and it will be taken out.
