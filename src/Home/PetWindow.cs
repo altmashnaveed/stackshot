@@ -1623,6 +1623,7 @@ namespace Stackshot
                 AddSep();
             }
             Add("area", "Capturar un \u00E1rea", Keys(settings.HotRegion), delegate { owner.Run("region"); });
+            Add("clock", "Capturar en " + settings.CaptureDelay + " segundos", Keys(settings.HotDelayed), delegate { owner.Run("delayed"); });
             Add("video", Recorder.Recording ? "Parar la grabaci\u00F3n" : "Grabar un v\u00EDdeo", null, delegate { owner.Run("video"); });
             Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
             Add("folder", "Abrir mis capturas", null, delegate { owner.OpenFolder(); });

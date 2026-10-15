@@ -38,6 +38,7 @@ namespace Stackshot
         public string HotText = "Ctrl+Shift+Alt+T";
         public string HotMarkdown = "Ctrl+Shift+Alt+M";
         public string HotRepeat = "";       // capture the last area again; no shortcut unless the user gives it one
+        public string HotDelayed = "";      // capture an area after a countdown; no shortcut unless the user gives it one
         public int VideoFps = 30;
         public int GifFps = 15;
         public int VideoQuality = 0;    // 0 standard, 1 maximum (60 fps, lossless capture, slow encode), 2 high (60 fps, crisp), 3 cinema (lossless RGB H.264 + PCM in MKV, verified)
@@ -59,6 +60,7 @@ namespace Stackshot
         // Main window and mascot.
         public int Appearance = 0;          // 0 follow Windows, 1 light, 2 dark
         public bool AllInOne = false;       // area capture: adjust the area and choose image, video, GIF or scrolling before capturing
+        public int CaptureDelay = 3;        // seconds the timed capture counts down: 3, 5 or 10
         public bool ShowRecent = true;      // Home shows the recent captures (off: no strip and no thumbnails are loaded)
         public int TempKeep = 0;            // how long temporary captures stay: 0 an hour, 1 until Stackshot closes, 2 a day, 3 a week, 4 a month
         public int HomeStyle = 0;           // main window home: 0 minimal, 1 widgets, 2 scene
@@ -241,6 +243,7 @@ namespace Stackshot
                         case "scroll": s.HotScroll = v; break;
                         case "appearance": s.Appearance = Int(v, s.Appearance, 0, 2); break;
                         case "allinone": s.AllInOne = Bool(v, s.AllInOne); break;
+                        case "capturedelay": { int cd = Int(v, s.CaptureDelay, 0, 60); s.CaptureDelay = cd == 3 || cd == 5 || cd == 10 ? cd : s.CaptureDelay; break; }
                         case "showrecent": s.ShowRecent = Bool(v, s.ShowRecent); break;
                         case "tempkeep": s.TempKeep = Int(v, s.TempKeep, 0, 4); break;
                         case "homestyle": s.HomeStyle = Int(v, s.HomeStyle, 0, 2); break;
@@ -314,6 +317,7 @@ namespace Stackshot
                         case "markdown": s.HotMarkdown = v; break;
                         case "text": s.HotText = v; break;
                         case "repeat": s.HotRepeat = v; break;
+                        case "delayed": s.HotDelayed = v; break;
                         case "videofps": s.VideoFps = Int(v, s.VideoFps, 5, 60); break;
                         case "giffps": s.GifFps = Int(v, s.GifFps, 5, 30); break;
                         case "videoquality": s.VideoQuality = Int(v, s.VideoQuality, 0, 3); break;
@@ -424,6 +428,7 @@ namespace Stackshot
             b.AppendLine("Text = " + OneLine(HotText));
             b.AppendLine("Markdown = " + OneLine(HotMarkdown));
             b.AppendLine("Repeat = " + OneLine(HotRepeat));
+            b.AppendLine("Delayed = " + OneLine(HotDelayed));
             b.AppendLine("VideoFps = " + VideoFps);
             b.AppendLine("GifFps = " + GifFps);
             b.AppendLine("Profile = " + Profile);
@@ -447,6 +452,7 @@ namespace Stackshot
             b.AppendLine("# Tema: 0 como Windows, 1 claro, 2 oscuro");
             b.AppendLine("Appearance = " + Appearance);
             b.AppendLine("AllInOne = " + (AllInOne ? "1" : "0"));
+            b.AppendLine("CaptureDelay = " + CaptureDelay);
             b.AppendLine("ShowRecent = " + (ShowRecent ? "1" : "0"));
             b.AppendLine("# Capturas temporales: 0 una hora, 1 hasta cerrar, 2 un d\u00EDa, 3 una semana, 4 un mes");
             b.AppendLine("TempKeep = " + TempKeep);
@@ -578,7 +584,7 @@ namespace Stackshot
         }
 
         // Hotkey actions, in menu order.
-        public static readonly string[] Actions = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif", "markdown" };
+        public static readonly string[] Actions = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif", "markdown", "delayed" };
         public static readonly int[] TuckSeconds = { 0, 3, 5, 10 };
 
         public string HotkeysFor(string action)
@@ -587,6 +593,7 @@ namespace Stackshot
             {
                 case "region": return HotRegion;
                 case "repeat": return HotRepeat;
+                case "delayed": return HotDelayed;
                 case "screen": return HotScreen;
                 case "window": return HotWindow;
                 case "scroll": return HotScroll;
@@ -603,6 +610,7 @@ namespace Stackshot
             {
                 case "region": HotRegion = value; break;
                 case "repeat": HotRepeat = value; break;
+                case "delayed": HotDelayed = value; break;
                 case "screen": HotScreen = value; break;
                 case "window": HotWindow = value; break;
                 case "scroll": HotScroll = value; break;

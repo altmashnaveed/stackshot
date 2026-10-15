@@ -315,7 +315,7 @@ namespace Stackshot
             for (int i = 0; i < row.Children.Count; i++) HomeEnter(row.Children[i], 450 + i * 50, 0, 12, 0.97);
         }
 
-        static readonly string[] ActionShortest = { "\u00C1rea", "Repetir", "Pantalla", "Ventana", "Desplazar", "Texto", "V\u00EDdeo", "GIF", "Markdown" };
+        static readonly string[] ActionShortest = { "\u00C1rea", "Repetir", "Pantalla", "Ventana", "Desplazar", "Texto", "V\u00EDdeo", "GIF", "Markdown", "Temporizador" };
 
         // The capture modes in one capsule. A blue pill stays on the main mode (or Vídeo while recording); the mode under
         // the mouse or the keyboard gets a soft tint that fades in and out in place, so moving across the bar never sends

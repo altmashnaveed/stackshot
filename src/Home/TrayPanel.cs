@@ -33,7 +33,7 @@ namespace Stackshot
         const int Recent = 4;
         const float RowH = 30, Inset = 6, Radius = 12, MinWidth = 292, Gap = 10;
         const double FlashMs = 90;
-        static readonly string[] Captures = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif" };
+        static readonly string[] Captures = { "region", "repeat", "delayed", "screen", "window", "scroll", "text", "video", "gif" };
 
         sealed class Item
         {
@@ -479,6 +479,7 @@ namespace Stackshot
             Add(KLine, null, null, null, 0);
             AddCapture("region", "\u00C1rea", "area", 1);
             AddCapture("repeat", "Repetir \u00E1rea", "update", 1);
+            AddCapture("delayed", "\u00C1rea en " + settings.CaptureDelay + " s", "clock", 1);
             AddCapture("screen", "Pantalla", "screen", 1);
             AddCapture("window", "Ventana", "window", 1);
             AddCapture("scroll", scrolling ? "Terminar desplazamiento" : "Desplazamiento", "scroll", 1);

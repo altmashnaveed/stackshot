@@ -485,6 +485,7 @@ namespace Stackshot
                 {
                     case "region": CaptureRegion(); break;
                     case "repeat": CaptureRepeat(); break;
+                    case "delayed": CaptureDelayed(); break;
                     case "screen": CaptureScreen(); break;
                     case "window": CaptureWindow(); break;
                     case "scroll": picking = !ScrollCapture.Active; ScrollCapture.Toggle(this, settings); break;

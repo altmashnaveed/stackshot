@@ -15,9 +15,9 @@ namespace Stackshot
 {
     public partial class HomeWindow
     {
-        static readonly string[] ActionNames = { "Capturar un \u00E1rea", "Repetir la \u00FAltima \u00E1rea", "Capturar la pantalla", "Capturar la ventana activa", "Captura con desplazamiento", "Copiar texto de la pantalla", "Grabar v\u00EDdeo", "Grabar GIF", "Ver y ordenar Markdown" };
-        static readonly string[] ActionShort = { "Un \u00E1rea", "La \u00FAltima \u00E1rea", "Pantalla completa", "Una ventana", "Con desplazamiento", "Copiar texto", "V\u00EDdeo", "GIF animado", "Markdown" };
-        static readonly string[] ActionIcons = { "area", "update", "screen", "window", "scroll", "textscan", "video", "gif", "markdown" };
+        static readonly string[] ActionNames = { "Capturar un \u00E1rea", "Repetir la \u00FAltima \u00E1rea", "Capturar la pantalla", "Capturar la ventana activa", "Captura con desplazamiento", "Copiar texto de la pantalla", "Grabar v\u00EDdeo", "Grabar GIF", "Ver y ordenar Markdown", "Capturar con temporizador" };
+        static readonly string[] ActionShort = { "Un \u00E1rea", "La \u00FAltima \u00E1rea", "Pantalla completa", "Una ventana", "Con desplazamiento", "Copiar texto", "V\u00EDdeo", "GIF animado", "Markdown", "Con temporizador" };
+        static readonly string[] ActionIcons = { "area", "update", "screen", "window", "scroll", "textscan", "video", "gif", "markdown", "clock" };
         static readonly D.Color[,] ActionColors =
         {
             { D.Color.FromArgb(64, 156, 255), D.Color.FromArgb(10, 110, 230) },
@@ -28,7 +28,8 @@ namespace Stackshot
             { D.Color.FromArgb(100, 210, 200), D.Color.FromArgb(20, 150, 170) },
             { D.Color.FromArgb(255, 85, 100), D.Color.FromArgb(230, 40, 40) },
             { D.Color.FromArgb(255, 179, 64), D.Color.FromArgb(245, 110, 40) },
-            { D.Color.FromArgb(140, 150, 255), D.Color.FromArgb(88, 86, 214) }
+            { D.Color.FromArgb(140, 150, 255), D.Color.FromArgb(88, 86, 214) },
+            { D.Color.FromArgb(255, 159, 10), D.Color.FromArgb(235, 100, 20) }
         };
         static readonly D.Color Gray1 = D.Color.FromArgb(152, 152, 157), Gray2 = D.Color.FromArgb(110, 110, 115);
         static readonly string[] ProfileNames = { "Rendimiento", "Equilibrado", "Completo" };
@@ -796,6 +797,10 @@ namespace Stackshot
                            new string[] { "No", "A los 3 s", "A los 5 s", "A los 10 s" },
                            delegate { int i = Array.IndexOf(Settings.TuckSeconds, settings.StackTuck); return i < 0 ? 2 : i; },
                            delegate(int i) { settings.StackTuck = Settings.TuckSeconds[Math.Max(0, Math.Min(Settings.TuckSeconds.Length - 1, i))]; owner.Untuck(); }),
+                new SegRow("Captura con temporizador", "Eliges el \u00E1rea y cuenta atr\u00E1s antes de capturar: da tiempo a abrir un men\u00FA o un aviso. Esc la cancela.", "clock", Mac.Orange, Mac.Red,
+                           new string[] { "3 s", "5 s", "10 s" },
+                           delegate { return settings.CaptureDelay == 10 ? 2 : settings.CaptureDelay == 5 ? 1 : 0; },
+                           delegate(int i) { settings.CaptureDelay = i == 2 ? 10 : i == 1 ? 5 : 3; }),
                 new ToggleRow("Seguir al rat\u00F3n entre pantallas", "Con varias pantallas, las miniaturas van a la del rat\u00F3n.", "screen", Mac.Indigo, Mac.Purple,
                               delegate { return settings.FollowMouse; }, delegate(bool v) { settings.FollowMouse = v; }),
                 new ToggleRow("Incluir el puntero", "El puntero del rat\u00F3n aparece en la captura, donde estaba al empezarla.", "cursor", Mac.Blue, Mac.Indigo,

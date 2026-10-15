@@ -13,14 +13,14 @@ namespace Stackshot
     public partial class HomeWindow
     {
         // Home's mode lists show the capture modes (indices into Settings.Actions). Repeating the last area is a second go
-        // at the area mode: it lives in the tray and in Atajos.
+        // at the area mode, and so is the timed one: they live in the tray and in Atajos.
         static readonly int[] HomeModeIndex = HomeModes();
 
         static int[] HomeModes()
         {
             List<int> l = new List<int>();
             for (int i = 0; i < Settings.Actions.Length; i++)
-                if (Settings.Actions[i] != "repeat") l.Add(i);
+                if (Settings.Actions[i] != "repeat" && Settings.Actions[i] != "delayed") l.Add(i);
             return l.ToArray();
         }
 
