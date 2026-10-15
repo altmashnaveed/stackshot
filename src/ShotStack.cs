@@ -1761,6 +1761,7 @@ namespace Stackshot
             }
             // A new capture brings a tucked stack back out.
             if (tucked) Untuck();
+            peeked = false;   // a new capture waits the full time again
             // The card appears on the monitor where the capture was taken; the stack follows it there.
             anchorDevice = MonitorName(Control.MousePosition);
             followCandidate = null;
@@ -1900,13 +1901,14 @@ namespace Stackshot
                 followCandidate = null;
                 return;
             }
+            // Tucked away, the stack stays where it is: passing to another monitor is not a reason to bring it out.
+            if (tucked) { followCandidate = null; return; }
             string dev = MonitorName(Control.MousePosition);
             if (dev == anchorDevice) { followCandidate = null; return; }
             double now = Anim.Now;
             if (dev != followCandidate) { followCandidate = dev; followSince = now; return; }
             if (now - followSince < FollowDelay) return;
             followCandidate = null;
-            if (tucked) Untuck();
             anchorDevice = dev;
             Relayout();
         }

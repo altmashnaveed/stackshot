@@ -12,7 +12,8 @@ namespace Stackshot
     public partial class ShotStack
     {
         readonly Timer tuckTimer = new Timer { Interval = 400 };
-        bool tucked, tuckHooked;
+        bool tucked, tuckHooked, peeked;   // peeked: brought out by the pointer, not by a new capture
+        const double PeekBackMs = 2500;
         double tuckActive;            // last time the stack was in use (Anim.Now)
         Point tuckMouse;              // where the pointer was when they tucked: a card sliding under a still pointer isn't a touch
 
@@ -42,11 +43,15 @@ namespace Stackshot
         {
             if (exiting || tucked || cards.Count == 0 || settings.StackTuck <= 0) { tuckTimer.Stop(); return; }
             // In use: under the pointer, pressed, swiped or dragged, or a button held (a drag may be on its way to it).
-            bool busy = Control.MouseButtons != MouseButtons.None;
+            bool busy = Control.MouseButtons != MouseButtons.None || savingCard != null;
             Point m = Control.MousePosition;
             foreach (Card c in cards) if (c.Busy || (c.Hovered && c.Bounds.Contains(m))) busy = true;
             if (busy) { tuckActive = Anim.Now; return; }
-            if (Anim.Now - tuckActive < settings.StackTuck * 1000.0) return;
+            // After a new capture it waits the chosen time (room to paste or drag it); brought out only to look, it goes
+            // back shortly after the pointer leaves, like an auto-hiding dock.
+            double wait = settings.StackTuck * 1000.0;
+            if (peeked) wait = Math.Min(wait, PeekBackMs);
+            if (Anim.Now - tuckActive < wait) return;
             Screen scr = AnchorScreen();
             if (!CanTuck(scr)) return;
             tuckTimer.Stop();
@@ -98,6 +103,7 @@ namespace Stackshot
         {
             if (!tucked) { TuckAwake(); return; }
             tucked = false;
+            peeked = true;
             HideTab();
             // The pills come back first; the cards keep their tucked spot until each one's turn.
             Relayout();
