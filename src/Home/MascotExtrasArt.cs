@@ -512,10 +512,6 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(170, 30, 70, 30), 0.035f * D, fy + 0.1f * D, 0.025f * D, 0.035f * D);
                     break;
                 }
-                case KindCrewmate:
-                    // Its thick dark outline.
-                    using (GraphicsPath bp = ExtraPath(l.Kind, geo, D, p.Now)) Stroke(g, bp, Color.FromArgb(240, 20, 18, 26), D * 0.022f);
-                    break;
                 case KindSnoopy:
                 case KindPochacco:
                 {

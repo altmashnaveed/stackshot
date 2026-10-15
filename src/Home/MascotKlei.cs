@@ -181,7 +181,6 @@ namespace Stackshot
         static void KleiDetails(Graphics g, MascotLook l, Geo geo, float D, MascotPose p)
         {
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
-            using (GraphicsPath head = KleiPath(l.Kind, D)) KleiInk(g, head, D);
             switch (l.Kind)
             {
                 case KindWilson:

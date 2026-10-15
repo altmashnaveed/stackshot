@@ -563,15 +563,7 @@ namespace Stackshot
                 }
                 case KindGoomba:
                 {
-                    // A clear dark outline and the line where the head meets the body, then the thick angry brows.
-                    Color edge = Color.FromArgb(230, 52, 26, 10);
-                    using (GraphicsPath gp = ArcadePath(KindGoomba, geo, D, p.Now)) Stroke(g, gp, edge, D * 0.016f);
-                    using (Pen pen = new Pen(edge, D * 0.012f))
-                    {
-                        pen.StartCap = LineCap.Round;
-                        pen.EndCap = LineCap.Round;
-                        g.DrawBezier(pen, P(-0.4f * D, 0.13f * D), P(-0.3f * D, 0.175f * D), P(0.3f * D, 0.175f * D), P(0.4f * D, 0.13f * D));
-                    }
+                    // The thick angry brows (its outline is drawn with the body, see BodyInk).
                     foreach (int s in Sides)
                         using (GraphicsPath b = Poly(P(s * 0.19f * D, fy - 0.12f * D), P(s * 0.025f * D, fy - 0.055f * D), P(s * 0.025f * D, fy - 0.01f * D), P(s * 0.19f * D, fy - 0.07f * D)))
                             FillSolid(g, b, Color.FromArgb(28, 18, 14));
@@ -624,14 +616,33 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(220, 40, 90, 20), 0.03f * D, fy + 0.11f * D, 0.04f * D, 0.06f * D);
                     break;
                 }
+            }
+        }
+
+        // Outlines that belong to the silhouette, drawn with the body so they stay put while the face follows the
+        // pointer: the mushrooms' and Goomba's dark edge and rim lines, the crewmate's thick outline, Klei's ink.
+        public static void BodyInk(Graphics g, MascotLook l, float D, MascotPose p, GraphicsPath body)
+        {
+            switch (l.Kind)
+            {
+                case KindGoomba:
+                {
+                    Color edge = Color.FromArgb(230, 52, 26, 10);
+                    Stroke(g, body, edge, D * 0.016f);
+                    using (Pen pen = new Pen(edge, D * 0.012f))
+                    {
+                        pen.StartCap = LineCap.Round;
+                        pen.EndCap = LineCap.Round;
+                        g.DrawBezier(pen, P(-0.4f * D, 0.13f * D), P(-0.3f * D, 0.175f * D), P(0.3f * D, 0.175f * D), P(0.4f * D, 0.13f * D));
+                    }
+                    break;
+                }
                 case KindToad:
                 case KindMushroom:
                 {
-                    // A clear dark outline round the whole shape and along the rim of the cap, like the originals.
                     bool toad = l.Kind == KindToad;
                     Color edge = toad ? Color.FromArgb(200, 70, 50, 50) : Color.FromArgb(220, Darker(Colors[l.Color, 1], 0.5));
-                    using (GraphicsPath sp = toad ? CapPath(D, -0.33f, 0.03f, 0.43f, 0.25f, 0.31f) : CapPath(D, -0.3f, 0.07f, 0.43f, 0.22f, 0.31f))
-                        Stroke(g, sp, edge, D * 0.016f);
+                    Stroke(g, body, edge, D * 0.016f);
                     float capY = (toad ? 0.03f : 0.07f) * D, rim = capY + 0.04f * D, sw = (toad ? 0.25f : 0.22f) * D;
                     using (Pen pen = new Pen(edge, D * 0.012f))
                     {
@@ -642,6 +653,12 @@ namespace Stackshot
                     }
                     break;
                 }
+                case KindCrewmate:
+                    Stroke(g, body, Color.FromArgb(240, 20, 18, 26), D * 0.022f);
+                    break;
+                default:
+                    if (IsKlei(l.Kind)) KleiInk(g, body, D);
+                    break;
             }
         }
     }

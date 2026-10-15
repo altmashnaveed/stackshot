@@ -728,7 +728,11 @@ namespace Stackshot
                 }
                 else PaintFace(g, D, geo, false);
             }
+            // Noses, brows, whiskers, beaks and hair turn with the face, a little less than the eyes do.
+            GraphicsState face = g.Save();
+            g.TranslateTransform((float)(lookX * D * 0.035) * (flipped ? -1 : 1), (float)(lookY * D * 0.025));
             MascotParts.PaintDetails(g, Look, D, c2, pose);
+            g.Restore(face);
             MascotParts.PaintDragonFront(g, Look, D, pose);
             if (Look.Kind == 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
             // Clothes, glasses and hats are drawn the right way round (no mirrored letters), even on a turned character.
