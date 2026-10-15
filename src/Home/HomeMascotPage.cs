@@ -1232,22 +1232,18 @@ namespace Stackshot
             dockShelf.Add(g, null, null, 18, false);
         }
 
-        // A thin divider before a series' characters, with its name standing upright beside the line (whole on hover).
-        // While searching it hides with the rest of the shelf's dividers.
+        // Between two series: a little more room and a short rounded mark at the tiles' height, no words (each tile's
+        // label already says its series, and hovering the mark names it). Hidden while searching, like the other dividers.
         void DockSeries(string name)
         {
             Palette pal = Ds.Brushes;
-            Grid g = new Grid { Width = 26, Height = DockItemH, Background = Brushes.Transparent, ToolTip = name };
-            g.Children.Add(new Border { Width = 1, Height = 44, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(4, 11, 0, 0), Background = Ds.Brush(pal.Separator) });
-            TextBlock t = Label(name, Ds.Semibold, 10.5, pal.Label3);
-            t.TextTrimming = TextTrimming.CharacterEllipsis;
-            t.MaxWidth = DockItemH - 16;
-            t.LayoutTransform = new RotateTransform(-90);
-            t.HorizontalAlignment = HorizontalAlignment.Left;
-            t.VerticalAlignment = VerticalAlignment.Bottom;
-            t.Margin = new Thickness(9, 0, 0, 12);
-            g.Children.Add(t);
-            dockShelf.Add(g, null, null, 26, false);
+            Grid g = new Grid { Width = 20, Height = DockItemH, Background = Brushes.Transparent, ToolTip = name };
+            g.Children.Add(new Border
+            {
+                Width = 3, Height = 20, CornerRadius = new CornerRadius(1.5), HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 21, 0, 0), Background = Ds.Brush(pal.Separator)
+            });
+            dockShelf.Add(g, null, null, 20, false);
         }
 
         void DockNote(string text)
