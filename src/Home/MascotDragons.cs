@@ -34,7 +34,8 @@ namespace Stackshot
                 case KindNadder: return Color.FromArgb(250, 212, 72);
                 case KindNightmare: return Color.FromArgb(255, 194, 44);
                 case KindGronckle: return Color.FromArgb(238, 168, 60);
-                default: return Color.FromArgb(136, 214, 76);
+                case KindNightFury: return Color.FromArgb(136, 214, 76);
+                default: return TributeIris(kind);
             }
         }
 
@@ -47,7 +48,8 @@ namespace Stackshot
                 case KindLightFury: return "Plasma o camuflaje";
                 case KindNadder: return "P\u00FAas o fuego";
                 case KindNightmare: return "Pr\u00E9ndete fuego";
-                default: return "C\u00F3mete una roca";
+                case KindGronckle: return "C\u00F3mete una roca";
+                default: return TributePowerName(kind);
             }
         }
 
@@ -59,7 +61,8 @@ namespace Stackshot
                 case KindLightFury: return "Plasma, o se vuelve invisible un momento";
                 case KindNadder: return "Lanza p\u00FAas de la cola o escupe fuego de magnesio";
                 case KindNightmare: return "Se cubre de llamas y se apaga";
-                default: return "Se come una roca y escupe lava";
+                case KindGronckle: return "Se come una roca y escupe lava";
+                default: return TributePowerHint(kind);
             }
         }
 
@@ -72,7 +75,8 @@ namespace Stackshot
                 case PowerSpines: return "\u00A1P\u00FAas al aire!";
                 case PowerMagnesium: return "\u00A1Fuego de magnesio!";
                 case PowerFire: return "\u00A1Me enciendo!";
-                default: return "\u00D1am, una roca\u2026 \u00A1y lava!";
+                case PowerLava: return "\u00D1am, una roca\u2026 \u00A1y lava!";
+                default: return TributePowerLine(power);
             }
         }
 
@@ -495,7 +499,7 @@ namespace Stackshot
         double powerStart = -1, hideUntil, fireUntil, fireFrom, focusUntil, lastEmit;
         int power, powerStage;
 
-        public bool HasPower { get { return MascotParts.IsDragon(Look.Kind); } }
+        public bool HasPower { get { return MascotParts.HasPower(Look.Kind); } }
 
         bool PowerLively { get { return powerStart >= 0 || now < fireUntil || now < hideUntil || now < flashUntil; } }
 
@@ -513,8 +517,10 @@ namespace Stackshot
                 case MascotParts.KindLightFury: power = rnd.NextDouble() < 0.5 ? MascotParts.PowerPlasma : MascotParts.PowerVanish; break;
                 case MascotParts.KindNadder: power = rnd.NextDouble() < 0.5 ? MascotParts.PowerSpines : MascotParts.PowerMagnesium; break;
                 case MascotParts.KindNightmare: power = MascotParts.PowerFire; break;
-                default: power = MascotParts.PowerLava; break;
+                case MascotParts.KindGronckle: power = MascotParts.PowerLava; break;
+                default: power = TributePower(); break;
             }
+            if (power == 0) return;
             powerStart = now;
             powerStage = 0;
             lastEmit = 0;
@@ -614,7 +620,7 @@ namespace Stackshot
                     }
                     if (now >= fireUntil + 200) powerStart = -1;
                     break;
-                default:
+                case MascotParts.PowerLava:
                     // A rock flies into its mouth, it chews, then spits lava.
                     if (powerStage == 0)
                     {
@@ -633,6 +639,9 @@ namespace Stackshot
                         SetMood(Mood.Happy, 1400);
                     }
                     if (t > 2600) powerStart = -1;
+                    break;
+                default:
+                    TributeStep(t, my);
                     break;
             }
         }
@@ -660,6 +669,7 @@ namespace Stackshot
         // How a dragon particle moves: false when it isn't one.
         static bool DragonMove(Particle p, double s)
         {
+            if (TributeMove(p, s)) return true;
             switch (p.Kind)
             {
                 case 'P':
@@ -703,13 +713,15 @@ namespace Stackshot
                 else if (power == MascotParts.PowerLava && t >= 1150 && powerStage < 5) charge = (t - 1150) / 200.0;
             }
             pose.Charge = Math.Max(0, Math.Min(1, charge));
+            pose.Fx = TributeFx();
         }
 
-        static bool IsDragonParticle(char k) { return k == 'P' || k == 'q' || k == 'S' || k == 'm' || k == 'e' || k == 'L' || k == 'r'; }
+        static bool IsDragonParticle(char k) { return k == 'P' || k == 'q' || k == 'S' || k == 'm' || k == 'e' || k == 'L' || k == 'r' || IsTributeParticle(k); }
 
         // Drawn at the particle, turned along its travel.
         static void PaintDragonParticle(Graphics g, char kind, float s, int a)
         {
+            if (PaintTributeParticle(g, kind, s, a)) return;
             switch (kind)
             {
                 case 'P':

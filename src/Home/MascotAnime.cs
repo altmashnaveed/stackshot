@@ -20,7 +20,8 @@ namespace Stackshot
                                                        "Codex", "Gon", "Killua", "Hisoka", "Sasuke", "Kakashi", "Zoro", "Chopper", "Vegeta", "Saitama", "Levi",
                                                        "Nezuko", "Spider-Man", "Batman", "Flash", "Superman", "Iron Man",
                                                        "Caballero", "Astronauta", "Mago sabio", "Superh\u00E9roe", "Kero", "Kamina",
-                                                       "Desdentao", "Furia Luminosa", "Tormenta", "Colmillo", "Alb\u00F3ndiga" };
+                                                       "Desdentao", "Furia Luminosa", "Tormenta", "Colmillo", "Alb\u00F3ndiga",
+                                                       "Stitch", "Kirby", "Grogu", "Eevee", "Charmander" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Dragon Ball", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -29,7 +30,8 @@ namespace Stackshot
                                                              "Marvel", "DC", "DC", "DC", "Marvel", null, null, null, null,
                                                              "Cardcaptor Sakura", "Tengen Toppa Gurren Lagann",
                                                              "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
-                                                             "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n" };
+                                                             "C\u00F3mo entrenar a tu drag\u00F3n", "C\u00F3mo entrenar a tu drag\u00F3n",
+                                                             "Lilo y Stitch", "Kirby", "The Mandalorian", "Pok\u00E9mon", "Pok\u00E9mon" };
         static readonly int[,] Anime =
         {
             { 7, 17, 2, 23, 13, 0 },
@@ -77,7 +79,12 @@ namespace Stackshot
             { 15, 11, 7, 0, 0, 0 },
             { 16, 4, 7, 0, 0, 0 },
             { 17, 25, 7, 0, 0, 0 },
-            { 18, 23, 7, 0, 0, 0 }
+            { 18, 23, 7, 0, 0, 0 },
+            { 19, 26, 7, 0, 0, 0 },
+            { 20, 8, 7, 0, 0, 0 },
+            { 21, 27, 7, 0, 0, 0 },
+            { 22, 18, 7, 0, 0, 0 },
+            { 23, 9, 7, 0, 0, 0 }
         };
 
         public static void ApplyAnime(MascotLook l, int i)
