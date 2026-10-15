@@ -12,11 +12,11 @@ namespace Stackshot
 {
     public static partial class MascotParts
     {
-        public const int KindStitch = 19, KindKirby = 20, KindGrogu = 21, KindEevee = 22, KindCharmander = 23;
-        public const int ColorIndigo = 26, ColorSage = 27;
-        public const int PowerCrazy = 7, PowerInhale = 8, PowerForce = 9, PowerRoll = 10, PowerFlame = 11;
+        public const int KindStitch = 19, KindKirby = 20, KindGrogu = 21, KindEevee = 22, KindCharmander = 23, KindPikachu = 24;
+        public const int ColorIndigo = 26, ColorSage = 27, ColorElectric = 28;
+        public const int PowerCrazy = 7, PowerInhale = 8, PowerForce = 9, PowerRoll = 10, PowerFlame = 11, PowerThunder = 12;
 
-        public static bool IsTribute(int kind) { return kind >= KindStitch && kind <= KindCharmander; }
+        public static bool IsTribute(int kind) { return kind >= KindStitch && kind <= KindPikachu; }
         public static bool HasPower(int kind) { return IsDragon(kind) || IsTribute(kind); }
 
         static Color TributeIris(int kind)
@@ -28,6 +28,7 @@ namespace Stackshot
                 case KindGrogu: return Color.FromArgb(70, 46, 30);
                 case KindEevee: return Color.FromArgb(110, 64, 30);
                 case KindCharmander: return Color.FromArgb(48, 118, 176);
+                case KindPikachu: return Color.FromArgb(22, 20, 24);
                 default: return Color.FromArgb(136, 214, 76);
             }
         }
@@ -40,6 +41,7 @@ namespace Stackshot
                 case KindKirby: return "Inhala";
                 case KindGrogu: return "Usa la Fuerza";
                 case KindEevee: return "Rueda de alegr\u00EDa";
+                case KindPikachu: return "Impactrueno";
                 default: return "Echa una llamarada";
             }
         }
@@ -52,6 +54,7 @@ namespace Stackshot
                 case KindKirby: return "Aspira con un remolino y se hincha";
                 case KindGrogu: return "Levanta una piedra sin tocarla";
                 case KindEevee: return "Una voltereta llena de estrellas";
+                case KindPikachu: return "Se carga los mofletes y suelta rayos";
                 default: return "Una peque\u00F1a llamarada, y la cola arde m\u00E1s";
             }
         }
@@ -64,6 +67,7 @@ namespace Stackshot
                 case PowerInhale: return "\u00A1Poyo!";
                 case PowerForce: return "Mmm\u2026";
                 case PowerRoll: return "\u00A1Eevee!";
+                case PowerThunder: return "\u00A1Pika pika!";
                 default: return "\u00A1Char!";
             }
         }
@@ -107,7 +111,67 @@ namespace Stackshot
                     CharTail(g, D, c1, c2, p.Now, p.Fx);
                     foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2);
                     break;
+                case KindPikachu:
+                    if (p.Fx > 0.01) Glow(g, 0, -0.02f * D, 1.3f * D, 1.2f * D, Color.FromArgb(255, 226, 70), (int)(130 * p.Fx));
+                    PikaTail(g, D, c1, c2, p.Now);
+                    foreach (int s in Sides) PikaEar(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR);
+                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2);
+                    break;
             }
+        }
+
+        static readonly Color PikaBlack = Color.FromArgb(34, 30, 32), PikaBrown = Color.FromArgb(150, 92, 40);
+
+        // Pikachu's ears: long, pointed, standing up and a little out, black at the tip.
+        static void PikaEar(Graphics g, float D, int s, Color c1, Color c2, double twitch)
+        {
+            GraphicsState st = g.Save();
+            g.TranslateTransform(s * 0.15f * D, -0.24f * D);
+            g.RotateTransform((float)(s * (20 + twitch)));
+            float L = 0.4f * D, w = 0.15f * D;
+            using (GraphicsPath e = new GraphicsPath())
+            {
+                // Wide at the base, tapering to a soft point.
+                e.AddBezier(P(-w * 0.5f, 0.02f * D), P(-w * 0.62f, -L * 0.5f), P(-w * 0.22f, -L * 0.9f), P(0, -L));
+                e.AddBezier(P(0, -L), P(w * 0.22f, -L * 0.9f), P(w * 0.62f, -L * 0.5f), P(w * 0.5f, 0.02f * D));
+                e.CloseFigure();
+                Fill(g, e, new RectangleF(-w, -L, w * 2, L + 0.03f * D), Lighter(c1, 0.08), c2, 80f);
+                Region old = g.Clip;
+                g.SetClip(e, CombineMode.Intersect);
+                using (SolidBrush b = new SolidBrush(PikaBlack)) g.FillRectangle(b, -w, -L - 1, w * 2, L * 0.3f + 1);
+                g.Clip = old;
+                old.Dispose();
+                Stroke(g, e, Color.FromArgb(70, Darker(c2, 0.3)), D * 0.007f);
+            }
+            g.Restore(st);
+        }
+
+        // The lightning-bolt tail behind it on the right, brown where it meets the body.
+        static void PikaTail(Graphics g, float D, Color c1, Color c2, double now)
+        {
+            GraphicsState st = g.Save();
+            // A gentle sway around where it leaves the body.
+            g.TranslateTransform(0.2f * D, 0.24f * D);
+            g.RotateTransform((float)(Math.Sin(now / 640.0) * 4));
+            g.TranslateTransform(-0.2f * D, -0.24f * D);
+            PointF[] bolt =
+            {
+                P(0.17f * D, 0.21f * D), P(0.28f * D, 0.11f * D), P(0.24f * D, 0.05f * D), P(0.37f * D, -0.04f * D), P(0.32f * D, -0.1f * D), P(0.48f * D, -0.27f * D),
+                P(0.61f * D, -0.12f * D), P(0.44f * D, 0.0f), P(0.48f * D, 0.06f * D), P(0.35f * D, 0.14f * D), P(0.39f * D, 0.19f * D), P(0.23f * D, 0.28f * D)
+            };
+            using (GraphicsPath t = new GraphicsPath())
+            {
+                t.AddPolygon(bolt);
+                RectangleF r = new RectangleF(0.16f * D, -0.28f * D, 0.46f * D, 0.57f * D);
+                Fill(g, t, r, Lighter(c1, 0.1), c2, 60f);
+                Region old = g.Clip;
+                g.SetClip(t, CombineMode.Intersect);
+                using (SolidBrush b = new SolidBrush(PikaBrown)) g.FillRectangle(b, 0.14f * D, 0.17f * D, 0.3f * D, 0.14f * D);
+                g.Clip = old;
+                old.Dispose();
+                Stroke(g, t, Color.FromArgb(90, Darker(c2, 0.3)), D * 0.008f);
+            }
+            g.Restore(st);
         }
 
         // A small round foot peeking out under the body.
@@ -248,8 +312,16 @@ namespace Stackshot
                     break;
                 }
                 case KindCharmander:
-                    Ellipse(g, Color.FromArgb(235, 255, 228, 156), -0.16f * D, 0.07f * D, 0.32f * D, 0.27f * D);
+                {
+                    // A cream belly rising in an oval from under the chin, a touch darker at the bottom.
+                    RectangleF belly = new RectangleF(-0.17f * D, 0.06f * D, 0.34f * D, 0.31f * D);
+                    using (GraphicsPath bp = new GraphicsPath())
+                    {
+                        bp.AddEllipse(belly);
+                        Fill(g, bp, belly, Color.FromArgb(255, 240, 182), Color.FromArgb(246, 204, 122), 90f);
+                    }
                     break;
+                }
             }
             g.Clip = old;
             old.Dispose();
@@ -274,29 +346,46 @@ namespace Stackshot
                 }
                 case KindEevee:
                 {
-                    // The fluffy mane on its chest, in one piece like a bib of fur: a soft curve on top following the body,
-                    // and a fringe of rounded tufts below, the middle ones longest, the outer ones sweeping out past the sides.
-                    Color cream1 = Color.FromArgb(253, 248, 234), cream2 = Color.FromArgb(226, 205, 168);
+                    // The fluffy mane on its chest, in one piece: a soft curve on top following the body, and below a fringe
+                    // of many small rounded tufts, longest in the middle, the outer ones sweeping out past the sides. A soft
+                    // shadow under it sets it on the body instead of floating over it.
+                    Color cream1 = Color.FromArgb(253, 247, 230), cream2 = Color.FromArgb(232, 212, 176);
+                    Glow(g, 0, 0.25f * D, 0.82f * D, 0.26f * D, Color.FromArgb(90, 58, 30), 70);
                     using (GraphicsPath mane = new GraphicsPath())
                     {
-                        mane.AddBezier(P(-0.37f * D, 0.1f * D), P(-0.2f * D, 0.19f * D), P(0.2f * D, 0.19f * D), P(0.37f * D, 0.1f * D));
-                        PointF[] fringe =
+                        mane.AddBezier(P(-0.37f * D, 0.11f * D), P(-0.2f * D, 0.2f * D), P(0.2f * D, 0.2f * D), P(0.37f * D, 0.11f * D));
+                        const int tufts = 9;
+                        PointF[] fringe = new PointF[tufts * 2 - 1];
+                        for (int k = 0; k < tufts; k++)
                         {
-                            P(0.37f * D, 0.1f * D), P(0.41f * D, 0.21f * D), P(0.27f * D, 0.215f * D), P(0.22f * D, 0.31f * D), P(0.11f * D, 0.27f * D),
-                            P(0, 0.345f * D), P(-0.11f * D, 0.27f * D), P(-0.22f * D, 0.31f * D), P(-0.27f * D, 0.215f * D), P(-0.41f * D, 0.21f * D),
-                            P(-0.37f * D, 0.1f * D)
-                        };
-                        mane.AddCurve(fringe, 0.45f);
+                            float x = 0.38f - k * (0.76f / (tufts - 1));
+                            float tip = 0.22f + 0.12f * (1 - (x / 0.42f) * (x / 0.42f));
+                            float out1 = Math.Abs(x) > 0.3f ? Math.Sign(x) * 0.04f : 0;
+                            fringe[k * 2] = P((x + out1) * D, tip * D);
+                            if (k < tufts - 1)
+                            {
+                                float xv = x - 0.38f / (tufts - 1), yv = 0.22f + 0.12f * (1 - (xv / 0.42f) * (xv / 0.42f)) - 0.045f;
+                                fringe[k * 2 + 1] = P(xv * D, yv * D);
+                            }
+                        }
+                        // The fringe runs right to left from the top curve's end back to its start.
+                        PointF[] run = new PointF[tufts * 2 + 1];
+                        run[0] = P(0.37f * D, 0.11f * D);
+                        for (int k = 0; k < tufts * 2 - 1; k++) run[k + 1] = fringe[k];
+                        run[tufts * 2] = P(-0.37f * D, 0.11f * D);
+                        mane.AddCurve(run, 0.55f);
                         mane.CloseFigure();
-                        RectangleF mb = new RectangleF(-0.42f * D, 0.1f * D, 0.84f * D, 0.25f * D);
+                        RectangleF mb = new RectangleF(-0.44f * D, 0.11f * D, 0.88f * D, 0.24f * D);
                         Fill(g, mane, mb, cream1, cream2, 90f);
-                        Stroke(g, mane, Color.FromArgb(70, 160, 128, 90), D * 0.006f);
+                        Stroke(g, mane, Color.FromArgb(46, 150, 118, 80), D * 0.006f);
                     }
-                    // A few soft strands so it reads as fur.
-                    Color strand = Color.FromArgb(70, 176, 146, 104);
-                    Line(g, strand, D * 0.007f, -0.12f * D, 0.2f * D, -0.15f * D, 0.26f * D);
-                    Line(g, strand, D * 0.007f, 0.12f * D, 0.2f * D, 0.15f * D, 0.26f * D);
-                    Line(g, strand, D * 0.007f, 0, 0.22f * D, 0, 0.29f * D);
+                    // Short strands along the tufts so it reads as fur.
+                    Color strand = Color.FromArgb(60, 176, 146, 104);
+                    for (int k = 0; k < 5; k++)
+                    {
+                        float x = (-0.24f + k * 0.12f) * D, y0 = 0.21f * D, y1 = (0.27f + 0.03f * (1 - Math.Abs(k - 2) / 2f)) * D;
+                        Line(g, strand, D * 0.006f, x, y0, x + (k - 2) * 0.012f * D, y1);
+                    }
                     Ellipse(g, Color.FromArgb(200, 70, 44, 30), -0.016f * D, fy + 0.055f * D, 0.032f * D, 0.022f * D);
                     break;
                 }
@@ -304,6 +393,24 @@ namespace Stackshot
                     Ellipse(g, Color.FromArgb(110, Ink), -0.035f * D, fy + 0.06f * D, 0.014f * D, 0.011f * D);
                     Ellipse(g, Color.FromArgb(110, Ink), 0.021f * D, fy + 0.06f * D, 0.014f * D, 0.011f * D);
                     break;
+                case KindPikachu:
+                {
+                    // Round red cheeks out on the sides of the face, and a tiny nose.
+                    float gap = geo.EyeGap * D, r = 0.058f * D;
+                    foreach (int s in Sides)
+                    {
+                        float cx = s * (gap + 0.11f * D), cy = fy + 0.075f * D;
+                        RectangleF ch = new RectangleF(cx - r, cy - r, r * 2, r * 2);
+                        using (GraphicsPath cp = new GraphicsPath())
+                        {
+                            cp.AddEllipse(ch);
+                            Fill(g, cp, ch, Color.FromArgb(246, 88, 72), Color.FromArgb(214, 44, 40), 90f);
+                        }
+                        Ellipse(g, Color.FromArgb(110, 255, 255, 255), cx - r * 0.5f, cy - r * 0.6f, r * 0.55f, r * 0.4f);
+                    }
+                    Ellipse(g, Color.FromArgb(220, PikaBlack), -0.012f * D, fy + 0.05f * D, 0.024f * D, 0.014f * D);
+                    break;
+                }
             }
         }
     }
@@ -320,6 +427,7 @@ namespace Stackshot
                 case MascotParts.KindGrogu: return MascotParts.PowerForce;
                 case MascotParts.KindEevee: return MascotParts.PowerRoll;
                 case MascotParts.KindCharmander: return MascotParts.PowerFlame;
+                case MascotParts.KindPikachu: return MascotParts.PowerThunder;
                 default: return 0;
             }
         }
@@ -377,6 +485,17 @@ namespace Stackshot
                     }
                     if (t > 1600) powerStart = -1;
                     break;
+                case MascotParts.PowerThunder:
+                    // Cheeks charged, then bolts crackling up and out all around.
+                    if (powerStage == 0) { powerStage = 1; SetMood(Mood.Happy, 1400); squashX = 0.9; squashY = 1.12; jumpV -= 1.2; }
+                    if (t >= 180 && t < 950 && now - lastEmit > 70)
+                    {
+                        lastEmit = now;
+                        double a = (-160 + rnd.NextDouble() * 140) * Math.PI / 180, v = 0.9 + rnd.NextDouble() * 0.4;
+                        Emit('j', Math.Cos(a) * 0.25, -0.05 + Math.Sin(a) * 0.2, Math.Cos(a) * v, Math.Sin(a) * v, 380, 0.08 + rnd.NextDouble() * 0.03);
+                    }
+                    if (t > 1500) powerStart = -1;
+                    break;
                 case MascotParts.PowerFlame:
                     // A short burst of flame from the mouth while the tail's flame grows.
                     if (powerStage == 0) { powerStage = 1; SetMood(Mood.Happy, 1300); }
@@ -405,15 +524,17 @@ namespace Stackshot
             if (power == MascotParts.PowerCrazy) return t < 1500 ? Math.Min(1, t / 200.0) : Math.Max(0, 1 - (t - 1500) / 300.0);
             if (power == MascotParts.PowerFlame) return t < 950 ? Math.Min(1, t / 250.0) : Math.Max(0, 1 - (t - 950) / 400.0);
             if (power == MascotParts.PowerRoll) return 1;
+            if (power == MascotParts.PowerThunder) return t < 1000 ? Math.Min(1, t / 150.0) : Math.Max(0, 1 - (t - 1000) / 300.0);
             return 0;
         }
 
-        static bool IsTributeParticle(char k) { return k == 'w' || k == 'k' || k == 'f'; }
+        static bool IsTributeParticle(char k) { return k == 'w' || k == 'k' || k == 'f' || k == 'j'; }
 
         static bool TributeMove(Particle p, double s)
         {
             switch (p.Kind)
             {
+                case 'j':
                 case 'w':
                 case 'k':
                     p.X += p.Vx * s;
@@ -432,6 +553,21 @@ namespace Stackshot
         {
             switch (kind)
             {
+                case 'j':
+                {
+                    // A little bolt of lightning, along its way.
+                    PointF[] z = { new PointF(-s, 0), new PointF(-s * 0.3f, -s * 0.28f), new PointF(-s * 0.05f, s * 0.12f), new PointF(s * 0.4f, -s * 0.22f), new PointF(s, 0) };
+                    MascotParts.Glow(g, 0, 0, s * 2.6f, s * 1.4f, Color.FromArgb(255, 220, 60), a / 2);
+                    using (Pen outer = new Pen(Color.FromArgb(a, 255, 214, 40), Math.Max(1.5f, s * 0.2f)))
+                    using (Pen core = new Pen(Color.FromArgb(a, 255, 255, 230), Math.Max(0.8f, s * 0.07f)))
+                    {
+                        outer.LineJoin = core.LineJoin = LineJoin.Round;
+                        outer.StartCap = outer.EndCap = LineCap.Round;
+                        g.DrawLines(outer, z);
+                        g.DrawLines(core, z);
+                    }
+                    return true;
+                }
                 case 'w':
                     using (Pen pen = new Pen(Color.FromArgb(a * 3 / 4, 255, 255, 255), Math.Max(1f, s * 0.16f)))
                     {

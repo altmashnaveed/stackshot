@@ -1630,11 +1630,17 @@ namespace Stackshot
             return s.Unlock != null && s.Unlock(i) > MascotParts.Level(settings.MascotLove);
         }
 
-        // Catalog order, with the favorites first.
+        // Catalog order (characters grouped by series), with the favorites first.
         List<int> Ordered(int slot)
         {
             List<int> first = new List<int>(), rest = new List<int>();
-            for (int i = 0; i < Slots[slot].Names.Length; i++) (IsFavorite(slot, i) ? first : rest).Add(i);
+            int n = Slots[slot].Names.Length;
+            int[] order = Slots[slot].Id == "anime" && MascotParts.AnimeOrder.Length == n ? MascotParts.AnimeOrder : null;
+            for (int k = 0; k < n; k++)
+            {
+                int i = order != null ? order[k] : k;
+                (IsFavorite(slot, i) ? first : rest).Add(i);
+            }
             first.AddRange(rest);
             return first;
         }

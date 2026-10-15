@@ -908,7 +908,7 @@ namespace Stackshot
                 p.StartCap = LineCap.Round; p.EndCap = LineCap.Round;
                 float s = D * 0.028f;
                 if (Look.Kind == 1 || Look.Kind == 2 || Look.Kind == 5 || Look.Kind == MascotParts.KindDog || Look.Kind == MascotParts.KindPanda || Look.Kind == MascotParts.KindFox ||
-                    Look.Kind == MascotParts.KindReindeer)
+                    Look.Kind == MascotParts.KindReindeer || Look.Kind == MascotParts.KindPikachu || Look.Kind == MascotParts.KindEevee)
                 {
                     // Cat-like "w" mouth.
                     g.DrawArc(p, mx - s * 2, my - s * 0.7f, s * 2, s * 1.4f, 10, 160);

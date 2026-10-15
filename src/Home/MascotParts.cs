@@ -63,7 +63,7 @@ namespace Stackshot
     {
         public static readonly string[] Kinds = { "Robot", "Gato", "Conejo", "Fantasma", "Slime", "Drag\u00F3n", "Perro", "Chibi", "Ping\u00FCino", "Panda", "Zorro", "Rana", "Reno", "Le\u00F3n alado",
                                                    "Furia Nocturna", "Furia Luminosa", "Nadder Mort\u00EDfero", "Pesadilla Monstruosa", "Gronckle",
-                                                   "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra" };
+                                                   "Experimento azul", "Bolita rosa", "Peque\u00F1o jedi", "Peludito", "Salamandra", "Rat\u00F3n el\u00E9ctrico" };
 
         public static readonly Color[,] Colors =
         {
@@ -94,10 +94,11 @@ namespace Stackshot
             { Color.FromArgb(255, 222, 100), Color.FromArgb(238, 164, 40) },
             { Color.FromArgb(236, 82, 52), Color.FromArgb(150, 30, 22) },
             { Color.FromArgb(108, 150, 236), Color.FromArgb(52, 86, 182) },
-            { Color.FromArgb(172, 208, 152), Color.FromArgb(98, 142, 92) }
+            { Color.FromArgb(172, 208, 152), Color.FromArgb(98, 142, 92) },
+            { Color.FromArgb(255, 226, 84), Color.FromArgb(238, 178, 30) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
-                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia" };
+                                                       "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
@@ -213,6 +214,7 @@ namespace Stackshot
                 case 21: // little jedi
                 case 22: // furball
                 case 23: // salamander
+                case 24: // electric mouse
                     g.HeadW = 0.70f; g.Top = -0.31f; g.FaceY = -0.05f; g.EyeGap = 0.125f; g.NeckY = 0.12f; g.NeckW = 0.60f;
                     g.Bottom = 0.31f; g.HandX = 0.33f; g.HandY = 0.21f; g.HatW = 0.58f;
                     break;

@@ -45,7 +45,7 @@ namespace Stackshot
             { 7, 17, 0, 21, 0, 8 },
             { 7, 17, 2, 26, 15, 9 },
             { 0, 19, 2, 0, 16, 0 },
-            { 2, 5, 2, 0, 0, 10 },
+            { 24, 28, 7, 0, 0, 0 },
             { 1, 4, 2, 0, 6, 0 },
             { 7, 17, 1, 27, 18, 11 },
             { 2, 7, 2, 12, 17, 0 },
@@ -86,6 +86,25 @@ namespace Stackshot
             { 22, 18, 7, 0, 0, 0 },
             { 23, 9, 7, 0, 0, 0 }
         };
+
+        // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
+        // every Pokemon or every dragon sit together. Only the order shown: the indices the settings store stay.
+        static int[] animeOrder;
+        public static int[] AnimeOrder
+        {
+            get
+            {
+                if (animeOrder != null) return animeOrder;
+                System.Collections.Generic.List<string> series = new System.Collections.Generic.List<string>();
+                foreach (string s in AnimeInspiration) if (s != null && !series.Contains(s)) series.Add(s);
+                System.Collections.Generic.List<int> o = new System.Collections.Generic.List<int>();
+                foreach (string s in series)
+                    for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
+                for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == null) o.Add(i);
+                animeOrder = o.ToArray();
+                return animeOrder;
+            }
+        }
 
         public static void ApplyAnime(MascotLook l, int i)
         {
