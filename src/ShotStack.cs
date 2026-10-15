@@ -1759,6 +1759,8 @@ namespace Stackshot
                 try { fsw.EnableRaisingEvents = true; }
                 catch (Exception ex) { Log("Vigilante: " + ex.Message); }
             }
+            // A new capture brings a tucked stack back out.
+            if (tucked) Untuck();
             // The card appears on the monitor where the capture was taken; the stack follows it there.
             anchorDevice = MonitorName(Control.MousePosition);
             followCandidate = null;
@@ -1771,6 +1773,7 @@ namespace Stackshot
                 Native.SetWindowPos(c.Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_TOPMOST, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
             }
             follow.Start();
+            TuckAwake();
             return true;
         }
 
@@ -1903,6 +1906,7 @@ namespace Stackshot
             if (dev != followCandidate) { followCandidate = dev; followSince = now; return; }
             if (now - followSince < FollowDelay) return;
             followCandidate = null;
+            if (tucked) Untuck();
             anchorDevice = dev;
             Relayout();
         }
@@ -1963,7 +1967,7 @@ namespace Stackshot
                 oldest.Dismiss(Card.Exit.Slide, 0);
             }
             int n = cards.Count;
-            if (n == 0) { HideChips(); return; }
+            if (n == 0) { HideChips(); tucked = false; return; }
             Screen scr = AnchorScreen();
             Rectangle wa = scr.WorkingArea;
             float s = ScaleFor(scr);
@@ -2008,6 +2012,8 @@ namespace Stackshot
                 cards[i].Place(new Rectangle(left, above, sz.Width, sz.Height), scr.DeviceName, s, 0, false);
                 above -= gap;
             }
+            // Tucked: the pills stay away until the cards come back out.
+            if (tucked) HideChips();
         }
 
         // With the top card at index top, the lowest index that still fits (leaving room for the pills).
@@ -2064,6 +2070,7 @@ namespace Stackshot
 
         void ScrollBy(int d)
         {
+            if (tucked) { Untuck(); return; }
             int before = scroll;
             scroll = Math.Max(0, scroll + d);
             if (scroll != before) Relayout();
@@ -2074,6 +2081,7 @@ namespace Stackshot
             sync.BeginInvoke((Action)delegate
             {
                 if (exiting) return;
+                if (tucked) Untuck();
                 Relayout();
                 if (cards.Count > 0 && settings.FollowMouse) follow.Start();
                 if (pet != null) pet.ScreensChanged();

@@ -111,7 +111,7 @@ namespace Stackshot.Tests
         {
             Dictionary<string, object> v = new Dictionary<string, object>();
             v["SaveFolder"] = "C:\\Fotos \u00D1and\u00FA\\Stackshot \u65E5\u672C";
-            v["Sound"] = false; v["CopyToClipboard"] = false; v["FollowMouse"] = false; v["FirstRunDone"] = true;
+            v["Sound"] = false; v["CopyToClipboard"] = false; v["FollowMouse"] = false; v["StackTuck"] = 5; v["FirstRunDone"] = true;
             v["HotRegion"] = "Ctrl+Shift+S, F1"; v["HotScreen"] = "Ctrl+Alt+S"; v["HotWindow"] = "Alt+F2";
             v["HotScroll"] = "Ctrl+Alt+F3"; v["HotVideo"] = "Shift+F4"; v["HotGif"] = "Ctrl+F5"; v["HotMarkdown"] = "Ctrl+Shift+Alt+N"; v["HotText"] = "Ctrl+Alt+F9";
             v["HotRepeat"] = "Ctrl+Shift+Alt+F10";

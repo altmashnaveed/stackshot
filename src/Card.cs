@@ -50,7 +50,10 @@ namespace Stackshot
         string flash;
         bool flashGood;
         readonly Tween dim = new Tween(1), hoverT = new Tween(0), hotT = new Tween(1), pressT = new Tween(0),
-                       flashT = new Tween(0), badgeT = new Tween(1), wait = new Tween(0);
+                       flashT = new Tween(0), badgeT = new Tween(1), wait = new Tween(0), peekT = new Tween(1);
+        bool tucked, swallowUp;
+        int tuckEdge;
+        const int Peek = 22;          // how much of a tucked card still shows (logical px)
 
         public Card(ShotStack owner, string path)
         {
@@ -66,6 +69,38 @@ namespace Stackshot
 
         // Hidden because there are more thumbnails than fit.
         public bool Parked { get { return parked; } }
+
+        public bool Hovered { get { return hover; } }
+
+        // Its slot's vertical middle (screen pixels), to bring back first the cards nearest the pointer.
+        public int Middle { get { return home.Y + home.Height / 2; } }
+
+        // Where it sits for that slot: there, or tucked into the screen edge with only a sliver showing.
+        int SlotX(Rectangle r) { return tucked ? tuckEdge - r.Width + P(Peek) : r.X; }
+
+        // Into the edge (edge: the screen's left in pixels) or back to its slot, after delay ms. Going in is calm; coming
+        // back has a little spring. A tucked card is also a shade lighter.
+        public void Tuck(bool on, int edge, double delay)
+        {
+            if (on == tucked) return;
+            tucked = on;
+            if (on) tuckEdge = edge;
+            if (Leaving || parked || migrating || !Visible) { peekT.Set(on ? 0.82 : 1); return; }
+            if (on)
+            {
+                hover = false;
+                SetHot(-1);
+                UpdateHover();
+                MoveTo(SlotX(home), home.Y, 200, 0.96, delay);
+                peekT.Go(0.82, 320, delay, Ease.OutCubic, null);
+            }
+            else
+            {
+                MoveTo(home.X, home.Y, 340, 0.72, delay);
+                peekT.Go(1, 180, delay, Ease.OutCubic, null);
+            }
+            Anim.Wake(this);
+        }
 
         public Size WantedFor(float scale)
         {
@@ -84,7 +119,7 @@ namespace Stackshot
         // Fades while swiped towards the edge; releasing past 30% of its width dismisses it.
         protected override double AlphaFactor()
         {
-            double f = dim.Value;
+            double f = dim.Value * peekT.Value;
             if (fadeByPos)
             {
                 double d = (home.X - x) / Math.Max(1.0, body.Width * 0.6);
@@ -134,6 +169,8 @@ namespace Stackshot
             {
                 // Back in view: enter from the side it left.
                 parked = false;
+                // Back while the stack is tucked: it comes back tucked like the rest.
+                if (owner.Tucked && !tucked) { tucked = true; tuckEdge = owner.TuckEdge; peekT.Set(0.82); }
                 bool fromAbove = y < r.Y;
                 Device = device;
                 s = scale;
@@ -142,11 +179,11 @@ namespace Stackshot
                 {
                     alpha.Set(0);
                     ApplyAlpha();
-                    JumpTo(r.X, r.Y + (fromAbove ? -P(48) : P(48)));
+                    JumpTo(SlotX(r), r.Y + (fromAbove ? -P(48) : P(48)));
                 }
                 ShowQuiet();
                 alpha.Go(1, 200, order * 18, Ease.OutCubic, null);
-                MoveTo(r.X, r.Y, 320, 0.8, order * 18);
+                MoveTo(SlotX(r), r.Y, 320, 0.8, order * 18);
                 return;
             }
             if (device != Device)
@@ -165,7 +202,7 @@ namespace Stackshot
             }
             if (migrating) { nextScale = scale; return; } // Arrive will use the new slot
             if (scale != s || r.Size != body) { s = scale; Fit(r.Size); }
-            MoveTo(r.X, r.Y, 320, 0.8, 0);
+            MoveTo(SlotX(r), r.Y, 320, 0.8, 0);
         }
 
         void SlideIn()
@@ -254,9 +291,10 @@ namespace Stackshot
             flashT.Step(now);
             badgeT.Step(now);
             wait.Step(now);
+            peekT.Step(now);
             if (IsDisposed) return false;
             if (repaint) Redraw();
-            return dim.Running || hoverT.Running || hotT.Running || pressT.Running || flashT.Running || badgeT.Running || wait.Running;
+            return dim.Running || hoverT.Running || hotT.Running || pressT.Running || flashT.Running || badgeT.Running || wait.Running || peekT.Running;
         }
 
         // Validates the file and records its real size. The preview is released once the thumbnail face is rendered, so
@@ -767,12 +805,15 @@ namespace Stackshot
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
+            if (tucked) { owner.Untuck(); return; }
             if (!Leaving) owner.Wheel(e.Delta);
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
+            // A press on a tucked sliver only brings the stack out.
+            if (tucked) { swallowUp = true; if (!Leaving) owner.Untuck(); return; }
             Point p = Local(e.Location);
             if (Leaving || e.Button != MouseButtons.Left || !Inside(p)) return;
             pressed = true;
@@ -793,6 +834,7 @@ namespace Stackshot
         {
             base.OnMouseMove(e);
             if (Leaving) return;
+            if (tucked) { owner.TuckTouched(); return; }
             if (swiping) { SwipeMove(); return; }
             Point p = Local(e.Location);
             bool inside = Inside(p);
@@ -840,6 +882,7 @@ namespace Stackshot
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
+            if (swallowUp) { swallowUp = false; return; }
             if (Leaving) return;
             if (swiping) { EndSwipe(); return; }
             Point p = Local(e.Location);

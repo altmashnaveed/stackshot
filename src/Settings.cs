@@ -26,6 +26,7 @@ namespace Stackshot
         public bool Sound = true;
         public bool CopyToClipboard = true;
         public bool FollowMouse = true;
+        public int StackTuck = 10;          // seconds unused before the thumbnails tuck into the screen edge (0 never)
         public bool FirstRunDone;
         // Hotkeys: one or more combos per action, comma-separated (e.g. "PrintScreen, Ctrl+Shift+Alt+4").
         public string HotRegion = "PrintScreen";
@@ -232,6 +233,7 @@ namespace Stackshot
                         case "sound": s.Sound = Bool(v, s.Sound); break;
                         case "copytoclipboard": s.CopyToClipboard = Bool(v, s.CopyToClipboard); break;
                         case "followmouse": s.FollowMouse = Bool(v, s.FollowMouse); break;
+                        case "stacktuck": { int tuck = Int(v, s.StackTuck, 0, 600); s.StackTuck = Array.IndexOf(TuckSeconds, tuck) >= 0 ? tuck : s.StackTuck; break; }
                         case "firstrundone": s.FirstRunDone = Bool(v, s.FirstRunDone); break;
                         case "region": s.HotRegion = v; break;
                         case "screen": s.HotScreen = v; break;
@@ -411,6 +413,7 @@ namespace Stackshot
             b.AppendLine("Sound = " + (Sound ? "1" : "0"));
             b.AppendLine("CopyToClipboard = " + (CopyToClipboard ? "1" : "0"));
             b.AppendLine("FollowMouse = " + (FollowMouse ? "1" : "0"));
+            b.AppendLine("StackTuck = " + StackTuck);
             b.AppendLine("# Atajos (varios separados por comas). Ejemplos: PrintScreen, Ctrl+Shift+S, Alt+F1");
             b.AppendLine("Region = " + OneLine(HotRegion));
             b.AppendLine("Screen = " + OneLine(HotScreen));
@@ -576,6 +579,7 @@ namespace Stackshot
 
         // Hotkey actions, in menu order.
         public static readonly string[] Actions = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif", "markdown" };
+        public static readonly int[] TuckSeconds = { 0, 5, 10, 30 };
 
         public string HotkeysFor(string action)
         {
