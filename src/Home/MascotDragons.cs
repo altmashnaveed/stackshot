@@ -767,8 +767,8 @@ namespace Stackshot
         // slit while it uses its power.
         void DragonEye(Graphics g, float x, float y, float D, float blink, bool surprised)
         {
-            // Big eyes are what make the Furies and Stormfly look sweet; Meatlug keeps her smaller ones.
-            float big = Look.Kind == MascotParts.KindGronckle ? 1f : 1.3f;
+            // Big eyes are what make them look sweet.
+            const float big = 1.3f;
             float k = (surprised ? 1.12f : 1f) * big, w = D * 0.1f * k, h = D * 0.112f * k * blink;
             if (h < D * 0.02f)
             {
@@ -783,12 +783,12 @@ namespace Stackshot
                 MascotParts.Stroke(g, ep, Color.FromArgb(210, 18, 18, 26), Math.Max(1f, D * 0.009f));
             }
             bool slit = now < focusUntil && !surprised;
-            float round = big > 1 ? 0.62f : 0.5f;
+            const float round = 0.62f;
             float pw = slit ? w * 0.17f : w * (surprised ? round + 0.08f : round), ph = h * (slit ? 0.86f : surprised ? round + 0.1f : round + 0.08f);
             MascotParts.Ellipse(g, Color.FromArgb(250, 12, 12, 18), x - pw / 2, y - ph / 2 + h * 0.03f, pw, ph);
             if (blink < 0.5) return;
             // Two catchlights, the big one high: the glossy look of the films' eyes.
-            float hl = big > 1 ? 0.32f : 0.27f;
+            const float hl = 0.32f;
             MascotParts.Ellipse(g, Color.FromArgb(245, 255, 255, 255), x + w * 0.02f, y - h * 0.34f, w * hl, w * hl);
             MascotParts.Ellipse(g, Color.FromArgb(180, 255, 255, 255), x - w * 0.28f, y + h * 0.1f, w * 0.13f, w * 0.13f);
         }
