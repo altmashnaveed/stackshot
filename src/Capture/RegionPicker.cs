@@ -16,7 +16,7 @@ namespace Stackshot
     // images, only what can differ between the old and the new state (the part of the area that changed and the bands
     // around both edges, labels and bars) and copies those rectangles to the window. Nothing is drawn incrementally, so
     // nothing can be left behind however fast the mouse moves.
-    public class RegionPicker : Form
+    public partial class RegionPicker : Form
     {
         public enum Mode { Image, Video, Gif, Scroll, Text }
 
@@ -277,6 +277,7 @@ namespace Stackshot
             if (rs.Count == 0) return rs;
             foreach (Rectangle r in rs) Base(back, r, Point.Empty);
             Overlay(back, Point.Empty, rs);
+            PaintTools(back, Point.Empty, rs);
             Native.GdiFlush();
             return rs;
         }
@@ -391,6 +392,7 @@ namespace Stackshot
         List<Rectangle> Parts()
         {
             List<Rectangle> p = new List<Rectangle>(6);
+            AddTools(p);
             Rectangle lit = Lit;
             if (lit.IsEmpty) return p;
             // Outside: the edge and half a handle; inside: a handle pushed in from the monitor edge.
@@ -739,8 +741,8 @@ namespace Stackshot
             foreach (Hint old in hints) { old.OnBright.Dispose(); old.OnDim.Dispose(); }
             hints.Clear();
             string text = mode == Mode.Image
-                        ? (allInOne ? "Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Despu\u00E9s eliges qu\u00E9 hacer  \u00B7  Esc: cancelar"
-                                    : "Arrastra para capturar un \u00E1rea  \u00B7  Clic: ventana o pantalla entera  \u00B7  Esc: cancelar")
+                        ? (allInOne ? "Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Despu\u00E9s eliges qu\u00E9 hacer  \u00B7  C: color  \u00B7  May\u00FAs: medir  \u00B7  Esc: cancelar"
+                                    : "Arrastra para capturar un \u00E1rea  \u00B7  Clic: ventana o pantalla entera  \u00B7  C: color  \u00B7  May\u00FAs: medir  \u00B7  Esc: cancelar")
                         : mode == Mode.Video ? "Grabar v\u00EDdeo  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Text ? "Copiar texto  \u00B7  Arrastra sobre el texto o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Gif ? "Grabar GIF  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
@@ -934,6 +936,7 @@ namespace Stackshot
             if (e.Location == cur) return;
             cur = e.Location;
             if (!curMon.Contains(cur)) TrackMonitor();
+            if (measuring) { MeasureTo(cur); Present(); return; }
             if (adjusting)
             {
                 if (grab >= 0)
@@ -964,6 +967,7 @@ namespace Stackshot
             else if (!down && UpdateHover()) changed = true;
             bool near = NearHint(cur);
             if (near != nearHint) { nearHint = near; changed = true; }
+            if (loupe) changed = true;   // the loupe follows the pointer
             if (changed) Present();
         }
 
@@ -977,6 +981,7 @@ namespace Stackshot
                 return;
             }
             if (e.Button != MouseButtons.Left) return;
+            if (!adjusting && ToolPress(e.Location)) return;
             if (adjusting)
             {
                 barDown = BarAt(e.Location);
@@ -1009,6 +1014,7 @@ namespace Stackshot
         {
             base.OnMouseUp(e);
             if (e.Button != MouseButtons.Left) return;
+            if (measuring) { measuring = false; measured = true; Present(); return; }
             if (adjusting)
             {
                 if (barDown >= 0)
@@ -1042,6 +1048,7 @@ namespace Stackshot
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
+            if (ToolKey(e.KeyCode)) return;
             int step = e.Shift ? 10 : 1;
             switch (e.KeyCode)
             {
