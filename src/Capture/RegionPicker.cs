@@ -744,7 +744,7 @@ namespace Stackshot
                         : mode == Mode.Video ? "Grabar v\u00EDdeo  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Text ? "Copiar texto  \u00B7  Arrastra sobre el texto o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Gif ? "Grabar GIF  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
-                        : "Captura con desplazamiento  \u00B7  Arrastra el \u00E1rea que se va a desplazar  \u00B7  Esc: cancelar";
+                        : "Captura con desplazamiento  \u00B7  Arrastra sobre la parte que se mueve, sin la cabecera fija  \u00B7  Esc: cancelar";
             string icon = mode == Mode.Image ? "area" : mode == Mode.Video ? "video" : mode == Mode.Gif ? "gif" : mode == Mode.Text ? "textscan" : "scroll";
             string[] parts = text.Split(new string[] { "  \u00B7  " }, StringSplitOptions.None);
             Rectangle client = new Rectangle(0, 0, bright.Width, bright.Height);

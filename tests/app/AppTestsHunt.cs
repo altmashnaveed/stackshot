@@ -66,7 +66,7 @@ namespace Stackshot.Tests
             v["XmlWatch"] = true; v["XmlWatchFolder"] = @"D:\Mensajes SOAP\entrada";
             v["CaptureCursor"] = true; v["FileNameTemplate"] = "{app} - {ventana} {fecha}"; v["SaveSubfolder"] = 2; v["SensitiveAuto"] = true; v["HistorySearch"] = false;
             v["RecordClicks"] = true; v["RecordKeys"] = true;
-            v["SaveAll"] = false; v["MascotHideFull"] = false; v["NewsSeen"] = "2.1.0";
+            v["SaveAll"] = false; v["MascotHideFull"] = false; v["NewsSeen"] = "2.1.0"; v["ScrollGuides"] = 2;
             v["WellOn"] = false; v["WellWater"] = 90; v["WellEyes"] = 20; v["WellMove"] = 45; v["WellBreathe"] = 120; v["WellToasts"] = true;
             v["WellDay"] = "2026-10-14"; v["WellDone"] = "1,2,3,4";
             v["FocusWork"] = 50; v["FocusShort"] = 10; v["FocusLong"] = 30; v["FocusRounds"] = 3; v["FocusAuto"] = true; v["FocusSound"] = false;

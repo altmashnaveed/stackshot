@@ -132,7 +132,7 @@ namespace Stackshot.Tests
             v["XmlWatch"] = true; v["XmlWatchFolder"] = @"E:\xml vigilados";
             v["CaptureCursor"] = true; v["FileNameTemplate"] = "{tipo}_{fecha}_{n}"; v["SaveSubfolder"] = 1; v["SensitiveAuto"] = true; v["HistorySearch"] = false;
             v["RecordClicks"] = true; v["RecordKeys"] = true;
-            v["SaveAll"] = false; v["MascotHideFull"] = false; v["NewsSeen"] = "2.0.0";
+            v["SaveAll"] = false; v["MascotHideFull"] = false; v["NewsSeen"] = "2.0.0"; v["ScrollGuides"] = 3;
             v["WellOn"] = false; v["WellWater"] = 45; v["WellEyes"] = 60; v["WellMove"] = 20; v["WellBreathe"] = 30; v["WellToasts"] = true;
             v["WellDay"] = "2026-10-13"; v["WellDone"] = "4,3,2,1";
             v["FocusWork"] = 40; v["FocusShort"] = 7; v["FocusLong"] = 20; v["FocusRounds"] = 6; v["FocusAuto"] = true; v["FocusSound"] = false;

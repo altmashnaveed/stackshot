@@ -120,6 +120,7 @@ namespace Stackshot
         public bool AutoUpdate = false;     // download, verify and install new versions on its own
         public string UpdateNotified = "";  // release tag already announced (each version is announced once)
         public string NewsSeen = "";        // version whose news were already told after updating to it
+        public int ScrollGuides;            // times the scrolling capture showed its first-use guide (it stops at 3)
         // Recording package: Cine options.
         public int CineFps = 60;            // 60 or 30, for any area
         public int CinePeakMemory = 0;      // memory for motion peaks: 0 normal (min(2 GiB, free/4)), 1 high (min(8 GiB, free/2))
@@ -305,6 +306,7 @@ namespace Stackshot
                         case "autoupdate": s.AutoUpdate = Bool(v, s.AutoUpdate); break;
                         case "updatenotified": s.UpdateNotified = v; break;
                         case "newsseen": s.NewsSeen = v; break;
+                        case "scrollguides": s.ScrollGuides = Int(v, 0, 0, 99); break;
                         case "video": s.HotVideo = v; break;
                         case "gif": s.HotGif = v; break;
                         case "markdown": s.HotMarkdown = v; break;
@@ -540,6 +542,7 @@ namespace Stackshot
             b.AppendLine("LastUpdateCheck = " + OneLine(LastUpdateCheck));
             b.AppendLine("UpdateNotified = " + OneLine(UpdateNotified));
             b.AppendLine("NewsSeen = " + OneLine(NewsSeen));
+            b.AppendLine("ScrollGuides = " + ScrollGuides);
             // Write to a temp file and swap it in, so a crash mid-write never leaves an empty file; the file it
             // replaces becomes the backup.
             string tmp = path + ".tmp", bak = path + ".bak";

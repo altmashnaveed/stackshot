@@ -495,6 +495,9 @@ namespace Stackshot
         readonly IntPtr target;           // top-level window under the area: Enter and Esc count only while it (or Stackshot) is in front
         long escArmed = -1;               // first Esc with something stitched: a second one within EscAgainMs discards
         const int EscAgainMs = 2500;
+        long doneArmed = -1;              // first Listo with nothing scrolled: a second one within EscAgainMs saves it as is
+        bool plainOk;                     // the user chose to keep a capture that never scrolled
+        ScrollGuide guide;
 
         public ScrollSession(ShotStack owner, Rectangle area)
         {
@@ -514,6 +517,10 @@ namespace Stackshot
         public bool Losing { get { return lost >= 3; } }
         public bool WentUp { get { long t = Interlocked.Read(ref upAt); return t >= 0 && clock.ElapsedMilliseconds - t < 1500; } }
         public bool EscArmed { get { return escArmed >= 0 && clock.ElapsedMilliseconds - escArmed < EscAgainMs; } }
+        public bool DoneArmed { get { return doneArmed >= 0 && clock.ElapsedMilliseconds - doneArmed < EscAgainMs; } }
+        public int AreaHeight { get { return area.Height; } }
+        // A few seconds in, by hand, and the page hasn't moved yet: the bar suggests Auto.
+        public bool Stuck { get { return !auto && !stopping && stitcher.Height > 0 && stitcher.Height <= area.Height && clock.ElapsedMilliseconds > 3500; } }
 
         // Keys typed into another app (a chat, a terminal) are not meant for the capture.
         bool KeysAreOurs()
@@ -531,6 +538,14 @@ namespace Stackshot
             edges = ScrollEdge.Around(area);
             bar = new ScrollCaptureBar(this, area);
             preview = ScrollPreview.Beside(area);
+            // The first few times, how it works, next to the bar.
+            Settings st = owner != null ? owner.Settings : null;
+            if (st != null && st.ScrollGuides < 3 && !ShotStack.Test)
+            {
+                st.ScrollGuides++;
+                st.Save();
+                guide = new ScrollGuide(bar.Spot, bar.AwayDown, Screen.FromRectangle(area));
+            }
             Interlocked.Exchange(ref lastGrowth, clock.ElapsedMilliseconds);
             worker = new Thread(Loop);
             worker.IsBackground = true;
@@ -541,7 +556,25 @@ namespace Stackshot
             ShotStack.Log("Captura con desplazamiento: " + area.Width + "x" + area.Height);
         }
 
+        // Listo, Enter or the hotkey. With nothing scrolled yet the first press only says so, and a second one within
+        // EscAgainMs keeps it as a plain capture: a first-timer is never handed one without knowing why.
         public void Finish()
+        {
+            if (stopping) return;
+            if (!auto && stitcher.Height <= area.Height)
+            {
+                if (!DoneArmed)
+                {
+                    doneArmed = clock.ElapsedMilliseconds;
+                    if (bar != null) bar.Invalidate();
+                    return;
+                }
+                plainOk = true;
+            }
+            End();
+        }
+
+        void End()
         {
             if (stopping) return;
             stopping = true;
@@ -552,7 +585,7 @@ namespace Stackshot
         public void Cancel()
         {
             cancelled = true;
-            Finish();
+            End();
         }
 
         public void ToggleAuto()
@@ -618,6 +651,12 @@ namespace Stackshot
                 }
             }
             if (bar != null) bar.Poll();
+            if (guide != null)
+            {
+                // Its job is done once the page moves or Auto takes over.
+                if (stopping || auto || stitcher.Height > area.Height) { guide.FadeAway(); guide = null; }
+                else guide.Poll();
+            }
             if (preview != null && !stopping && stitcher.Height != previewFor && clock.ElapsedMilliseconds - previewAt > 300)
             {
                 previewFor = stitcher.Height;
@@ -740,13 +779,18 @@ namespace Stackshot
                 if (Math.Abs(p.X - autoAt.X) <= 4 && Math.Abs(p.Y - autoAt.Y) <= 4) Cursor.Position = cursorWas.Value;
             }
             if (bar != null) bar.Close();
+            if (guide != null) { guide.Close(); guide = null; }
             if (preview != null) preview.Close();
             if (edges != null) foreach (ScrollEdge e in edges) e.Close();
             ScrollCapture.Ended(this);
             if (problem != null) owner.Notify("Captura con desplazamiento", problem);
             if (result == null) return;
             ShotStack.Log("Captura con desplazamiento: " + result.Width + "x" + result.Height);
+            bool plain = result.Height <= area.Height;
             owner.SaveCapture(result, "Desplazamiento");
+            // Auto ended without the page moving: say why it is only one screen, and what usually helps.
+            if (plain && !plainOk)
+                owner.Notify("Captura con desplazamiento", "La zona no se ha movido, as\u00ED que se ha guardado como una captura normal. Elige solo la parte que se desplaza (la lista o el texto), sin la cabecera fija.");
         }
 
         // Synthetic wheel (SendInput) and key polling without registering hotkeys.
@@ -781,19 +825,25 @@ namespace Stackshot
         double pulse;
         System.Windows.Media.Imaging.BitmapSource shadow;
 
+        // Where the bar settles (body, screen pixels), and whether the side away from the area is below it.
+        public readonly Rectangle Spot;
+        public readonly bool AwayDown;
+
         public ScrollCaptureBar(ScrollSession session, Rectangle area)
         {
             this.session = session;
             Screen scr = Screen.FromRectangle(area);
             s = ShotStack.ScaleFor(scr);
             Pad = P(22);
-            Size sz = new Size(P(400), P(48));
+            Size sz = new Size(P(480), P(48));
             Rectangle wa = scr.WorkingArea;
             int x = area.X + (area.Width - sz.Width) / 2;
             int y = area.Bottom + P(14);
             if (y + sz.Height > wa.Bottom) y = area.Top - sz.Height - P(14);
             if (y < wa.Top) y = area.Bottom - sz.Height - P(18); // full-screen area: place it inside (it is excluded from the capture anyway)
             x = Math.Max(wa.Left + P(8), Math.Min(wa.Right - sz.Width - P(8), x));
+            Spot = new Rectangle(x, y, sz.Width, sz.Height);
+            AwayDown = y >= area.Bottom;
             SetSize(sz);
             JumpTo(x, y + P(10));
             ShowQuiet();
@@ -813,7 +863,7 @@ namespace Stackshot
         {
             pulse += 0.04;
             string state = State();
-            if (session.Height == shownHeight && state == shownState && !session.Auto && !saving) return;
+            if (session.Height == shownHeight && state == shownState && !session.Auto && !session.Stuck && !saving) return;
             Redraw();
         }
 
@@ -821,11 +871,26 @@ namespace Stackshot
         {
             if (saving) return "Componiendo\u2026";
             if (session.EscArmed) return "Esc otra vez para descartar";
+            if (session.DoneArmed) return "No has bajado \u00B7 Listo otra vez la guarda";
             if (session.Full) return "Altura m\u00E1xima";
             if (session.WentUp) return "Solo hacia abajo";
             if (session.Losing) return "M\u00E1s despacio";
+            // What the button under the mouse does.
+            if (hot == 0) return session.Auto ? "Pausa: paro y sigues t\u00FA con la rueda" : "Auto: bajo yo solo, poco a poco";
+            if (hot == 1) return "Listo: guarda la captura (Enter)";
+            if (hot == 2) return "Cancela sin guardar (Esc)";
             if (session.Auto) return "Bajando solo\u2026";
+            if (session.Stuck) return "\u00BFNo baja? Pulsa Auto";
             return "Baja con la rueda \u00B7 Enter termina";
+        }
+
+        // "2,5 pantallas \u00B7 2.140 px": how far it has gone, in screens of the area.
+        string HeightText(int h)
+        {
+            if (h <= 0) return "Preparando\u2026";
+            double screens = (double)h / Math.Max(1, session.AreaHeight);
+            string sc = screens < 1.05 ? "1 pantalla" : screens.ToString("0.#", Es) + " pantallas";
+            return sc + " \u00B7 " + h.ToString("N0", Es) + " px";
         }
 
         // Layout in body coordinates.
@@ -866,10 +931,10 @@ namespace Stackshot
             Glyph.Draw(dc, "down", ic.X + (ic.Width - gs) / 2, cy - gs / 2 + P(1), gs, Palette.OnHudFill(white), Math.Max(1.6, 2 * s));
 
             int tx = P(50), tw = AutoRect().X - tx - P(8);
-            string hs = shownHeight > 0 ? shownHeight.ToString("N0", Es) + " px" : "Preparando\u2026";
+            string hs = HeightText(shownHeight);
             System.Windows.Media.FormattedText ht = Line(hs, Ds.Semibold, P(14), white, tw);
             dc.DrawText(ht, new System.Windows.Point(tx, Math.Round(cy - ht.Height + P(2))));
-            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed || session.WentUp ? Palette.HudDanger : dim;
+            System.Windows.Media.Color sc = session.Losing || session.Full || session.EscArmed || session.DoneArmed || session.WentUp ? Palette.HudDanger : dim;
             System.Windows.Media.FormattedText st = Line(shownState, Ds.Regular, P(11.5f), sc, tw);
             dc.DrawText(st, new System.Windows.Point(tx, Math.Round(cy + P(1))));
             if (!saving)
@@ -877,8 +942,15 @@ namespace Stackshot
                 System.Windows.Rect ar = R(AutoRect());
                 System.Windows.Media.Color autoInk = session.Auto ? Ds.Rgb(120, 180, 255) : white, doneInk = white;
                 if (Ds.Brushes.High) autoInk = HcPaint.Button(dc, ar, ar.Height / 2, session.Auto ? ButtonKind.Primary : ButtonKind.Secondary, true, hot == 0 ? 1 : 0, 0, 1);
-                else Ink.Round(dc, session.Auto ? Ds.Argb(0.22, 10, 132, 255) : hot == 0 ? Palette.HudHover : Ds.Argb(0.10, 255, 255, 255), ar, ar.Height / 2);
-                if (session.Auto && !Ds.Brushes.High)
+                else
+                {
+                    // Stuck: Auto breathes in the accent so it is found.
+                    double beat = 0.5 + 0.5 * Math.Cos(pulse * Math.PI * 2 / 1.2);
+                    System.Windows.Media.Color fill = session.Auto ? Ds.Argb(0.22, 10, 132, 255) : hot == 0 ? Palette.HudHover
+                                                    : session.Stuck ? Ds.Argb(0.12 + 0.22 * beat, 10, 132, 255) : Ds.Argb(0.10, 255, 255, 255);
+                    Ink.Round(dc, fill, ar, ar.Height / 2);
+                }
+                if ((session.Auto || session.Stuck) && !Ds.Brushes.High)
                 {
                     System.Windows.Media.Pen pen = new System.Windows.Media.Pen(Ds.Brush(Ds.WithAlpha(accent, 0.9)), 1);
                     pen.Freeze();
@@ -935,6 +1007,86 @@ namespace Stackshot
             if (AutoRect().Contains(p)) session.ToggleAuto();
             else if (DoneRect().Contains(p)) session.Finish();
             else if (CancelRect().Contains(p)) session.Cancel();
+        }
+    }
+
+    // First-use guide beside the bar, on the side away from the area: a mouse whose wheel rolls down, and what to do.
+    // It leaves as soon as the page moves, Auto starts or the capture ends. Excluded from the capture like the bar.
+    class ScrollGuide : FloatWindow
+    {
+        double phase;
+        bool leaving;
+        System.Windows.Media.Imaging.BitmapSource shadow;
+
+        public ScrollGuide(Rectangle bar, bool awayDown, Screen scr)
+        {
+            s = ShotStack.ScaleFor(scr);
+            Pad = P(22);
+            Size sz = new Size(bar.Width, P(60));
+            Rectangle wa = scr.WorkingArea;
+            int gap = P(8);
+            int y = awayDown ? bar.Bottom + gap : bar.Top - gap - sz.Height;
+            if (y < wa.Top || y + sz.Height > wa.Bottom) y = awayDown ? bar.Top - gap - sz.Height : bar.Bottom + gap;
+            SetSize(sz);
+            JumpTo(bar.X, y + (awayDown ? -P(8) : P(8)));
+            ShowQuiet();
+            alpha.Go(1, 260, 140, Ease.OutCubic, null);
+            MoveTo(bar.X, y, 320, 0.8, 140);
+        }
+
+        protected override bool PerPixel { get { return true; } }
+
+        // Called every 40 ms by the session while it shows.
+        public void Poll()
+        {
+            if (leaving || Ds.Brushes.High) return;
+            phase += 0.04 / 1.3;
+            Redraw();
+        }
+
+        public void FadeAway()
+        {
+            if (leaving) return;
+            leaving = true;
+            alpha.Go(0, 220, 0, Ease.OutCubic, delegate { if (!IsDisposed) Close(); });
+            Anim.Wake(this);
+        }
+
+        protected override void PaintSurface(System.Windows.Media.DrawingContext dc, int w, int h)
+        {
+            if (shadow == null)
+                shadow = Ink.Shadow(w, h, new System.Windows.Rect(Pad, Pad + P(5), body.Width, body.Height), P(14), P(16), Ds.Argb(0.40, 0, 0, 0));
+            if (!Ds.Brushes.High) dc.DrawImage(shadow, new System.Windows.Rect(0, 0, w, h));
+            dc.PushTransform(new System.Windows.Media.TranslateTransform(Pad, Pad));
+            System.Windows.Rect b = new System.Windows.Rect(0, 0, body.Width, body.Height);
+            Ink.Round(dc, Palette.HudBack(Ds.Argb(0.93, 30, 30, 32)), b, P(14));
+            Ink.Hairline(dc, Palette.HudLine, b, P(14));
+            System.Windows.Media.Color white = Palette.HudLabel, dim = Palette.HudLabel2, accent = Palette.HudFill(Ds.Rgb(10, 132, 255));
+
+            // The mouse, its wheel rolling down and fading as it goes, and an arrow sliding under it.
+            double mw = P(20), mh = P(30), mx = P(16), my = (body.Height - mh) / 2.0;
+            System.Windows.Media.Pen outline = new System.Windows.Media.Pen(Ds.Brush(white), Math.Max(1.3, 1.5 * s));
+            outline.Freeze();
+            dc.DrawRoundedRectangle(null, outline, new System.Windows.Rect(mx, my, mw, mh), mw / 2, mw / 2);
+            double t = phase % 1.0, e = t * t * (3 - 2 * t);
+            dc.DrawRoundedRectangle(Ds.Brush(Ds.WithAlpha(accent, 0.3 + 0.7 * (1 - t))), null,
+                                    new System.Windows.Rect(mx + mw / 2 - P(2), my + P(5) + P(6) * e, P(4), P(7)), P(2), P(2));
+            double gs = P(14);
+            Glyph.Draw(dc, "down", mx + mw + P(6), body.Height / 2.0 - gs / 2 - P(3) + P(6) * e, gs, Ds.WithAlpha(white, 0.25 + 0.65 * (1 - t)), Math.Max(1.4, 1.8 * s));
+
+            double tx = P(66), tw = body.Width - tx - P(14);
+            System.Windows.Media.FormattedText title = Ink.Px("Baja despacio con la rueda del rat\u00F3n", Ds.Semibold, P(13), white);
+            title.MaxTextWidth = Math.Max(1, tw);
+            title.MaxLineCount = 1;
+            title.Trimming = System.Windows.TextTrimming.CharacterEllipsis;
+            System.Windows.Media.FormattedText sub = Ink.Px("O pulsa Auto y bajo yo. Cuando llegues al final, Listo o Enter.", Ds.Regular, P(11.5f), dim);
+            sub.MaxTextWidth = Math.Max(1, tw);
+            sub.MaxLineCount = 1;
+            sub.Trimming = System.Windows.TextTrimming.CharacterEllipsis;
+            double top = (body.Height - title.Height - sub.Height - P(2)) / 2;
+            dc.DrawText(title, new System.Windows.Point(tx, Math.Round(top)));
+            dc.DrawText(sub, new System.Windows.Point(tx, Math.Round(top + title.Height + P(2))));
+            dc.Pop();
         }
     }
 
