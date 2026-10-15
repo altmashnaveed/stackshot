@@ -126,7 +126,8 @@ namespace Stackshot
             // times 0: like a live selection, until the mouse leaves.
             void March(double delay, int times)
             {
-                if (Ds.Brushes.High || !HomeMotion()) return;
+                // Under the mouse they march even with Windows animations off: it answers the pointer, like a selection does.
+                if (Ds.Brushes.High || (times > 0 && !HomeMotion())) return;
                 DoubleAnimation a = new DoubleAnimation(0, -Period, TimeSpan.FromMilliseconds(900))
                 {
                     BeginTime = TimeSpan.FromMilliseconds(delay), RepeatBehavior = times > 0 ? new RepeatBehavior(times) : RepeatBehavior.Forever
