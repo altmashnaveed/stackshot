@@ -91,19 +91,33 @@ namespace Stackshot
                     }
                     break;
                 case KindGrogu:
+                    // Long ears reaching out to the sides and a little up, pink inside.
                     foreach (int s in Sides)
-                        SoftEar(g, D, s * 0.27f * D, -0.1f * D, (float)(s * (98 + (s < 0 ? p.EarL : p.EarR) * 0.5)), 0.34f, 0.5f,
-                                Lighter(c1, 0.05), c2, Color.FromArgb(190, 226, 186, 176));
+                        SoftEar(g, D, s * 0.26f * D, -0.12f * D, (float)(s * (80 + (s < 0 ? p.EarL : p.EarR) * 0.5)), 0.44f, 0.46f,
+                                Lighter(c1, 0.06), c2, Color.FromArgb(215, 236, 176, 172));
                     break;
                 case KindEevee:
                     EeveeTail(g, D, c1, c2, p.Now, p.Fx);
+                    // Big ears opening out to the sides, dark brown inside.
                     foreach (int s in Sides)
-                        SoftEar(g, D, s * 0.17f * D, -0.24f * D, (float)(s * (24 + (s < 0 ? p.EarL : p.EarR))), 0.3f, 0.5f,
-                                Lighter(c1, 0.05), c2, Color.FromArgb(200, Darker(c2, 0.35)));
+                        SoftEar(g, D, s * 0.19f * D, -0.24f * D, (float)(s * (36 + (s < 0 ? p.EarL : p.EarR))), 0.34f, 0.6f,
+                                Lighter(c1, 0.05), c2, Color.FromArgb(225, 92, 58, 34));
                     break;
                 case KindCharmander:
                     CharTail(g, D, c1, c2, p.Now, p.Fx);
+                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2);
                     break;
+            }
+        }
+
+        // A small round foot peeking out under the body.
+        static void Foot(Graphics g, float D, int s, Color a, Color b)
+        {
+            RectangleF f = new RectangleF(s * 0.15f * D - 0.085f * D, 0.255f * D, 0.17f * D, 0.095f * D);
+            using (GraphicsPath fp = new GraphicsPath())
+            {
+                fp.AddEllipse(f);
+                Fill(g, fp, f, a, b, 90f);
             }
         }
 
@@ -260,15 +274,27 @@ namespace Stackshot
                 }
                 case KindEevee:
                 {
-                    float ny = geo.NeckY * D + 0.01f * D;
+                    // The fluffy mane on its chest: low, wider than the body, with tufts falling from it.
+                    float cy = 0.215f * D;
+                    Color cream1 = Color.FromArgb(253, 248, 234), cream2 = Color.FromArgb(228, 208, 172);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        GraphicsState st = g.Save();
+                        g.TranslateTransform((-0.21f + i * 0.14f) * D, cy + 0.045f * D);
+                        g.RotateTransform(180 + (i - 1.5f) * 14);
+                        using (GraphicsPath t = Leaf(0.07f * D, 0.09f * D, D)) Fill(g, t, new RectangleF(-0.07f * D, -0.09f * D, 0.14f * D, 0.1f * D), cream2, cream1, 90f);
+                        g.Restore(st);
+                    }
                     using (GraphicsPath ruff = new GraphicsPath(FillMode.Winding))
                     {
-                        for (int i = 0; i < 5; i++)
+                        for (int i = 0; i < 7; i++)
                         {
-                            float x = (-0.2f + i * 0.1f) * D, r = (i == 2 ? 0.085f : 0.07f) * D;
-                            ruff.AddEllipse(x - r, ny - r * 0.7f, r * 2, r * 2);
+                            float t = (i - 3) / 3f, x = t * 0.3f * D, r = (0.085f - Math.Abs(t) * 0.02f) * D, y = cy - Math.Abs(t) * 0.03f * D;
+                            ruff.AddEllipse(x - r, y - r, r * 2, r * 2);
                         }
-                        Fill(g, ruff, new RectangleF(-0.3f * D, ny - 0.07f * D, 0.6f * D, 0.17f * D), Color.FromArgb(252, 244, 226), Color.FromArgb(226, 204, 168), 90f);
+                        RectangleF rb = new RectangleF(-0.38f * D, cy - 0.1f * D, 0.76f * D, 0.2f * D);
+                        Fill(g, ruff, rb, cream1, cream2, 90f);
+                        Stroke(g, ruff, Color.FromArgb(60, 160, 128, 90), D * 0.006f);
                     }
                     Ellipse(g, Color.FromArgb(200, 70, 44, 30), -0.016f * D, fy + 0.055f * D, 0.032f * D, 0.022f * D);
                     break;

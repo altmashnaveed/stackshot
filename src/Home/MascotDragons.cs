@@ -775,10 +775,34 @@ namespace Stackshot
             }
         }
 
+        // Kirby's eyes: tall ovals, black at the top turning blue at the bottom, with a white shine high up.
+        void KirbyEye(Graphics g, float x, float y, float D, float blink, bool surprised)
+        {
+            float k = surprised ? 1.1f : 1f, w = D * 0.075f * k, h = D * 0.16f * k * blink;
+            if (h < D * 0.02f)
+            {
+                MascotParts.Line(g, Color.FromArgb(230, 20, 20, 34), Math.Max(1.2f, D * 0.02f), x - w * 0.6f, y, x + w * 0.6f, y);
+                return;
+            }
+            RectangleF r = new RectangleF(x - w / 2, y - h / 2, w, h);
+            using (GraphicsPath ep = Ellipse(r))
+            using (LinearGradientBrush b = new LinearGradientBrush(RectangleF.Inflate(r, 1, 1), Color.FromArgb(14, 14, 26), Color.FromArgb(44, 92, 214), 90f))
+            {
+                ColorBlend cb = new ColorBlend();
+                cb.Colors = new Color[] { Color.FromArgb(14, 14, 26), Color.FromArgb(16, 18, 40), Color.FromArgb(52, 104, 226) };
+                cb.Positions = new float[] { 0f, 0.55f, 1f };
+                b.InterpolationColors = cb;
+                g.FillPath(b, ep);
+            }
+            if (blink < 0.5) return;
+            MascotParts.Ellipse(g, Color.FromArgb(250, 255, 255, 255), x - w * 0.32f, y - h * 0.4f, w * 0.64f, h * 0.36f);
+        }
+
         // Dragon eyes: a coloured iris with a dark pupil, big and round when relaxed or surprised (the cute look), a thin
         // slit while it uses its power.
         void DragonEye(Graphics g, float x, float y, float D, float blink, bool surprised)
         {
+            if (Look.Kind == MascotParts.KindKirby) { KirbyEye(g, x, y, D, blink, surprised); return; }
             // Big eyes are what make them look sweet.
             const float big = 1.3f;
             float k = (surprised ? 1.12f : 1f) * big, w = D * 0.1f * k, h = D * 0.112f * k * blink;
