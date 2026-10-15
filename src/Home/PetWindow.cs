@@ -1760,7 +1760,7 @@ namespace Stackshot
             // on screen, over the mascot, and loses the arrow that would point at nothing.
             float top = wa.Top - wy + 6 * s;
             menuDown = y < top;
-            if (menuDown) y = Math.Min(top, H - h - 4 * s);
+            if (menuDown) y = top;   // its top edge always on screen; the window is tall enough below
             // On whole pixels, so its text, border and separators are sharp at any scale (125 %, 150 %...).
             menuRect = new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Round(w), (float)Math.Ceiling(h));
             return menuRect;

@@ -28,7 +28,7 @@ namespace Stackshot
                 if (Talks && Chatter > 0) Say(rnd.NextDouble() < 0.5 ? "Un cafecito para empezar." : "\u00A1Buenos d\u00EDas! Primero, caf\u00E9.", 2600);
                 return true;
             }
-            if ((h >= 22 || h < 6) && (Alone & MascotCmd.AloneSmall) != 0 && rnd.NextDouble() < 0.35)
+            if ((h >= 22 || h < 6) && (Alone & MascotCmd.AloneSmall) != 0 && lastAlone != AloneWink && rnd.NextDouble() < 0.35)
             {
                 Remember(AloneWink);
                 SetMood(Mood.Yawn, 1500);

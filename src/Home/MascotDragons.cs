@@ -521,6 +521,8 @@ namespace Stackshot
                 default: power = TributePower(); break;
             }
             if (power == 0) return;
+            hideUntil = 0;   // a power asked again starts clean
+            fireUntil = 0;
             powerStart = now;
             powerStage = 0;
             lastEmit = 0;
@@ -565,7 +567,7 @@ namespace Stackshot
                             Emit('q', bx, by, Math.Cos(a) * v, Math.Sin(a) * v, 520, 0.022 + rnd.NextDouble() * 0.018);
                         }
                     }
-                    if (t > 1700) powerStart = -1;
+                    if (t > 1700 && powerStage >= 2) powerStart = -1;
                     break;
                 case MascotParts.PowerVanish:
                     // A shimmer, gone for a moment, then back in a sparkle.
@@ -581,7 +583,7 @@ namespace Stackshot
                         Sparkles(0, -0.05, 12);
                         SetMood(Mood.Wink, 1200);
                     }
-                    if (t > 1900) powerStart = -1;
+                    if (t > 1900 && powerStage >= 2) powerStart = -1;
                     break;
                 case MascotParts.PowerSpines:
                     // A flick of the tail and a fan of spines into the air.
@@ -639,7 +641,7 @@ namespace Stackshot
                         jumpV += 0.6;
                         SetMood(Mood.Happy, 1400);
                     }
-                    if (t > 2600) powerStart = -1;
+                    if (t > 2600 && powerStage >= 5) powerStart = -1;
                     break;
                 default:
                     TributeStep(t, my);

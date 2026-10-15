@@ -494,7 +494,7 @@ namespace Stackshot
                         jumpV -= 0.8;
                         SetMood(Mood.Happy, 1200);
                     }
-                    if (t > 2400) powerStart = -1;
+                    if (t > 2400 && powerStage >= 2) powerStart = -1;
                     break;
                 case MascotParts.PowerForce:
                     // A hand up, eyes closed in focus, a stone rising beside it; then a yawn, it was tiring.
@@ -506,7 +506,7 @@ namespace Stackshot
                         Emit('k', 0.42 * dir, 0.34, 0, -0.18, 2000, 0.075);
                     }
                     else if (powerStage == 1 && t >= 2050) { powerStage = 2; SetMood(Mood.Yawn, 1500); }
-                    if (t > 3600) powerStart = -1;
+                    if (t > 3600 && powerStage >= 2) powerStart = -1;
                     break;
                 case MascotParts.PowerRoll:
                     // A happy roll with a burst of stars.
