@@ -606,8 +606,54 @@ namespace Stackshot
             PaintShadow(dc, w, h);
             dc.PushTransform(new M.TranslateTransform(Pad, Pad));
             PaintBody(dc, ForceHover ? 1 : hoverT.Value);
+            if (mergeKind != 0) PaintMergeHint(dc);
             dc.Pop();
             if (cut > 0) dc.Pop();
+        }
+
+        // ---- Joining two captures: the card a thumbnail is dragged over says whether they can be joined.
+
+        int mergeKind;   // 0 none, 1 "Unir", 2 "Solo imágenes"
+
+        public void MergeHint(int kind)
+        {
+            if (kind == mergeKind || IsDisposed) return;
+            mergeKind = kind;
+            Redraw();
+        }
+
+        // The pointer is on its body (screen pixels).
+        public bool HitBody(Point p)
+        {
+            return new Rectangle((int)Math.Round(x), (int)Math.Round(y), body.Width, body.Height).Contains(p);
+        }
+
+        public void Say(string text, bool good) { Flash(text, good); }
+
+        // A quick dip and back, as the two captures go into one.
+        public void Pulse()
+        {
+            if (IsDisposed || Leaving) return;
+            dim.Go(0.5, 110, 0, Ease.OutCubic, delegate { if (!IsDisposed) dim.Go(1, 260, 0, Ease.OutCubic, null); });
+            Anim.Wake(this);
+        }
+
+        void PaintMergeHint(M.DrawingContext dc)
+        {
+            bool ok = mergeKind == 1;
+            double R = P((float)Ds.RCard);
+            W.Rect b = new W.Rect(0, 0, body.Width, body.Height);
+            M.Color accent = ok ? Ds.Brushes.Accent : Ds.Rgb(142, 142, 147);
+            dc.DrawRoundedRectangle(Ds.Brush(Ds.WithAlpha(accent, 0.18)), null, b, R, R);
+            M.Pen ring = new M.Pen(Ds.Brush(accent), Math.Max(2, P(3)));
+            ring.Freeze();
+            b.Inflate(-P(1.5f), -P(1.5f));
+            dc.DrawRoundedRectangle(null, ring, b, R, R);
+            M.FormattedText t = Ink.Px(ok ? "Unir" : "Solo im\u00E1genes", Ds.Semibold, P(13), M.Colors.White);
+            double pw = t.Width + P(22), ph = P(28);
+            W.Rect pill = new W.Rect((body.Width - pw) / 2, (body.Height - ph) / 2, pw, ph);
+            dc.DrawRoundedRectangle(Ds.Brush(ok ? Ds.Brushes.AccentDeep : Ds.Rgb(72, 72, 76)), null, pill, ph / 2, ph / 2);
+            dc.DrawText(t, new W.Point(pill.X + (pw - t.Width) / 2, pill.Y + (ph - t.Height) / 2));
         }
 
         void PaintBody(M.DrawingContext dc, double h)
@@ -1030,6 +1076,7 @@ namespace Stackshot
             try
             {
                 Point grab = pressPt;
+                owner.MergeWatch(this);
                 Bitmap ghost;
                 int w = Math.Max(1, body.Width), h = Math.Max(1, body.Height);
                 MI.RenderTargetBitmap flat = Ink.Render(w, h, delegate(M.DrawingContext dc)
@@ -1044,6 +1091,8 @@ namespace Stackshot
             }
             catch (Exception ex) { ShotStack.Log("Arrastrar: " + ex.Message); }
             dragging = false;
+            // Let go over another thumbnail: they join (or it says why not).
+            owner.MergeEnd(this, result == DragDropEffects.None);
             if (IsDisposed) return;
             if (closeAfterDrag) { Close(); return; }
             // Dropped into another app: done, remove it.
