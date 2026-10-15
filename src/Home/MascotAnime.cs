@@ -152,6 +152,7 @@ namespace Stackshot
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
         // every Pokemon or every dragon sit together. Only the order shown: the indices the settings store stay.
         static int[] animeOrder;
+        static readonly string[,] Beside = { { "Champiñón 1-Up", "Champiñón" } };
         public static int[] AnimeOrder
         {
             get
@@ -163,6 +164,14 @@ namespace Stackshot
                 foreach (string s in series)
                     for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
                 for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == null) o.Add(i);
+                // Variants sit right next to the one they come from (the green 1-Up beside the red mushroom).
+                for (int k = 0; k < Beside.GetLength(0); k++)
+                {
+                    int v = Array.IndexOf(AnimeNames, Beside[k, 0]), b = Array.IndexOf(AnimeNames, Beside[k, 1]);
+                    if (v < 0 || b < 0) continue;
+                    o.Remove(v);
+                    o.Insert(o.IndexOf(b) + 1, v);
+                }
                 animeOrder = o.ToArray();
                 return animeOrder;
             }
