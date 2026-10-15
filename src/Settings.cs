@@ -26,7 +26,7 @@ namespace Stackshot
         public bool Sound = true;
         public bool CopyToClipboard = true;
         public bool FollowMouse = true;
-        public int StackTuck = 10;          // seconds unused before the thumbnails tuck into the screen edge (0 never)
+        public int StackTuck = 5;           // seconds unused before the thumbnails tuck into the screen edge (0 never)
         public bool FirstRunDone;
         // Hotkeys: one or more combos per action, comma-separated (e.g. "PrintScreen, Ctrl+Shift+Alt+4").
         public string HotRegion = "PrintScreen";
@@ -579,7 +579,7 @@ namespace Stackshot
 
         // Hotkey actions, in menu order.
         public static readonly string[] Actions = { "region", "repeat", "screen", "window", "scroll", "text", "video", "gif", "markdown" };
-        public static readonly int[] TuckSeconds = { 0, 5, 10, 30 };
+        public static readonly int[] TuckSeconds = { 0, 3, 5, 10 };
 
         public string HotkeysFor(string action)
         {

@@ -11,16 +11,16 @@ namespace Stackshot
 {
     public partial class ShotStack
     {
-        readonly Timer tuckTimer = new Timer { Interval = 400 };
+        readonly Timer tuckTimer = new Timer { Interval = 250 };
         bool tucked, tuckHooked, peeked;   // peeked: brought out by the pointer, not by a new capture
-        const double PeekBackMs = 2500;
+        const double PeekBackMs = 1500;
         double tuckActive;            // last time the stack was in use (Anim.Now)
         Point tuckMouse;              // where the pointer was when they tucked: a card sliding under a still pointer isn't a touch
 
         public bool Tucked { get { return tucked; } }
 
         // The left edge of the stack's monitor, where tucked cards hide.
-        public int TuckEdge { get { return AnchorScreen().Bounds.Left; } }
+        public int TuckEdge { get { return AnchorScreen().WorkingArea.Left; } }
 
         // The stack was used just now (a new card, the pointer over it): it stays out a while longer.
         void TuckAwake()
@@ -53,7 +53,6 @@ namespace Stackshot
             if (peeked) wait = Math.Min(wait, PeekBackMs);
             if (Anim.Now - tuckActive < wait) return;
             Screen scr = AnchorScreen();
-            if (!CanTuck(scr)) return;
             tuckTimer.Stop();
             tucked = true;
             tuckMouse = Control.MousePosition;
@@ -61,13 +60,14 @@ namespace Stackshot
             // Top to bottom, a beat apart.
             int order = 0;
             for (int i = cards.Count - 1; i >= 0; i--)
-                if (!cards[i].Parked && !cards[i].Leaving) cards[i].Tuck(true, scr.Bounds.Left, 34 * order++);
+                if (!cards[i].Parked && !cards[i].Leaving) cards[i].Tuck(true, scr.WorkingArea.Left, 20 * order++);
             // Once they are in, a tab beside them says they are there and how many.
-            PlaceTab(34 * order + 260);
+            PlaceTab(20 * order + 200);
             Log("Miniaturas escondidas en el borde");
         }
 
         TuckTab tab;
+        double tabDelay;              // for the next placement of the tab (after a move to another monitor)
 
         // The tab beside the tucked cards: centred on them, with the number of captures in the stack.
         void PlaceTab(double delay)
@@ -83,7 +83,7 @@ namespace Stackshot
             if (top > bottom) { HideTab(); return; }
             Screen scr = AnchorScreen();
             if (tab == null || tab.IsDisposed) tab = new TuckTab(this);
-            tab.Show(scr, scr.Bounds.Left, (top + bottom) / 2, cards.Count, delay);
+            tab.Show(scr, scr.WorkingArea.Left, (top + bottom) / 2, cards.Count, delay);
         }
 
         void HideTab()
@@ -111,24 +111,10 @@ namespace Stackshot
             List<Card> shown = new List<Card>();
             foreach (Card c in cards) if (!c.Parked && !c.Leaving) shown.Add(c);
             shown.Sort(delegate(Card a, Card b) { return Math.Abs(a.Middle - my).CompareTo(Math.Abs(b.Middle - my)); });
-            for (int i = 0; i < shown.Count; i++) shown[i].Tuck(false, 0, 22 * i);
+            for (int i = 0; i < shown.Count; i++) shown[i].Tuck(false, 0, 14 * i);
             foreach (Card c in cards) if (c.Parked || c.Leaving) c.Tuck(false, 0, 0);
             ToastsFollowStack();   // notices make room for the cards again
             TuckAwake();
-        }
-
-        // Only where nothing would show the hidden part: no taskbar on the left and no monitor right next to that edge.
-        static bool CanTuck(Screen scr)
-        {
-            Rectangle b = scr.Bounds;
-            if (scr.WorkingArea.Left > b.Left) return false;
-            foreach (Screen o in Screen.AllScreens)
-            {
-                if (o.DeviceName == scr.DeviceName) continue;
-                Rectangle r = o.Bounds;
-                if (r.Left < b.Left && r.Right >= b.Left - 2 && r.Bottom > b.Top && r.Top < b.Bottom) return false;
-            }
-            return true;
         }
     }
 

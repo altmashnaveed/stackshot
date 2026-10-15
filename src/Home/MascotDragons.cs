@@ -21,6 +21,7 @@ namespace Stackshot
         static readonly Color Bone = Color.FromArgb(246, 236, 214), BoneDeep = Color.FromArgb(190, 164, 124);
         static readonly Color Prosthetic = Color.FromArgb(208, 40, 44), ProstheticDeep = Color.FromArgb(128, 18, 24);
         static readonly Color PearlA = Color.FromArgb(252, 253, 255), PearlB = Color.FromArgb(198, 210, 234), PearlLine = Color.FromArgb(150, 168, 204);
+        static readonly Color PearlWing = Color.FromArgb(206, 214, 244);   // the Light Fury's wings: pearl with a hint of lilac
 
         public static bool IsDragon(int kind) { return kind >= KindNightFury && kind <= KindGronckle; }
 
@@ -85,20 +86,20 @@ namespace Stackshot
                 case KindLightFury:
                 {
                     bool light = l.Kind == KindLightFury;
-                    FuryTail(g, D, c2, p.Now, light);
-                    Color m1 = light ? PearlA : Lighter(c2, 0.2), m2 = light ? PearlB : Darker(c2, 0.1), edge = light ? PearlLine : Darker(c2, 0.45);
-                    foreach (int s in Sides) DragonWing(g, D, s, m1, m2, edge, edge, p.Now, p.Sleeping, 1f, 300, 9, false);
+                    FuryTail(g, D, c1, c2, p.Now, light);
+                    Color m1 = light ? PearlA : Lighter(c2, 0.22), m2 = light ? PearlWing : Darker(c2, 0.05), edge = light ? PearlLine : Darker(c2, 0.4);
+                    foreach (int s in Sides) DragonWing(g, D, s, m1, m2, edge, Color.FromArgb(150, edge), p.Now, p.Sleeping, 0.8f, 320, 8, false);
                     foreach (int s in Sides) FuryEars(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR, light);
                     break;
                 }
                 case KindNadder:
-                    NadderTail(g, D, c2, p.Now);
-                    foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.1), c2, NadderGold, Darker(c2, 0.3), p.Now, p.Sleeping, 0.9f, 260, 11, false);
+                    NadderTail(g, D, c1, c2, p.Now);
+                    foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.15), c2, NadderGold, Color.FromArgb(140, Darker(c2, 0.3)), p.Now, p.Sleeping, 0.78f, 280, 10, false);
                     NadderCrest(g, D, p);
                     break;
                 case KindNightmare:
-                    NightmareTail(g, D, c2, p.Now);
-                    foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.05), Darker(c2, 0.1), Darker(c2, 0.45), Darker(c2, 0.4), p.Now, p.Sleeping, 1.05f, 280, 10, true);
+                    NightmareTail(g, D, c1, c2, p.Now);
+                    foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.08), Darker(c2, 0.05), Darker(c2, 0.4), Color.FromArgb(150, Darker(c2, 0.4)), p.Now, p.Sleeping, 0.85f, 300, 9, true);
                     foreach (int s in Sides) NightmareHorn(g, D, s, s < 0 ? p.EarL : p.EarR);
                     foreach (int s in Sides) JawSpines(g, D, s, c2);
                     break;
@@ -123,7 +124,8 @@ namespace Stackshot
             using (GraphicsPath w = new GraphicsPath())
             {
                 w.AddBezier(P(0, -0.03f * D), P(s * 0.1f * D, -0.2f * D), P(s * 0.26f * D, -0.31f * D), tip);
-                w.AddLine(tip, f1);
+                // A rounded wingtip: softer, friendlier than a point.
+                w.AddBezier(tip, P(s * 0.45f * D, -0.29f * D), P(s * 0.46f * D, -0.14f * D), f1);
                 w.AddBezier(f1, P(s * 0.37f * D, -0.08f * D), P(s * 0.31f * D, -0.05f * D), f2);
                 w.AddBezier(f2, P(s * 0.23f * D, -0.02f * D), P(s * 0.17f * D, 0), f3);
                 w.AddBezier(f3, P(s * 0.1f * D, 0.02f * D), P(s * 0.05f * D, 0.04f * D), root);
@@ -145,10 +147,12 @@ namespace Stackshot
 
         // Toothless's ear plates: a big one on top of each side of the head and a smaller one under it; they perk up and
         // twitch with the ears. The Light Fury's are smaller and sleeker.
+        // Toothless's ear plates: rounded flaps falling out to the sides of the head, a big one and a smaller one under it;
+        // they twitch with the ears. The Light Fury's are smaller and lie further back.
         static void FuryEars(Graphics g, float D, int s, Color c1, Color c2, double twitch, bool light)
         {
-            EarPlate(g, D, s * 0.16f * D, -0.27f * D, (float)(s * (26 + twitch * 1.2)), light ? 0.19f : 0.25f, c1, c2, light);
-            EarPlate(g, D, s * 0.27f * D, -0.17f * D, (float)(s * (60 + twitch * 0.8)), light ? 0.12f : 0.16f, c1, c2, light);
+            EarPlate(g, D, s * 0.15f * D, -0.25f * D, (float)(s * ((light ? 64 : 52) + twitch * 1.1)), light ? 0.15f : 0.2f, c1, c2, light);
+            EarPlate(g, D, s * 0.25f * D, -0.14f * D, (float)(s * ((light ? 92 : 84) + twitch * 0.6)), light ? 0.1f : 0.13f, c1, c2, light);
         }
 
         static void EarPlate(Graphics g, float D, float x, float y, float rot, float len, Color c1, Color c2, bool light)
@@ -156,33 +160,73 @@ namespace Stackshot
             GraphicsState st = g.Save();
             g.TranslateTransform(x, y);
             g.RotateTransform(rot);
-            float L = len * D, w = len * 0.42f * D;
+            float L = len * D, w = len * 0.62f * D;
             using (GraphicsPath e = new GraphicsPath())
             {
-                e.AddBezier(P(-w * 0.5f, 0.02f * D), P(-w * 0.75f, -L * 0.45f), P(-w * 0.25f, -L * 0.95f), P(0, -L));
-                e.AddBezier(P(0, -L), P(w * 0.3f, -L * 0.9f), P(w * 0.65f, -L * 0.4f), P(w * 0.5f, 0.02f * D));
+                // A soft leaf with a round end.
+                e.AddBezier(P(-w * 0.5f, 0.02f * D), P(-w * 0.72f, -L * 0.55f), P(-w * 0.42f, -L), P(0, -L));
+                e.AddBezier(P(0, -L), P(w * 0.42f, -L), P(w * 0.72f, -L * 0.55f), P(w * 0.5f, 0.02f * D));
                 e.CloseFigure();
-                Fill(g, e, new RectangleF(-w, -L, w * 2, L + 0.03f * D), light ? PearlA : Lighter(c1, 0.05), light ? PearlB : c2, 80f);
-                Stroke(g, e, light ? PearlLine : Darker(c2, 0.35), D * 0.009f);
+                Fill(g, e, new RectangleF(-w, -L, w * 2, L + 0.03f * D), light ? PearlA : Lighter(c1, 0.12), light ? PearlB : c2, 80f);
+                Stroke(g, e, light ? PearlLine : Darker(c2, 0.3), D * 0.008f);
             }
+            // A lighter groove down the middle, as on the films' ears.
+            Line(g, light ? Color.FromArgb(120, 170, 186, 220) : Color.FromArgb(70, 255, 255, 255), D * 0.012f, 0, -L * 0.15f, 0, -L * 0.75f);
             g.Restore(st);
         }
 
-        // A long tail curling up on the right with two fins at its tip. Toothless's left fin (on our right) is the red
-        // prosthetic Hiccup made him, with its white mark.
-        static void FuryTail(Graphics g, float D, Color c2, double now, bool light)
+        // A tail that leaves low from behind the body and sweeps out to the side, thinner towards its tip (never curling
+        // back towards the body). Returns the tip and the tail's direction there, in degrees.
+        static PointF TaperTail(Graphics g, float D, Color a, Color b, double now, float w0, float w1, out float angle)
         {
-            float sway = (float)Math.Sin(now / 560.0) * 0.04f * D;
-            PointF end = P(0.5f * D + sway, -0.04f * D);
-            using (GraphicsPath t = new GraphicsPath())
+            float sway = (float)Math.Sin(now / 600.0) * 0.03f * D;
+            PointF p0 = P(0.06f * D, 0.27f * D), p1 = P(0.32f * D, 0.4f * D), p2 = P(0.5f * D, 0.34f * D + sway * 0.4f), p3 = P(0.6f * D, 0.17f * D + sway);
+            const int n = 18;
+            PointF[] left = new PointF[n + 1], right = new PointF[n + 1];
+            for (int i = 0; i <= n; i++)
             {
-                t.AddBezier(P(0.2f * D, 0.24f * D), P(0.44f * D, 0.3f * D), P(0.56f * D, 0.12f * D), end);
-                using (Pen pen = new Pen(light ? PearlB : c2, D * 0.07f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawPath(pen, t); }
+                float t = i / (float)n;
+                PointF q = Bez(p0, p1, p2, p3, t), d = BezD(p0, p1, p2, p3, t);
+                float len = (float)Math.Max(0.001, Math.Sqrt(d.X * d.X + d.Y * d.Y)), half = (w0 + (w1 - w0) * t) * D / 2;
+                float nx = -d.Y / len, ny = d.X / len;
+                left[i] = P(q.X + nx * half, q.Y + ny * half);
+                right[n - i] = P(q.X - nx * half, q.Y - ny * half);
             }
+            using (GraphicsPath tp = new GraphicsPath())
+            {
+                tp.AddLines(left);
+                tp.AddLines(right);
+                tp.CloseFigure();
+                Fill(g, tp, tp.GetBounds(), a, b, 70f);
+            }
+            PointF dd = BezD(p0, p1, p2, p3, 1);
+            angle = (float)(Math.Atan2(dd.Y, dd.X) * 180 / Math.PI);
+            return p3;
+        }
+
+        static PointF Bez(PointF a, PointF b, PointF c, PointF d, float t)
+        {
+            float u = 1 - t;
+            return P(u * u * u * a.X + 3 * u * u * t * b.X + 3 * u * t * t * c.X + t * t * t * d.X, u * u * u * a.Y + 3 * u * u * t * b.Y + 3 * u * t * t * c.Y + t * t * t * d.Y);
+        }
+
+        static PointF BezD(PointF a, PointF b, PointF c, PointF d, float t)
+        {
+            float u = 1 - t;
+            return P(3 * u * u * (b.X - a.X) + 6 * u * t * (c.X - b.X) + 3 * t * t * (d.X - c.X), 3 * u * u * (b.Y - a.Y) + 6 * u * t * (c.Y - b.Y) + 3 * t * t * (d.Y - c.Y));
+        }
+
+        // The Furies' tail with its two fins open at the tip, one to each side. Toothless's left one (on our right) is the
+        // red prosthetic Hiccup made him, with its white mark.
+        static void FuryTail(Graphics g, float D, Color c1, Color c2, double now, bool light)
+        {
+            float angle;
+            PointF end = TaperTail(g, D, light ? PearlA : Lighter(c1, 0.05), light ? PearlB : c2, now, 0.11f, 0.045f, out angle);
             GraphicsState st = g.Save();
             g.TranslateTransform(end.X, end.Y);
-            g.RotateTransform((float)(-18 + Math.Sin(now / 420.0) * 6));
-            TailFin(g, D, -1, light ? PearlA : Lighter(c2, 0.14), light ? PearlB : Darker(c2, 0.1), false);
+            g.RotateTransform((float)(angle + 90 + Math.Sin(now / 420.0) * 5));
+            g.ScaleTransform(1.25f, 1.25f);
+            TailFin(g, D, -1, light ? PearlA : Lighter(c2, 0.2), light ? PearlB : Darker(c2, 0.05), false);
             TailFin(g, D, 1, light ? PearlA : Prosthetic, light ? PearlB : ProstheticDeep, !light);
             g.Restore(st);
         }
@@ -207,42 +251,46 @@ namespace Stackshot
 
         // Stormfly's crown: a fan of spikes around the top of the head, gold at the root and orange at the tip; the
         // outer ones are the horns at the sides. They lift a little with the ears.
+        // Stormfly's crown: a few soft, rounded spikes on top of the head, gold at the root and orange at the tip, like a
+        // bird's crest. They lift a little with the ears.
         static void NadderCrest(Graphics g, float D, MascotPose p)
         {
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 5; i++)
             {
-                float t = (i - 3) / 3f;
-                float len = (0.2f - Math.Abs(t) * 0.05f) * D;
+                float t = (i - 2) / 2f;
+                float len = (0.15f - Math.Abs(t) * 0.035f) * D, w = 0.04f * D;
                 GraphicsState st = g.Save();
-                g.TranslateTransform(t * 0.13f * D, -0.24f * D);
-                g.RotateTransform((float)(t * 64 + (t < 0 ? p.EarL : p.EarR) * 0.6));
-                using (GraphicsPath sp = Poly(P(-0.033f * D, 0.02f * D), P(0, -len), P(0.033f * D, 0.02f * D)))
-                {
-                    Fill(g, sp, new RectangleF(-0.035f * D, -len, 0.07f * D, len + 0.03f * D), NadderTip, NadderGold, 90f);
-                    Stroke(g, sp, Color.FromArgb(120, 150, 70, 20), D * 0.006f);
-                }
+                g.TranslateTransform(t * 0.11f * D, -0.26f * D);
+                g.RotateTransform((float)(t * 44 + (t < 0 ? p.EarL : p.EarR) * 0.6));
+                Petal(g, D, w, len, NadderTip, NadderGold);
                 g.Restore(st);
             }
         }
 
-        // A tail ending in a cluster of spines, the ones it throws.
-        static void NadderTail(Graphics g, float D, Color c2, double now)
+        // A spike with a rounded end, rising from its base at the origin.
+        static void Petal(Graphics g, float D, float w, float len, Color tip, Color root)
         {
-            float sway = (float)Math.Sin(now / 520.0) * 0.04f * D;
-            PointF end = P(0.49f * D + sway, -0.02f * D);
-            using (GraphicsPath t = new GraphicsPath())
+            using (GraphicsPath sp = new GraphicsPath())
             {
-                t.AddBezier(P(0.2f * D, 0.24f * D), P(0.44f * D, 0.3f * D), P(0.54f * D, 0.12f * D), end);
-                using (Pen pen = new Pen(c2, D * 0.065f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawPath(pen, t); }
+                sp.AddBezier(P(-w, 0.02f * D), P(-w * 1.05f, -len * 0.5f), P(-w * 0.55f, -len), P(0, -len));
+                sp.AddBezier(P(0, -len), P(w * 0.55f, -len), P(w * 1.05f, -len * 0.5f), P(w, 0.02f * D));
+                sp.CloseFigure();
+                Fill(g, sp, new RectangleF(-w, -len, w * 2, len + 0.03f * D), tip, root, 90f);
+                Stroke(g, sp, Color.FromArgb(90, 150, 70, 20), D * 0.006f);
             }
-            for (int i = 0; i < 5; i++)
+        }
+
+        // A tail ending in a small cluster of rounded spines, the ones it throws.
+        static void NadderTail(Graphics g, float D, Color c1, Color c2, double now)
+        {
+            float angle;
+            PointF end = TaperTail(g, D, Lighter(c1, 0.05), c2, now, 0.1f, 0.045f, out angle);
+            for (int i = 0; i < 3; i++)
             {
                 GraphicsState st = g.Save();
                 g.TranslateTransform(end.X, end.Y);
-                g.RotateTransform(-70 + i * 26);
-                float len = (0.1f + (i == 2 ? 0.03f : 0)) * D;
-                using (GraphicsPath sp = Poly(P(-0.022f * D, 0), P(0, -len), P(0.022f * D, 0)))
-                    Fill(g, sp, new RectangleF(-0.025f * D, -len, 0.05f * D, len), NadderTip, NadderGold, 90f);
+                g.RotateTransform((float)(angle + 90 + (i - 1) * 34));
+                Petal(g, D, 0.024f * D, (0.08f + (i == 1 ? 0.02f : 0)) * D, NadderTip, NadderGold);
                 g.Restore(st);
             }
         }
@@ -252,11 +300,14 @@ namespace Stackshot
         {
             GraphicsState st = g.Save();
             g.TranslateTransform(s * 0.15f * D, -0.26f * D);
-            g.RotateTransform((float)(s * (18 + twitch * 0.4)));
+            g.RotateTransform((float)(s * (24 + twitch * 0.4)));
+            g.ScaleTransform(0.72f, 0.72f);
             using (GraphicsPath h = new GraphicsPath())
             {
-                h.AddBezier(P(-s * 0.035f * D, 0.02f * D), P(-s * 0.01f * D, -0.12f * D), P(s * 0.08f * D, -0.22f * D), P(s * 0.2f * D, -0.25f * D));
-                h.AddBezier(P(s * 0.2f * D, -0.25f * D), P(s * 0.1f * D, -0.17f * D), P(s * 0.05f * D, -0.08f * D), P(s * 0.04f * D, 0.02f * D));
+                // Rounded at the tip: a horn, not a blade.
+                h.AddBezier(P(-s * 0.035f * D, 0.02f * D), P(-s * 0.01f * D, -0.12f * D), P(s * 0.07f * D, -0.22f * D), P(s * 0.17f * D, -0.25f * D));
+                h.AddBezier(P(s * 0.17f * D, -0.25f * D), P(s * 0.22f * D, -0.25f * D), P(s * 0.2f * D, -0.2f * D), P(s * 0.15f * D, -0.18f * D));
+                h.AddBezier(P(s * 0.15f * D, -0.18f * D), P(s * 0.08f * D, -0.13f * D), P(s * 0.05f * D, -0.07f * D), P(s * 0.04f * D, 0.02f * D));
                 h.CloseFigure();
                 Fill(g, h, new RectangleF(-0.05f * D, -0.26f * D, 0.26f * D, 0.29f * D), Bone, BoneDeep, 60f);
                 Stroke(g, h, Color.FromArgb(150, 120, 90, 60), D * 0.007f);
@@ -267,30 +318,27 @@ namespace Stackshot
         // Spines along the jaw, pointing out and down.
         static void JawSpines(Graphics g, float D, int s, Color c2)
         {
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
-                float x = s * (0.3f + i * 0.015f) * D, y = (0.0f + i * 0.07f) * D;
+                float x = s * (0.31f + i * 0.01f) * D, y = (0.03f + i * 0.08f) * D;
                 GraphicsState st = g.Save();
                 g.TranslateTransform(x, y);
-                g.RotateTransform(s * (70 + i * 16));
-                using (GraphicsPath sp = Poly(P(-0.025f * D, 0), P(0, -0.09f * D), P(0.025f * D, 0)))
-                    Fill(g, sp, new RectangleF(-0.025f * D, -0.09f * D, 0.05f * D, 0.09f * D), Darker(c2, 0.35), c2, 90f);
+                g.RotateTransform(s * (72 + i * 18));
+                Petal(g, D, 0.024f * D, 0.065f * D, Darker(c2, 0.3), c2);
                 g.Restore(st);
             }
         }
 
         // A long, thin tail with a spade-like spike.
-        static void NightmareTail(Graphics g, float D, Color c2, double now)
+        static void NightmareTail(Graphics g, float D, Color c1, Color c2, double now)
         {
-            float sway = (float)Math.Sin(now / 480.0) * 0.05f * D;
-            PointF end = P(0.53f * D + sway, -0.08f * D);
-            using (GraphicsPath t = new GraphicsPath())
-            {
-                t.AddBezier(P(0.2f * D, 0.24f * D), P(0.48f * D, 0.32f * D), P(0.6f * D, 0.1f * D), end);
-                using (Pen pen = new Pen(c2, D * 0.055f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawPath(pen, t); }
-            }
-            using (GraphicsPath sp = Poly(P(end.X - 0.04f * D, end.Y + 0.02f * D), P(end.X + 0.02f * D, end.Y - 0.1f * D), P(end.X + 0.05f * D, end.Y + 0.03f * D), P(end.X, end.Y + 0.01f * D)))
-                Fill(g, sp, new RectangleF(end.X - 0.04f * D, end.Y - 0.1f * D, 0.09f * D, 0.13f * D), Darker(c2, 0.4), c2, 90f);
+            float angle;
+            PointF end = TaperTail(g, D, Lighter(c1, 0.05), c2, now, 0.09f, 0.035f, out angle);
+            GraphicsState st = g.Save();
+            g.TranslateTransform(end.X, end.Y);
+            g.RotateTransform(angle + 90);
+            Petal(g, D, 0.035f * D, 0.08f * D, Darker(c2, 0.35), c2);
+            g.Restore(st);
         }
 
         // Meatlug's wings: tiny, buzzing like a bumblebee's, so they show as a blur.
@@ -387,7 +435,7 @@ namespace Stackshot
             switch (l.Kind)
             {
                 case KindNadder:
-                    Ellipse(g, Color.FromArgb(175, 255, 236, 168), -0.17f * D, 0.07f * D, 0.34f * D, 0.3f * D);
+                    Ellipse(g, Color.FromArgb(235, 255, 238, 186), -0.17f * D, 0.07f * D, 0.34f * D, 0.3f * D);
                     break;
                 case KindNightmare:
                     Ellipse(g, Color.FromArgb(150, 255, 166, 60), -0.16f * D, 0.08f * D, 0.32f * D, 0.28f * D);
@@ -415,13 +463,13 @@ namespace Stackshot
             Ellipse(g, nose, -0.04f * D, fy + 0.06f * D, 0.016f * D, 0.012f * D);
             Ellipse(g, nose, 0.024f * D, fy + 0.06f * D, 0.016f * D, 0.012f * D);
             if (l.Kind == KindNadder)
-                using (GraphicsPath h = new GraphicsPath())
-                {
-                    h.AddBezier(P(-0.022f * D, fy + 0.045f * D), P(-0.015f * D, fy + 0.0f), P(0.0f, fy - 0.02f * D), P(0.012f * D, fy - 0.035f * D));
-                    h.AddBezier(P(0.012f * D, fy - 0.035f * D), P(0.012f * D, fy + 0.0f), P(0.02f * D, fy + 0.03f * D), P(0.022f * D, fy + 0.045f * D));
-                    h.CloseFigure();
-                    Fill(g, h, new RectangleF(-0.025f * D, fy - 0.04f * D, 0.05f * D, 0.09f * D), Bone, BoneDeep, 90f);
-                }
+            {
+                // A little horn on the snout, just above the nostrils.
+                GraphicsState st = g.Save();
+                g.TranslateTransform(0, fy + 0.058f * D);
+                Petal(g, D, 0.015f * D, 0.04f * D, BoneDeep, Bone);
+                g.Restore(st);
+            }
             if (l.Kind == KindGronckle)
                 foreach (int s in Sides)
                     using (GraphicsPath t = Poly(P(s * 0.06f * D, fy + 0.115f * D), P(s * 0.075f * D, fy + 0.07f * D), P(s * 0.088f * D, fy + 0.115f * D)))
@@ -719,7 +767,9 @@ namespace Stackshot
         // slit while it uses its power.
         void DragonEye(Graphics g, float x, float y, float D, float blink, bool surprised)
         {
-            float k = surprised ? 1.12f : 1f, w = D * 0.1f * k, h = D * 0.112f * k * blink;
+            // Big eyes are what make the Furies and Stormfly look sweet; Meatlug keeps her smaller ones.
+            float big = Look.Kind == MascotParts.KindGronckle ? 1f : 1.3f;
+            float k = (surprised ? 1.12f : 1f) * big, w = D * 0.1f * k, h = D * 0.112f * k * blink;
             if (h < D * 0.02f)
             {
                 MascotParts.Line(g, Color.FromArgb(230, 20, 20, 28), Math.Max(1.2f, D * 0.02f), x - w * 0.5f, y, x + w * 0.5f, y);
@@ -733,11 +783,14 @@ namespace Stackshot
                 MascotParts.Stroke(g, ep, Color.FromArgb(210, 18, 18, 26), Math.Max(1f, D * 0.009f));
             }
             bool slit = now < focusUntil && !surprised;
-            float pw = slit ? w * 0.17f : w * (surprised ? 0.6f : 0.5f), ph = h * (slit ? 0.86f : surprised ? 0.64f : 0.62f);
+            float round = big > 1 ? 0.62f : 0.5f;
+            float pw = slit ? w * 0.17f : w * (surprised ? round + 0.08f : round), ph = h * (slit ? 0.86f : surprised ? round + 0.1f : round + 0.08f);
             MascotParts.Ellipse(g, Color.FromArgb(250, 12, 12, 18), x - pw / 2, y - ph / 2 + h * 0.03f, pw, ph);
             if (blink < 0.5) return;
-            MascotParts.Ellipse(g, Color.FromArgb(240, 255, 255, 255), x + w * 0.04f, y - h * 0.32f, w * 0.27f, w * 0.27f);
-            MascotParts.Ellipse(g, Color.FromArgb(170, 255, 255, 255), x - w * 0.26f, y + h * 0.1f, w * 0.12f, w * 0.12f);
+            // Two catchlights, the big one high: the glossy look of the films' eyes.
+            float hl = big > 1 ? 0.32f : 0.27f;
+            MascotParts.Ellipse(g, Color.FromArgb(245, 255, 255, 255), x + w * 0.02f, y - h * 0.34f, w * hl, w * hl);
+            MascotParts.Ellipse(g, Color.FromArgb(180, 255, 255, 255), x - w * 0.28f, y + h * 0.1f, w * 0.13f, w * 0.13f);
         }
     }
 }

@@ -1901,14 +1901,14 @@ namespace Stackshot
                 followCandidate = null;
                 return;
             }
-            // Tucked away, the stack stays where it is: passing to another monitor is not a reason to bring it out.
-            if (tucked) { followCandidate = null; return; }
             string dev = MonitorName(Control.MousePosition);
             if (dev == anchorDevice) { followCandidate = null; return; }
             double now = Anim.Now;
             if (dev != followCandidate) { followCandidate = dev; followSince = now; return; }
             if (now - followSince < FollowDelay) return;
             followCandidate = null;
+            // Tucked, it goes along still tucked: its tab leaves this monitor and comes back on the other once the cards are in.
+            if (tucked) { HideTab(); tabDelay = 560; }
             anchorDevice = dev;
             Relayout();
         }
@@ -2015,7 +2015,7 @@ namespace Stackshot
                 above -= gap;
             }
             // Tucked: the pills stay away until the cards come back out, and the tab follows the cards.
-            if (tucked) { HideChips(); PlaceTab(0); }
+            if (tucked) { HideChips(); PlaceTab(tabDelay); tabDelay = 0; }
         }
 
         // With the top card at index top, the lowest index that still fits (leaving room for the pills).

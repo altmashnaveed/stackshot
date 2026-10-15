@@ -793,7 +793,7 @@ namespace Stackshot
                 new ToggleRow("Copiar cada captura", "Lista para pegar con Ctrl+V nada m\u00E1s hacerla; los v\u00EDdeos y GIF, como archivo.", "copy", Mac.Teal, Mac.Blue,
                               delegate { return settings.CopyToClipboard; }, delegate(bool v) { settings.CopyToClipboard = v; }),
                 new SegRow("Esconder las miniaturas", "Si no las usas, se apartan al borde y solo asoma un trocito; al pasar el rat\u00F3n por encima vuelven.", "stack", Mac.Purple, Mac.Indigo,
-                           new string[] { "No", "A los 5 s", "A los 10 s", "A los 30 s" },
+                           new string[] { "No", "A los 3 s", "A los 5 s", "A los 10 s" },
                            delegate { int i = Array.IndexOf(Settings.TuckSeconds, settings.StackTuck); return i < 0 ? 2 : i; },
                            delegate(int i) { settings.StackTuck = Settings.TuckSeconds[Math.Max(0, Math.Min(Settings.TuckSeconds.Length - 1, i))]; owner.Untuck(); }),
                 new ToggleRow("Seguir al rat\u00F3n entre pantallas", "Con varias pantallas, las miniaturas van a la del rat\u00F3n.", "screen", Mac.Indigo, Mac.Purple,

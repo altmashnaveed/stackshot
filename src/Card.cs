@@ -81,26 +81,30 @@ namespace Stackshot
         // Where it sits for that slot: there, or tucked into the screen edge with only a sliver showing.
         int SlotX(Rectangle r) { return tucked ? tuckEdge - r.Width + P(Peek) : r.X; }
 
+        // Screen x past which a tucked card (or one on its way out or back) is not drawn: the edge of its monitor, so the
+        // hidden part never shows on a monitor next to it. int.MinValue: no cut.
+        int clipEdge = int.MinValue;
+
         // Into the edge (edge: the screen's left in pixels) or back to its slot, after delay ms. Going in is calm; coming
         // back has a little spring. A tucked card is also a shade lighter.
         public void Tuck(bool on, int edge, double delay)
         {
             if (on == tucked) return;
             tucked = on;
-            if (on) tuckEdge = edge;
+            if (on) { tuckEdge = edge; clipEdge = edge; }
             if (Leaving || parked || migrating || !Visible) { peekT.Set(on ? 0.82 : 1); return; }
             if (on)
             {
                 hover = false;
                 SetHot(-1);
                 UpdateHover();
-                MoveTo(SlotX(home), home.Y, 200, 0.96, delay);
-                peekT.Go(0.82, 320, delay, Ease.OutCubic, null);
+                MoveTo(SlotX(home), home.Y, 380, 0.92, delay);
+                peekT.Go(0.82, 220, delay, Ease.OutCubic, null);
             }
             else
             {
-                MoveTo(home.X, home.Y, 340, 0.72, delay);
-                peekT.Go(1, 180, delay, Ease.OutCubic, null);
+                MoveTo(home.X, home.Y, 460, 0.76, delay);
+                peekT.Go(1, 150, delay, Ease.OutCubic, null);
             }
             Anim.Wake(this);
         }
@@ -117,6 +121,8 @@ namespace Stackshot
         protected override void Settled()
         {
             if (!swiping && !Leaving) fadeByPos = false;
+            // Back in its slot: nothing to cut any more.
+            if (!tucked && clipEdge != int.MinValue) { clipEdge = int.MinValue; Redraw(); }
         }
 
         // Fades while swiped towards the edge; releasing past 30% of its width dismisses it.
@@ -173,7 +179,7 @@ namespace Stackshot
                 // Back in view: enter from the side it left.
                 parked = false;
                 // Back while the stack is tucked: it comes back tucked like the rest.
-                if (owner.Tucked && !tucked) { tucked = true; tuckEdge = owner.TuckEdge; peekT.Set(0.82); }
+                if (owner.Tucked && !tucked) { tucked = true; tuckEdge = owner.TuckEdge; clipEdge = tuckEdge; peekT.Set(0.82); }
                 bool fromAbove = y < r.Y;
                 Device = device;
                 s = scale;
@@ -210,19 +216,20 @@ namespace Stackshot
 
         void SlideIn()
         {
-            JumpTo(home.X - P(56), home.Y);
+            JumpTo(SlotX(home) - P(56), home.Y);
             alpha.Set(0);
             ApplyAlpha();
             alpha.Go(1, 220, 0, Ease.OutCubic, null);
-            MoveTo(home.X, home.Y, 260, 0.68, 0);
+            MoveTo(SlotX(home), home.Y, 260, 0.68, 0);
         }
 
-        // Faded out on the old monitor: jump to the new one and slide in.
+        // Faded out on the old monitor: jump to the new one and slide in (tucked into its edge if the stack is tucked).
         void Arrive()
         {
             migrating = false;
             if (Leaving || IsDisposed) return;
             s = nextScale;
+            if (tucked) { tuckEdge = owner.TuckEdge; clipEdge = tuckEdge; }
             Fit(home.Size);
             SlideIn();
         }
@@ -286,7 +293,7 @@ namespace Stackshot
 
         protected override bool StepExtra(double now)
         {
-            bool repaint = hoverT.Running || hotT.Running || pressT.Running || flashT.Running || badgeT.Running;
+            bool repaint = hoverT.Running || hotT.Running || pressT.Running || flashT.Running || badgeT.Running || (clipEdge != int.MinValue && moving);
             dim.Step(now);
             hoverT.Step(now);
             hotT.Step(now);
@@ -568,10 +575,14 @@ namespace Stackshot
         protected override void PaintSurface(M.DrawingContext dc, int w, int h)
         {
             if (body.Width <= 0 || body.Height <= 0) return;
+            int cut = clipEdge == int.MinValue ? 0 : clipEdge - ((int)Math.Round(x) - Pad);
+            if (cut >= w) return;
+            if (cut > 0) dc.PushClip(new M.RectangleGeometry(new W.Rect(cut, 0, w - cut, h)));
             PaintShadow(dc, w, h);
             dc.PushTransform(new M.TranslateTransform(Pad, Pad));
             PaintBody(dc, ForceHover ? 1 : hoverT.Value);
             dc.Pop();
+            if (cut > 0) dc.Pop();
         }
 
         void PaintBody(M.DrawingContext dc, double h)
