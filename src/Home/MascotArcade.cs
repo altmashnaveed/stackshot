@@ -818,7 +818,7 @@ namespace Stackshot
                 case MascotParts.KindChomp:
                 {
                     // The huge mouth snapping open and shut, with rows of white teeth.
-                    bool lunge = power == MascotParts.PowerLunge && powerStart >= 0;
+                    bool lunge = power == MascotParts.PowerLunge && powerStart >= 0 && now - powerStart < 1300;
                     float my = fy + 0.24f * D, w = (lunge ? 0.56f : 0.5f) * D, h = (0.06f + (lunge ? 0.22f : 0.18f) * (float)Math.Abs(Math.Sin(now / (lunge ? 70.0 : 200.0)))) * D;
                     using (GraphicsPath m = new GraphicsPath())
                     {

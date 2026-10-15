@@ -721,6 +721,8 @@ namespace Stackshot
             MascotParts.PaintDetails(g, Look, D, c2, pose);
             MascotParts.PaintDragonFront(g, Look, D, pose);
             if (Look.Kind == 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
+            // Clothes, glasses and hats are drawn the right way round (no mirrored letters), even on a turned character.
+            if (flipped) g.ScaleTransform(-1, 1);
             MascotParts.PaintOutfit(g, Look, D, now);
             if (MascotParts.CoversEyes(Look))
             {
@@ -884,6 +886,8 @@ namespace Stackshot
             Color ink = visor ? Mac.Alpha(EyeCore, 0.9) : Ink;
             float lw = Math.Max(1.2f, D * (visor ? 0.018f : 0.016f));
             bool talking = Bubble != null && mood != Mood.Sleep && mood != Mood.Dizzy;
+            // Boo hiding its face keeps its little shy mouth, whatever the mood.
+            if (!visor && Look.Kind == MascotParts.KindBoo && shy > 0.5 && ExtraMouth(g, D, mx, fy, ink, lw, talking)) return;
             if (mood == Mood.Yawn)
             {
                 double o = Math.Sin(Math.Min(1, (moodUntil - now) / 1900.0) * Math.PI);
