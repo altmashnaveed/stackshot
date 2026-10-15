@@ -1,6 +1,6 @@
-// Stackshot - The sidebar logo, alive while the window is on screen: every so often it "takes a shot" (a short press of
-// the shutter and a glint across the tile), and once more when the pointer comes over it. In between only a timer
-// waits, and nothing runs while the window is hidden or minimized. A contrast theme keeps it still.
+// Stackshot - The sidebar logo, alive while the window is on screen: every so often a glint crosses the tile, and once
+// more when the pointer comes over it. In between only a timer waits, and nothing runs while the window is hidden or
+// minimized. A contrast theme keeps it still.
 // MIT License - https://github.com/rubenitx/stackshot
 using System;
 using System.Windows;
@@ -27,9 +27,6 @@ namespace Stackshot
             brandPlay = null;
             if (Ds.Brushes.High || logo.Source == null) return g;
 
-            ScaleTransform press = new ScaleTransform(1, 1);
-            g.RenderTransform = press;
-            g.RenderTransformOrigin = new Point(0.5, 0.5);
             // A diagonal band of light, masked by the logo itself so it only lights the tile.
             TranslateTransform slide = new TranslateTransform(-1.3, 0);
             LinearGradientBrush shine = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1), RelativeTransform = slide };
@@ -42,11 +39,6 @@ namespace Stackshot
 
             brandPlay = delegate
             {
-                DoubleAnimationUsingKeyFrames k = new DoubleAnimationUsingKeyFrames();
-                k.KeyFrames.Add(new EasingDoubleKeyFrame(0.86, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(110)), new CubicEase { EasingMode = EasingMode.EaseOut }));
-                k.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(560)), new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.55 }));
-                press.BeginAnimation(ScaleTransform.ScaleXProperty, k);
-                press.BeginAnimation(ScaleTransform.ScaleYProperty, k);
                 DoubleAnimation sweep = new DoubleAnimation(-1.3, 1.3, TimeSpan.FromMilliseconds(780))
                 {
                     BeginTime = TimeSpan.FromMilliseconds(90), EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
