@@ -896,7 +896,7 @@ namespace Stackshot
             KeepAsync(path, delegate(string saved, string why)
             {
                 if (saved == null) Notify("No se pudo guardar en tu carpeta", why + " La miniatura sigue en la pila: puedes volver a pulsar Guardar.");
-            });
+            }, true);
         }
 
         // For the main window (the mascot celebrates each capture).
@@ -1117,11 +1117,13 @@ namespace Stackshot
         }
 
         // Already in the save folder (opened from Home or the tray's recent list): nothing to copy.
-        string KeptInPlace(string path)
+        string KeptInPlace(string path) { return KeptInPlace(path, false); }
+
+        string KeptInPlace(string path, bool quiet)
         {
             kept[path] = path;
             Card c = Find(path);
-            if (c != null) c.MarkSaved(path);
+            if (c != null) c.MarkSaved(path, quiet);
             return path;
         }
 
@@ -1135,12 +1137,15 @@ namespace Stackshot
         // Saves a copy in the save folder off the UI thread (a multi-GB recording, a slow or synced folder): the card
         // shows the progress, a second press meanwhile does nothing. done runs on the UI thread with the saved path, or
         // with null and what went wrong in plain words.
-        public void KeepAsync(string path, Action<string, string> done)
+        public void KeepAsync(string path, Action<string, string> done) { KeepAsync(path, done, false); }
+
+        // quiet: saved by "Guardar todas", not by the user: the card shows it is saved without celebrating it.
+        public void KeepAsync(string path, Action<string, string> done, bool quiet)
         {
             if (copying.Contains(path)) return;
             if (SaveFolders.Inside(settings, Path.GetDirectoryName(path)))
             {
-                KeptInPlace(path);
+                KeptInPlace(path, quiet);
                 if (done != null) done(path, null);
                 return;
             }
@@ -1215,7 +1220,7 @@ namespace Stackshot
                         return;
                     }
                     CopyPoster(path, target);
-                    if (c != null) c.MarkSaved(target);
+                    if (c != null) c.MarkSaved(target, quiet);
                     Log("Guardada: " + target);
                     if (done != null) done(target, null);
                 });

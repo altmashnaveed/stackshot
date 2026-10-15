@@ -1101,13 +1101,21 @@ namespace Stackshot
             });
         }
 
-        public void MarkSaved(string dest)
+        public void MarkSaved(string dest) { MarkSaved(dest, false); }
+
+        // quiet: saved automatically, so the badge just shows up, without the bounce or the "Guardada" flash.
+        public void MarkSaved(string dest, bool quiet)
         {
             saving = -1;
             bool first = SavedPath == null;
             SavedPath = dest;
             BuildButtons();
-            if (first)
+            if (first && quiet)
+            {
+                badgeT.Set(1);
+                Redraw();
+            }
+            else if (first)
             {
                 badgeT.Set(0);
                 badgeT.Go(1, 420, 0, Ease.OutBack, null);
