@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Thumbnails that step aside.** After a while unused (10 s by default; General > Al capturar > "Esconder las miniaturas": no, 5, 10 or 30 s), the stack slides into the left edge one card after another until only a sliver of each shows. Moving the pointer onto a sliver, the wheel or a new capture brings them back, the nearest first. Not on a monitor with another one or the taskbar at its left, where the hidden part would show.
+- **A living logo.** While the main window is open, the sidebar logo now and then "takes a shot" (a short shutter press and a glint), and again when the pointer comes over it.
+- **Scrolling capture for first-timers.** The first three times, a card beside the bar shows how it works; "¿No baja? Pulsa Auto" when nothing moves; Listo with nothing scrolled asks once more; the bar tells how many screens it has and what each button does.
+- **Automatic saves stay quiet.** With "Guardar todas las capturas", the thumbnail shows it is saved without the "Guardada" flash, kept for the Guardar button.
+
 - **Notes on the desktop.** A note from "Apunta algo…" can be pinned on the desktop ("Guardar y fijar", or the pin next to each recent note): a small card in yellow, blue, green or pink that stays on top (or not), can be locked in place, ticks its `- [ ]` items straight into Notas.md and comes back after a restart. Cards are left out of captures. While writing a note, <kbd>Enter</kbd> continues a list or a task list.
 - **Windows that stay on screen and move from anywhere.** A window that grows after opening (Mis reportes → Nuevo reporte, the news) stays inside the screen instead of running past the bottom, and windows like the report form, the news, quick links and the alerts can be dragged from any empty spot.
 - **A live marquee.** The ants around "capturamos" in the Minimalista and Escena homes keep marching while the mouse is over them, like a selection; the minimal home also gets a faint glow in the mascot's colour.

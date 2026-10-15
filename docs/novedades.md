@@ -7,6 +7,8 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 
 ## 2.2.0
 
+- **Miniaturas que se apartan.** Si no las usas, se esconden en el borde y solo asoma un trocito; pasa el ratón y vuelven. Se ajusta en General > Al capturar.
+- **Captura con desplazamiento, más fácil.** La primera vez te enseña cómo va, te avisa si la página no baja y te dice cuántas pantallas llevas.
 - **Notas en el escritorio.** Fija una nota y queda como una tarjeta de color encima de todo (o no), bloqueada si quieres; marca sus tareas con un clic y vuelve al reiniciar. Al escribirla, Intro sigue la lista.
 - **Ventanas que no se cortan.** Mis reportes, las novedades o los avisos ya no se salen de la pantalla al crecer, y se mueven arrastrando desde cualquier hueco.
 - **Un MD largo, en PDF.** Si un documento es demasiado largo para una imagen, te ofrece guardarlo como PDF.
