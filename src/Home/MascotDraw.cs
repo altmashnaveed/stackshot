@@ -15,6 +15,7 @@ namespace Stackshot
         public double Facing;          // -1..1: the way it walks (tails trail on the other side)
         public bool TailLeft;          // the tail is on the left: it last walked to the right
         public bool FaceLeft;          // it last walked to the left (Pac-Man turns its mouth that way)
+        public double Shy;             // Boo hiding its face (0-1)
         public int Power;
         public bool Sleeping, HideHands;
     }
@@ -187,6 +188,7 @@ namespace Stackshot
         // ---- The body itself. Returns the face plate to clip the eyes to (the robot's visor), or null.
         public static GraphicsPath PaintBody(Graphics g, MascotLook l, float D, Color c1, Color c2, MascotPose p)
         {
+            ArcadeTint(l, p, ref c1, ref c2);
             Geo geo = GeoFor(l.Kind);
             float W = geo.HeadW * D, top = geo.Top * D, bottom = geo.Bottom * D;
             if (l.Kind == 0)
@@ -243,7 +245,7 @@ namespace Stackshot
             if (IsTribute(l.Kind)) TributeBody(g, l, D, body, c1, c2);
             if (IsClassic(l.Kind)) ClassicBody(g, l, D, body, c1, c2);
             if (IsPokemon(l.Kind)) PokemonBody(g, l, D, body, c1, c2);
-            if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2);
+            if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2, p);
             Shine(g, body, b, l.Kind == 4 ? 150 : 105);
             if (Inked(l.Kind)) Stroke(g, body, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
             Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));

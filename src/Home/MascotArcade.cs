@@ -330,7 +330,7 @@ namespace Stackshot
         }
 
         // ---- On the body (clipped to it, before the face).
-        static void ArcadeBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2)
+        static void ArcadeBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2, MascotPose p)
         {
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D, W = geo.HeadW * D, top = geo.Top * D;
@@ -481,11 +481,15 @@ namespace Stackshot
                 }
                 case KindQBlock:
                 {
-                    // Rivets in the corners and the question mark with its shadow.
+                    // Rivets in the corners and the question mark with its shadow; just hit, it shows empty and brown.
+                    bool used = p.Power == PowerCoin && p.Fx > 0;
+                    if (used)
+                        using (SolidBrush b = new SolidBrush(Color.FromArgb(176, 112, 60))) g.FillRectangle(b, -W / 2, top, W, W);
                     float inset = 0.07f * D, r = 0.022f * D;
                     foreach (int sx in Sides)
                         foreach (int sy in Sides)
                             Ellipse(g, Color.FromArgb(200, 120, 66, 10), (sx < 0 ? -W / 2 + inset : W / 2 - inset) - r, (sy < 0 ? top + inset : top + W - inset) - r, r * 2, r * 2);
+                    if (used) break;
                     using (GraphicsPath q = new GraphicsPath())
                     using (StringFormat sf = new StringFormat())
                     {
@@ -537,6 +541,26 @@ namespace Stackshot
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             switch (l.Kind)
             {
+                case KindBoo:
+                {
+                    // Shy: a blush, and its two little hands rising to cover its eyes.
+                    if (p.Shy < 0.02) break;
+                    float k = (float)p.Shy, front = 0.05f * D;
+                    foreach (int s in Sides)
+                        Glow(g, front + s * (gap + 0.07f * D), fy + 0.07f * D, 0.12f * D, 0.06f * D, Color.FromArgb(255, 110, 150), (int)(150 * k));
+                    foreach (int s in Sides)
+                    {
+                        float hx = front + s * gap, hy = fy + 0.24f * D + (0.0f - 0.24f) * D * k;
+                        RectangleF hand = new RectangleF(hx - 0.075f * D, hy - 0.06f * D, 0.15f * D, 0.12f * D);
+                        using (GraphicsPath hp = new GraphicsPath())
+                        {
+                            hp.AddEllipse(hand);
+                            Fill(g, hp, hand, Color.FromArgb(255, 255, 255), Color.FromArgb(214, 216, 226), 80f);
+                            Stroke(g, hp, Color.FromArgb(190, 90, 94, 112), D * 0.011f);
+                        }
+                    }
+                    break;
+                }
                 case KindGoomba:
                 {
                     // A clear dark outline and the line where the head meets the body, then the thick angry brows.
@@ -565,7 +589,7 @@ namespace Stackshot
                         w.EndCap = LineCap.Round;
                         g.DrawBezier(w, P(0, t - 0.05f * D), P(0, t - 0.1f * D), P(0.04f * D, t - 0.1f * D), P(0.05f * D, t - 0.15f * D));
                     }
-                    float fl = (float)(0.6 + 0.4 * Math.Abs(Math.Sin(p.Now / 70.0)));
+                    float fl = (float)(0.6 + 0.4 * Math.Abs(Math.Sin(p.Now / 70.0))) * (p.Power == PowerBoom ? 1 + (float)p.Fx * 1.3f : 1);
                     PointF sp = P(0.05f * D, t - 0.15f * D);
                     Glow(g, sp.X, sp.Y, 0.14f * D * fl, 0.14f * D * fl, Color.FromArgb(255, 180, 40), 200);
                     for (int i = 0; i < 4; i++)
@@ -757,7 +781,17 @@ namespace Stackshot
                 }
                 case MascotParts.KindBoo:
                 {
-                    // Wide open, fangs at the top and the tongue hanging out.
+                    // Wide open, fangs at the top and the tongue hanging out; a small shy wiggle while it hides.
+                    if (shy > 0.5)
+                    {
+                        using (Pen sp = new Pen(InkBlack, Math.Max(1f, D * 0.012f)))
+                        {
+                            sp.LineJoin = LineJoin.Round;
+                            g.DrawLines(sp, new PointF[] { new PointF(mx - 0.05f * D, fy + 0.14f * D), new PointF(mx - 0.025f * D, fy + 0.125f * D), new PointF(mx, fy + 0.14f * D),
+                                                           new PointF(mx + 0.025f * D, fy + 0.125f * D), new PointF(mx + 0.05f * D, fy + 0.14f * D) });
+                        }
+                        return true;
+                    }
                     float my = fy + 0.11f * D, w = 0.26f * D, h = (talking ? 0.13f + 0.03f * (float)Math.Abs(Math.Sin(now / 110.0)) : 0.15f) * D;
                     using (GraphicsPath m = new GraphicsPath())
                     {
@@ -784,7 +818,8 @@ namespace Stackshot
                 case MascotParts.KindChomp:
                 {
                     // The huge mouth snapping open and shut, with rows of white teeth.
-                    float my = fy + 0.24f * D, w = 0.5f * D, h = (0.06f + 0.18f * (float)Math.Abs(Math.Sin(now / 200.0))) * D;
+                    bool lunge = power == MascotParts.PowerLunge && powerStart >= 0;
+                    float my = fy + 0.24f * D, w = (lunge ? 0.56f : 0.5f) * D, h = (0.06f + (lunge ? 0.22f : 0.18f) * (float)Math.Abs(Math.Sin(now / (lunge ? 70.0 : 200.0)))) * D;
                     using (GraphicsPath m = new GraphicsPath())
                     {
                         m.AddEllipse(mx - w / 2, my - h / 2, w, h);

@@ -222,6 +222,19 @@ namespace Stackshot
             if (MascotParts.IsArcade(k)) return ArcadeFace(g, D, geo, ex, ey);
             if (k == MascotParts.KindCreeper || k == MascotParts.KindCrewmate) return true;
             if (k != MascotParts.KindBlinky) return false;
+            if (pose.Power == MascotParts.PowerScared && pose.Fx > 0)
+            {
+                // Frightened: two small pale eyes and a wavy mouth (red on the white flashes).
+                bool white = pose.Fx < 0.28 && ((long)(now / 160.0)) % 2 == 0;
+                Color face = white ? Color.FromArgb(230, 40, 40) : Color.FromArgb(255, 206, 176);
+                float fy = geo.FaceY * D, s = 0.05f * D;
+                using (SolidBrush b = new SolidBrush(face))
+                    foreach (int side in new int[] { -1, 1 }) g.FillRectangle(b, side * 0.09f * D - s / 2 + ex * 0.5f, fy - 0.03f * D, s, s);
+                PointF[] z = new PointF[9];
+                for (int i = 0; i < 9; i++) z[i] = new PointF(-0.2f * D + i * 0.05f * D, fy + (i % 2 == 0 ? 0.13f : 0.1f) * D);
+                using (Pen mp = new Pen(face, Math.Max(1.2f, D * 0.016f))) { mp.LineJoin = LineJoin.Round; g.DrawLines(mp, z); }
+                return true;
+            }
             float dir = (float)Math.Max(-1, Math.Min(1, lookX + Facing));
             foreach (int s in new int[] { -1, 1 })
             {

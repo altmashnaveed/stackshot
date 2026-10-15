@@ -17,7 +17,7 @@ namespace Stackshot
         public const int PowerCrazy = 7, PowerInhale = 8, PowerForce = 9, PowerRoll = 10, PowerFlame = 11, PowerThunder = 12;
 
         public static bool IsTribute(int kind) { return kind >= KindStitch && kind <= KindPikachu; }
-        public static bool HasPower(int kind) { return IsDragon(kind) || IsTribute(kind); }
+        public static bool HasPower(int kind) { return IsDragon(kind) || IsTribute(kind) || ArcadeHasPower(kind); }
 
         static Color TributeIris(int kind)
         {
@@ -67,6 +67,7 @@ namespace Stackshot
 
         static string TributePowerName(int kind)
         {
+            if (ArcadeHasPower(kind)) return ArcadePowerName(kind);
             switch (kind)
             {
                 case KindStitch: return "Hazte el loco";
@@ -80,6 +81,7 @@ namespace Stackshot
 
         static string TributePowerHint(int kind)
         {
+            if (ArcadeHasPower(kind)) return ArcadePowerHint(kind);
             switch (kind)
             {
                 case KindStitch: return "Gira, saca dos brazos m\u00E1s y suelta chispas";
@@ -93,6 +95,7 @@ namespace Stackshot
 
         static string TributePowerLine(int power)
         {
+            if (power >= PowerChomp) return ArcadePowerLine(power);
             switch (power)
             {
                 case PowerCrazy: return "\u00A1Ohana!";
@@ -462,6 +465,7 @@ namespace Stackshot
     {
         int TributePower()
         {
+            if (MascotParts.ArcadeHasPower(Look.Kind)) return ArcadePower();
             switch (Look.Kind)
             {
                 case MascotParts.KindStitch: return MascotParts.PowerCrazy;
@@ -553,7 +557,7 @@ namespace Stackshot
                     if (t > 1500) powerStart = -1;
                     break;
                 default:
-                    powerStart = -1;
+                    if (!ArcadeStep(t)) powerStart = -1;
                     break;
             }
         }
@@ -562,6 +566,7 @@ namespace Stackshot
         double TributeFx()
         {
             if (powerStart < 0) return 0;
+            if (power >= MascotParts.PowerChomp) return ArcadeFx();
             double t = now - powerStart;
             if (power == MascotParts.PowerCrazy) return t < 1500 ? Math.Min(1, t / 200.0) : Math.Max(0, 1 - (t - 1500) / 300.0);
             if (power == MascotParts.PowerFlame) return t < 950 ? Math.Min(1, t / 250.0) : Math.Max(0, 1 - (t - 950) / 400.0);
@@ -574,6 +579,7 @@ namespace Stackshot
 
         static bool TributeMove(Particle p, double s)
         {
+            if (ArcadeMove(p, s)) return true;
             switch (p.Kind)
             {
                 case 'j':

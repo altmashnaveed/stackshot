@@ -236,9 +236,9 @@ namespace Stackshot
         }
 
         // ---- On the body (clipped to it, before the face).
-        static void ExtraBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2)
+        static void ExtraBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2, MascotPose p)
         {
-            if (IsArcade(l.Kind)) { ArcadeBody(g, l, D, body, c1, c2); return; }
+            if (IsArcade(l.Kind)) { ArcadeBody(g, l, D, body, c1, c2, p); return; }
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             Region old = g.Clip;
@@ -393,11 +393,11 @@ namespace Stackshot
                 {
                     // Bark: soft darker grain running down.
                     Color grain = Color.FromArgb(80, Darker(c2, 0.3));
-                    using (Pen p = new Pen(grain, Math.Max(1f, D * 0.01f)))
+                    using (Pen bark = new Pen(grain, Math.Max(1f, D * 0.01f)))
                         for (int i = -3; i <= 3; i++)
                         {
                             float x = i * 0.1f * D;
-                            g.DrawBezier(p, P(x, -0.32f * D), P(x + 0.03f * D, -0.12f * D), P(x - 0.03f * D, 0.1f * D), P(x + 0.01f * D, 0.34f * D));
+                            g.DrawBezier(bark, P(x, -0.32f * D), P(x + 0.03f * D, -0.12f * D), P(x - 0.03f * D, 0.1f * D), P(x + 0.01f * D, 0.34f * D));
                         }
                     break;
                 }
@@ -406,13 +406,13 @@ namespace Stackshot
                     break;
                 case KindPusheen:
                     // Tabby stripes on the forehead and the back.
-                    using (Pen p = new Pen(Color.FromArgb(150, 92, 88, 100), D * 0.024f))
+                    using (Pen stripe = new Pen(Color.FromArgb(150, 92, 88, 100), D * 0.024f))
                     {
-                        p.StartCap = LineCap.Round;
-                        p.EndCap = LineCap.Round;
-                        for (int i = -1; i <= 1; i++) g.DrawLine(p, i * 0.05f * D, -0.21f * D, i * 0.05f * D, -0.15f * D);
+                        stripe.StartCap = LineCap.Round;
+                        stripe.EndCap = LineCap.Round;
+                        for (int i = -1; i <= 1; i++) g.DrawLine(stripe, i * 0.05f * D, -0.21f * D, i * 0.05f * D, -0.15f * D);
                         foreach (int s in Sides)
-                            for (int i = 0; i < 2; i++) g.DrawLine(p, s * 0.42f * D, (-0.02f + i * 0.07f) * D, s * 0.34f * D, (0.0f + i * 0.07f) * D);
+                            for (int i = 0; i < 2; i++) g.DrawLine(stripe, s * 0.42f * D, (-0.02f + i * 0.07f) * D, s * 0.34f * D, (0.0f + i * 0.07f) * D);
                     }
                     break;
             }

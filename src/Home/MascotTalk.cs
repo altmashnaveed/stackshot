@@ -47,8 +47,17 @@ namespace Stackshot
             }
         }
 
+        // Sometimes one of the character's own lines (null otherwise, or when it has none).
+        static string Own(Settings s, double chance)
+        {
+            string[] lines = MascotParts.OwnLines(s.MascotKind);
+            return lines != null && rnd.NextDouble() < chance ? Pick(lines) : null;
+        }
+
         public static string[] Pokes(Settings s)
         {
+            string own = Own(s, 0.5);
+            if (own != null) return new string[] { own };
             string key = Hotkeys.Display(s.HotRegion);
             switch (s.MascotPersonality)
             {
@@ -109,6 +118,8 @@ namespace Stackshot
             int h = DateTime.Now.Hour;
             double r = rnd.NextDouble();
             if (r < 0.18) return Tip(s);
+            string own = Own(s, 0.35);
+            if (own != null) return own;
             if (r < 0.38)
             {
                 if (h >= 7 && h < 11) return By(s.MascotPersonality, new string[] { "\u00A1Ese caf\u00E9 de la ma\u00F1ana!", "Buen momento para empezar fuerte.", "\u00A1Arrancamos el d\u00EDa!" },

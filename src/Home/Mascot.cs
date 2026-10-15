@@ -531,6 +531,7 @@ namespace Stackshot
             double follow = 1 - Math.Exp(-dt / 0.07);
             lookX += (tx - lookX) * follow;
             lookY += (ty - lookY) * follow;
+            ShyStep(dt, cx, cy, d, mouse);
 
             double lean = lookX * 7 + Facing * 9 + (Dangling ? Math.Sin(now / 160.0) * 10 : 0);
             if (now < danceUntil)
@@ -688,7 +689,8 @@ namespace Stackshot
             pose.Antenna = antenna;
             pose.Pulse = 0.5 + 0.5 * Math.Sin(now / 520.0);
             pose.Sleeping = mood == Mood.Sleep;
-            pose.HideHands = act != MascotProps.None && actKNow > 0.01;
+            pose.HideHands = (act != MascotProps.None && actKNow > 0.01) || shy > 0.3;
+            pose.Shy = shy;
             pose.Wave = now < waveUntil ? Math.Min(1, (waveUntil - now) / 1800.0 * 3) : 0;
             pose.WaveRot = Math.Sin(now / 90.0) * 28;
             pose.Facing = Facing;
@@ -950,7 +952,8 @@ namespace Stackshot
                 float x = cx + (float)(p.X * D), y = cy + (float)(p.Y * D), s = (float)(p.Size * D);
                 GraphicsState st = g.Save();
                 g.TranslateTransform(x, y);
-                g.RotateTransform((float)p.Rot * (p.Kind == 'z' || p.Kind == 'b' || p.Kind == 'n' ? 0.08f : p.Kind == 'o' ? 0 : 1));
+                g.RotateTransform((float)p.Rot * (p.Kind == 'z' || p.Kind == 'b' || p.Kind == 'n' ? 0.08f : p.Kind == 'o' || (IsArcadeParticle(p.Kind) && p.Kind != 'F') ? 0 : 1));
+                if (IsArcadeParticle(p.Kind) && PaintArcadeParticle(g, p, s, a)) { g.Restore(st); continue; }
                 if (IsDragonParticle(p.Kind)) { PaintDragonParticle(g, p.Kind, s, a); g.Restore(st); continue; }
                 switch (p.Kind)
                 {
