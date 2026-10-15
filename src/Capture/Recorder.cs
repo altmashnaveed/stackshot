@@ -1206,6 +1206,8 @@ namespace Stackshot
             StopInput();
             // Discarding has nothing to wait for: the bar goes at once.
             if (bar != null) { if (cancelled) bar.Finish(false); else bar.Saving(); }
+            // The stack shows it is being saved, where its thumbnail will appear.
+            if (!cancelled && owner != null) owner.SavingShow(gif, null, -1);
             if (webcam != null) { webcam.Dismiss(); webcam = null; }
             // The frame only marks what is being recorded: it goes now, while the bar keeps showing the saving.
             if (edges != null) { foreach (FrameEdge e in edges) e.Dismiss(); edges = null; }
@@ -2215,13 +2217,13 @@ namespace Stackshot
         Action<double> CineProgress(string label)
         {
             int shown = -1;
-            Ui(delegate { if (bar != null) bar.Converting(label, 0); });
+            Ui(delegate { if (bar != null) bar.Converting(label, 0); if (owner != null) owner.SavingShow(gif, label, 0); });
             return delegate(double f)
             {
                 int pct = (int)Math.Max(0, Math.Min(99, f * 100));
                 if (pct == shown) return;
                 shown = pct;
-                Ui(delegate { if (bar != null) bar.Converting(label, pct / 100.0); });
+                Ui(delegate { if (bar != null) bar.Converting(label, pct / 100.0); if (owner != null) owner.SavingShow(gif, label, pct / 100.0); });
             };
         }
 
@@ -2340,14 +2342,14 @@ namespace Stackshot
         void Encode(string args, string label, double seconds, string failure)
         {
             lock (errors) errors.Length = 0;
-            Ui(delegate { if (bar != null) bar.Converting(label, 0); });
+            Ui(delegate { if (bar != null) bar.Converting(label, 0); if (owner != null) owner.SavingShow(gif, label, 0); });
             int shown = -1;
             int code = Recorder.RunPass(ffmpeg, args, seconds, watch, delegate(double f)
             {
                 int pct = (int)Math.Max(0, Math.Min(99, f * 100));
                 if (pct == shown) return;
                 shown = pct;
-                Ui(delegate { if (bar != null) bar.Converting(label, pct / 100.0); });
+                Ui(delegate { if (bar != null) bar.Converting(label, pct / 100.0); if (owner != null) owner.SavingShow(gif, label, pct / 100.0); });
             }, errors);
             if (watch.Cancelled) { if (error == null) error = PassWatch.CancelledText; }
             else if (watch.Stalled) error = failure + " " + PassWatch.StalledText;
@@ -2357,6 +2359,7 @@ namespace Stackshot
         void Done()
         {
             Release();
+            if (owner != null) owner.SavingDone();
             if (quitting)
             {
                 // Shutdown already took care of the file; nothing is shown while Stackshot closes.

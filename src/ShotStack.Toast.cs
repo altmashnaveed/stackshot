@@ -143,7 +143,7 @@ namespace Stackshot
             foreach (Card c in cards)
                 if (c.Visible && !c.Leaving && !c.Parked) r.Add(c.BodyTarget);
             foreach (Form f in Application.OpenForms)
-                if (f.Visible && (f is Chip || f is UpdateNotice || f is RecordBar || f is TrayPanel)) r.Add(((FloatWindow)f).BodyTarget);
+                if (f.Visible && (f is Chip || f is UpdateNotice || f is RecordBar || f is TrayPanel || f is SavingCard)) r.Add(((FloatWindow)f).BodyTarget);
             return r;
         }
     }
