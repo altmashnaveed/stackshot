@@ -12,6 +12,8 @@ namespace Stackshot
         public double Now, EarL, EarR, Antenna, Pulse, Wave, WaveRot;
         public double Fire, Charge;    // a dragon on fire, and the glow of a power charging in its mouth (0-1)
         public double Fx;              // a tribute character's own effect while its trick runs (0-1)
+        public double Facing;          // -1..1: the way it walks (tails trail on the other side)
+        public bool TailLeft;          // the tail is on the left: it last walked to the right
         public int Power;
         public bool Sleeping, HideHands;
     }

@@ -1173,7 +1173,18 @@ namespace Stackshot
                 for (int k = 0; k < sl.Length; k++)
                 {
                     if (k > 0) DockGap();
-                    foreach (int i in Ordered(sl[k])) AddDockItem(g, ItemFor(sl[k], i), cur);
+                    // Characters: each series starts with its name (the favorites come first, before any).
+                    bool anime = Slots[sl[k]].Id == "anime";
+                    string series = null;
+                    foreach (int i in Ordered(sl[k]))
+                    {
+                        if (anime && !IsFavorite(sl[k], i))
+                        {
+                            string from = i < MascotParts.AnimeInspiration.Length && MascotParts.AnimeInspiration[i] != null ? MascotParts.AnimeInspiration[i] : "Originales";
+                            if (from != series) { DockSeries(from); series = from; }
+                        }
+                        AddDockItem(g, ItemFor(sl[k], i), cur);
+                    }
                 }
             }
             if (Norm(dockQuery).Length == 0 && !keep)
@@ -1219,6 +1230,24 @@ namespace Stackshot
             Grid g = new Grid { Width = 18, Height = DockItemH };
             g.Children.Add(new Border { Width = 1, Height = 40, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 11, 0, 0), Background = Ds.Brush(Ds.Brushes.Separator) });
             dockShelf.Add(g, null, null, 18, false);
+        }
+
+        // A thin divider before a series' characters, with its name standing upright beside the line (whole on hover).
+        // While searching it hides with the rest of the shelf's dividers.
+        void DockSeries(string name)
+        {
+            Palette pal = Ds.Brushes;
+            Grid g = new Grid { Width = 26, Height = DockItemH, Background = Brushes.Transparent, ToolTip = name };
+            g.Children.Add(new Border { Width = 1, Height = 44, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(4, 11, 0, 0), Background = Ds.Brush(pal.Separator) });
+            TextBlock t = Label(name, Ds.Semibold, 10.5, pal.Label3);
+            t.TextTrimming = TextTrimming.CharacterEllipsis;
+            t.MaxWidth = DockItemH - 16;
+            t.LayoutTransform = new RotateTransform(-90);
+            t.HorizontalAlignment = HorizontalAlignment.Left;
+            t.VerticalAlignment = VerticalAlignment.Bottom;
+            t.Margin = new Thickness(9, 0, 0, 12);
+            g.Children.Add(t);
+            dockShelf.Add(g, null, null, 26, false);
         }
 
         void DockNote(string text)

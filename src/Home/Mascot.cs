@@ -688,6 +688,11 @@ namespace Stackshot
             pose.HideHands = act != MascotProps.None && actKNow > 0.01;
             pose.Wave = now < waveUntil ? Math.Min(1, (waveUntil - now) / 1800.0 * 3) : 0;
             pose.WaveRot = Math.Sin(now / 90.0) * 28;
+            pose.Facing = Facing;
+            // The tail goes behind the walk and stays on that side once it stops, instead of jumping back.
+            if (Facing > 0.2) tailLeft = true;
+            else if (Facing < -0.2) tailLeft = false;
+            pose.TailLeft = tailLeft;
             DragonPose();
 
             MascotParts.PaintBack(g, Look, D, c1, c2, pose);

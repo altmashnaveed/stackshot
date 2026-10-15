@@ -33,6 +33,32 @@ namespace Stackshot
             }
         }
 
+        // How each character's eyes are (sizes in units of D): its iris colour, or all dark; the pupil's share of the
+        // eye; whether a dragon's pupil narrows to a slit; and an eyelid line where the original has one.
+        public struct EyeSpec
+        {
+            public float W, H, Pupil;
+            public Color Iris, LidColor;
+            public bool Dark, Slit, Lid;
+        }
+
+        public static EyeSpec EyeFor(int kind)
+        {
+            EyeSpec e = new EyeSpec { W = 0.125f, H = 0.14f, Pupil = 0.56f, Iris = DragonIris(kind), Slit = IsDragon(kind) };
+            switch (kind)
+            {
+                case KindPikachu: e.W = 0.1f; e.H = 0.118f; e.Dark = true; break;
+                case KindStitch: e.W = 0.13f; e.H = 0.152f; e.Dark = true; break;
+                case KindGrogu: e.W = 0.138f; e.H = 0.136f; e.Pupil = 0.7f; e.Lid = true; e.LidColor = Color.FromArgb(78, 58, 40); break;
+                case KindEevee: e.W = 0.115f; e.H = 0.14f; e.Pupil = 0.58f; e.Lid = true; e.LidColor = Color.FromArgb(62, 36, 22); break;
+                case KindCharmander: e.W = 0.115f; e.H = 0.138f; e.Pupil = 0.5f; break;
+                case KindGronckle: e.W = 0.112f; e.H = 0.122f; e.Pupil = 0.5f; break;
+                case KindNightFury:
+                case KindLightFury: e.W = 0.13f; e.H = 0.146f; e.Pupil = 0.6f; break;
+            }
+            return e;
+        }
+
         static string TributePowerName(int kind)
         {
             switch (kind)
@@ -101,21 +127,21 @@ namespace Stackshot
                                 Lighter(c1, 0.06), c2, Color.FromArgb(215, 236, 176, 172));
                     break;
                 case KindEevee:
-                    EeveeTail(g, D, c1, c2, p.Now, p.Fx);
+                    { GraphicsState ts = TailSide(g, p); EeveeTail(g, D, c1, c2, p.Now, p.Fx); g.Restore(ts); }
                     // Big ears opening out to the sides, dark brown inside.
                     foreach (int s in Sides)
                         SoftEar(g, D, s * 0.19f * D, -0.24f * D, (float)(s * (36 + (s < 0 ? p.EarL : p.EarR))), 0.34f, 0.6f,
                                 Lighter(c1, 0.05), c2, Color.FromArgb(225, 92, 58, 34));
                     break;
                 case KindCharmander:
-                    CharTail(g, D, c1, c2, p.Now, p.Fx);
-                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2);
+                    { GraphicsState ts = TailSide(g, p); CharTail(g, D, c1, c2, p.Now, p.Fx); g.Restore(ts); }
+                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2, p);
                     break;
                 case KindPikachu:
                     if (p.Fx > 0.01) Glow(g, 0, -0.02f * D, 1.3f * D, 1.2f * D, Color.FromArgb(255, 226, 70), (int)(130 * p.Fx));
-                    PikaTail(g, D, c1, c2, p.Now);
+                    { GraphicsState ts = TailSide(g, p); PikaTail(g, D, c1, c2, p.Now); g.Restore(ts); }
                     foreach (int s in Sides) PikaEar(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR);
-                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2);
+                    foreach (int s in Sides) Foot(g, D, s, Lighter(c1, 0.05), c2, p);
                     break;
             }
         }
@@ -174,10 +200,19 @@ namespace Stackshot
             g.Restore(st);
         }
 
-        // A small round foot peeking out under the body.
-        static void Foot(Graphics g, float D, int s, Color a, Color b)
+        // Tails trail behind the walk: on the left while it walks right (mirrored), on the right otherwise.
+        static GraphicsState TailSide(Graphics g, MascotPose p)
         {
-            RectangleF f = new RectangleF(s * 0.15f * D - 0.085f * D, 0.255f * D, 0.17f * D, 0.095f * D);
+            GraphicsState st = g.Save();
+            if (p.TailLeft) g.ScaleTransform(-1, 1);
+            return st;
+        }
+
+        // A small round foot peeking out under the body; while it walks, the feet step in turn.
+        static void Foot(Graphics g, float D, int s, Color a, Color b, MascotPose p)
+        {
+            float step = Math.Abs(p.Facing) > 0.2 ? (float)Math.Max(0, Math.Sin(p.Now / 95.0 + (s < 0 ? 0 : Math.PI))) * 0.03f * D : 0;
+            RectangleF f = new RectangleF(s * 0.15f * D - 0.085f * D, 0.255f * D - step, 0.17f * D, 0.095f * D);
             using (GraphicsPath fp = new GraphicsPath())
             {
                 fp.AddEllipse(f);

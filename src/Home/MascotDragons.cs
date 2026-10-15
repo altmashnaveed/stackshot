@@ -90,25 +90,25 @@ namespace Stackshot
                 case KindLightFury:
                 {
                     bool light = l.Kind == KindLightFury;
-                    FuryTail(g, D, c1, c2, p.Now, light);
+                    { GraphicsState ts = TailSide(g, p); FuryTail(g, D, c1, c2, p.Now, light); g.Restore(ts); }
                     Color m1 = light ? PearlA : Lighter(c2, 0.22), m2 = light ? PearlWing : Darker(c2, 0.05), edge = light ? PearlLine : Darker(c2, 0.4);
                     foreach (int s in Sides) DragonWing(g, D, s, m1, m2, edge, Color.FromArgb(150, edge), p.Now, p.Sleeping, 0.8f, 320, 8, false);
                     foreach (int s in Sides) FuryEars(g, D, s, c1, c2, s < 0 ? p.EarL : p.EarR, light);
                     break;
                 }
                 case KindNadder:
-                    NadderTail(g, D, c1, c2, p.Now);
+                    { GraphicsState ts = TailSide(g, p); NadderTail(g, D, c1, c2, p.Now); g.Restore(ts); }
                     foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.15), c2, NadderGold, Color.FromArgb(140, Darker(c2, 0.3)), p.Now, p.Sleeping, 0.78f, 280, 10, false);
                     NadderCrest(g, D, p);
                     break;
                 case KindNightmare:
-                    NightmareTail(g, D, c1, c2, p.Now);
+                    { GraphicsState ts = TailSide(g, p); NightmareTail(g, D, c1, c2, p.Now); g.Restore(ts); }
                     foreach (int s in Sides) DragonWing(g, D, s, Lighter(c1, 0.08), Darker(c2, 0.05), Darker(c2, 0.4), Color.FromArgb(150, Darker(c2, 0.4)), p.Now, p.Sleeping, 0.85f, 300, 9, true);
                     foreach (int s in Sides) NightmareHorn(g, D, s, s < 0 ? p.EarL : p.EarR);
                     foreach (int s in Sides) JawSpines(g, D, s, c2);
                     break;
                 case KindGronckle:
-                    GronckleTail(g, D, c1, c2, p.Now);
+                    { GraphicsState ts = TailSide(g, p); GronckleTail(g, D, c1, c2, p.Now); g.Restore(ts); }
                     foreach (int s in Sides) GronckleWing(g, D, s, c2, p.Now, p.Sleeping);
                     GronckleKnobs(g, D, c1, c2);
                     break;
@@ -588,11 +588,12 @@ namespace Stackshot
                     if (powerStage == 0 && t >= 300)
                     {
                         powerStage = 1;
-                        tiltV += 140;
+                        double side = tailLeft ? -1 : 1;   // from wherever its tail is
+                        tiltV += 140 * side;
                         for (int i = 0; i < 6; i++)
                         {
                             double a = (-80 + i * 14) * Math.PI / 180, v = 1.0 + rnd.NextDouble() * 0.3;
-                            Emit('S', 0.48, -0.06, Math.Cos(a) * v, Math.Sin(a) * v, 900, 0.07);
+                            Emit('S', 0.48 * side, -0.06, Math.Cos(a) * v * side, Math.Sin(a) * v, 900, 0.07);
                         }
                     }
                     if (t > 1500) powerStart = -1;
@@ -798,35 +799,52 @@ namespace Stackshot
             MascotParts.Ellipse(g, Color.FromArgb(250, 255, 255, 255), x - w * 0.32f, y - h * 0.4f, w * 0.64f, h * 0.36f);
         }
 
-        // Dragon eyes: a coloured iris with a dark pupil, big and round when relaxed or surprised (the cute look), a thin
-        // slit while it uses its power.
+        // Each character's own eyes (MascotParts.EyeFor), drawn the way the originals are: an iris darker at the top, as
+        // under the lid, and lighter below (or all dark, like Pikachu's and Stitch's), a big round pupil that a dragon
+        // narrows to a slit while it uses its power, a soft rim instead of a hard outline, an eyelid line where the
+        // character has one, and two catchlights placed the same on both eyes, the big one high on the side the light
+        // comes from (the top left, as on the body's shine).
         void DragonEye(Graphics g, float x, float y, float D, float blink, bool surprised)
         {
             if (Look.Kind == MascotParts.KindKirby) { KirbyEye(g, x, y, D, blink, surprised); return; }
-            // Big eyes are what make them look sweet.
-            const float big = 1.3f;
-            float k = (surprised ? 1.12f : 1f) * big, w = D * 0.1f * k, h = D * 0.112f * k * blink;
+            MascotParts.EyeSpec e = MascotParts.EyeFor(Look.Kind);
+            float k = surprised ? 1.1f : 1f, w = D * e.W * k, h = D * e.H * k * blink;
+            Color ink = e.Dark ? Color.FromArgb(18, 16, 22) : MascotParts.Darker(e.Iris, 0.72);
             if (h < D * 0.02f)
             {
-                MascotParts.Line(g, Color.FromArgb(230, 20, 20, 28), Math.Max(1.2f, D * 0.02f), x - w * 0.5f, y, x + w * 0.5f, y);
+                MascotParts.Line(g, Color.FromArgb(235, e.Lid ? e.LidColor : ink), Math.Max(1.2f, D * 0.02f), x - w * 0.52f, y, x + w * 0.52f, y);
                 return;
             }
             RectangleF r = new RectangleF(x - w / 2, y - h / 2, w, h);
-            Color iris = MascotParts.DragonIris(Look.Kind);
             using (GraphicsPath ep = Ellipse(r))
             {
-                MascotParts.Fill(g, ep, r, MascotParts.Lighter(iris, 0.3), MascotParts.Darker(iris, 0.3), 90f);
-                MascotParts.Stroke(g, ep, Color.FromArgb(210, 18, 18, 26), Math.Max(1f, D * 0.009f));
+                if (e.Dark) MascotParts.Fill(g, ep, r, Color.FromArgb(10, 10, 14), Color.FromArgb(52, 50, 66), 90f);
+                else MascotParts.Fill(g, ep, r, MascotParts.Darker(e.Iris, 0.42), MascotParts.Lighter(e.Iris, 0.22), 90f);
+                if (!e.Dark)
+                {
+                    // A lighter glow low in the iris, then the pupil over the middle.
+                    Region old = g.Clip;
+                    g.SetClip(ep, CombineMode.Intersect);
+                    MascotParts.Ellipse(g, Color.FromArgb(110, MascotParts.Lighter(e.Iris, 0.55)), x - w * 0.34f, y + h * 0.08f, w * 0.68f, h * 0.4f);
+                    g.Clip = old;
+                    old.Dispose();
+                    bool slit = e.Slit && now < focusUntil && !surprised;
+                    float grow = surprised ? 0.06f : 0;
+                    float pw = slit ? w * 0.17f : w * (e.Pupil + grow), ph = slit ? h * 0.82f : h * (e.Pupil + 0.08f + grow);
+                    MascotParts.Ellipse(g, Color.FromArgb(250, 10, 10, 14), x - pw / 2, y - ph / 2 + h * 0.03f, pw, ph);
+                }
+                MascotParts.Stroke(g, ep, Color.FromArgb(150, ink), Math.Max(0.8f, D * 0.006f));
             }
-            bool slit = now < focusUntil && !surprised;
-            const float round = 0.62f;
-            float pw = slit ? w * 0.17f : w * (surprised ? round + 0.08f : round), ph = h * (slit ? 0.86f : surprised ? round + 0.1f : round + 0.08f);
-            MascotParts.Ellipse(g, Color.FromArgb(250, 12, 12, 18), x - pw / 2, y - ph / 2 + h * 0.03f, pw, ph);
+            if (e.Lid)
+                using (Pen lid = new Pen(e.LidColor, Math.Max(1.2f, D * 0.014f)))
+                {
+                    lid.StartCap = LineCap.Round;
+                    lid.EndCap = LineCap.Round;
+                    g.DrawArc(lid, r.X - w * 0.07f, r.Y - h * 0.01f, w * 1.14f, h * 0.92f, 196, 148);
+                }
             if (blink < 0.5) return;
-            // Two catchlights, the big one high: the glossy look of the films' eyes.
-            const float hl = 0.32f;
-            MascotParts.Ellipse(g, Color.FromArgb(245, 255, 255, 255), x + w * 0.02f, y - h * 0.34f, w * hl, w * hl);
-            MascotParts.Ellipse(g, Color.FromArgb(180, 255, 255, 255), x - w * 0.28f, y + h * 0.1f, w * 0.13f, w * 0.13f);
+            MascotParts.Ellipse(g, Color.FromArgb(248, 255, 255, 255), x - w * 0.36f, y - h * 0.38f, w * 0.42f, h * 0.34f);
+            MascotParts.Ellipse(g, Color.FromArgb(200, 255, 255, 255), x + w * 0.12f, y + h * 0.12f, w * 0.16f, w * 0.16f);
         }
     }
 }
