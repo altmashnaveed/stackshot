@@ -185,6 +185,7 @@ namespace Stackshot
                 timer.Stop();
                 if (mascotHost != null) mascotHost.Layer.Release();
             }
+            BrandTimer(shown);
             owner.HomeShown(shown);
         }
 
@@ -207,9 +208,7 @@ namespace Stackshot
             if (sidebar.Parent == null) { Grid.SetColumn(sidebar, 0); Root.Children.Add(sidebar); }
 
             StackPanel brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20, 26, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-            Image logo = new DecorImage { Width = 30, Height = 30, Source = Icon as ImageSource };
-            RenderOptions.SetBitmapScalingMode(logo, BitmapScalingMode.HighQuality);
-            brand.Children.Add(logo);
+            brand.Children.Add(BrandMark());
             StackPanel names = new StackPanel { Margin = new Thickness(10, -1, 0, 0) };
             names.Children.Add(Label("Stackshot", Ds.Title, 15, Ds.Brushes.Label));
             names.Children.Add(Label("Versi\u00F3n " + Installer.MyVersion.ToString(3), Ds.Regular, 11.5, Ds.Brushes.Label3));
