@@ -1270,6 +1270,8 @@ namespace Stackshot
             m.Chatter = settings.MascotChatter;
             m.Alone = focusing ? 0 : settings.MascotAlone;
             m.SleepIdle = settings.MascotSleepIdle;
+            m.Rhythm = settings.MascotRhythm;
+            MascotParts.NightCaps = settings.MascotRhythm;
             if (menuDue > 0 && now >= menuDue) { menuDue = 0; clicks = 0; OpenMenu(); }
             if (clicks > 0 && now - lastClick > 400 && menuDue == 0) clicks = 0;
             switch (state)

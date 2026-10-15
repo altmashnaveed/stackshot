@@ -148,6 +148,9 @@ namespace Stackshot
             StatsDayCheck();
             settings.StatsCaptures++;
             settings.Save();
+            // A busy day gets a word from the mascot, at a few round numbers.
+            int n = settings.StatsCaptures;
+            if (settings.MascotRhythm && PetShown && (n == 25 || n == 50 || n == 100)) pet.FocusSay("\u00A1Vaya d\u00EDa! Ya llevas " + n + " capturas.");
         }
 
         // ---- The watch

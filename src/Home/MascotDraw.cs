@@ -619,6 +619,7 @@ namespace Stackshot
                 case 15: Beret(g, u); break;
                 case 16: Chef(g, u); break;
                 case 17: Flowers(g, u, now); break;
+                case HatNightcap: NightCap(g, u, now); break;
                 default: PaintAnimeHat(g, hat, u, now); break;
             }
             g.Restore(st);

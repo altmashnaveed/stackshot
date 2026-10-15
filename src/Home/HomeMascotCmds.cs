@@ -18,6 +18,8 @@ namespace Stackshot
             mascot.Chatter = settings.MascotChatter;
             mascot.Alone = settings.MascotAlone;
             mascot.SleepIdle = settings.MascotSleepIdle;
+            mascot.Rhythm = settings.MascotRhythm;
+            MascotParts.NightCaps = settings.MascotRhythm;
         }
 
         // How long between its unprompted tips, by how talkative it is.
@@ -103,6 +105,8 @@ namespace Stackshot
                            delegate { return settings.MascotChatter; }, delegate(int i) { settings.MascotChatter = i; ApplyMascotBehavior(); if (settings.MascotTalks) mascot.Say(MascotTalk.Hello(settings), 3000); Wake(); owner.MascotChanged(); }) { When = shown },
                 new ToggleRow("Se duerme sola", "Si no le haces caso un rato, bosteza y se echa una siesta.", "moon", Mac.Indigo, Mac.Purple,
                               delegate { return settings.MascotSleepIdle; }, delegate(bool v) { settings.MascotSleepIdle = v; ApplyMascotBehavior(); owner.MascotChanged(); }) { When = shown },
+                new ToggleRow("Seg\u00FAn la hora del d\u00EDa", "Caf\u00E9 por la ma\u00F1ana, gorro de dormir por la noche y fiesta los viernes; y un flash cada vez que haces una captura.", "clock", Mac.Orange, Mac.Pink,
+                              delegate { return settings.MascotRhythm; }, delegate(bool v) { settings.MascotRhythm = v; ApplyMascotBehavior(); owner.MascotChanged(); }) { When = shown },
                 new ToggleRow("Recorre todas las pantallas", "En el escritorio pasea de un monitor a otro en vez de quedarse en uno.", "screen", Mac.Teal, Mac.Blue,
                               delegate { return settings.MascotAllScreens; }, delegate(bool v) { settings.MascotAllScreens = v; owner.MascotChanged(); }) { When = shown },
                 new ToggleRow("Se aparta con la pantalla completa", "Si un juego, una presentaci\u00F3n o una ventana a pantalla completa (como el Escritorio remoto o una m\u00E1quina virtual) ocupa su pantalla, se va a otra libre y no entra en esa; si no hay otra, se queda detr\u00E1s. Ap\u00E1galo y se queda siempre delante.", "maximize", Mac.Indigo, Mac.Blue,

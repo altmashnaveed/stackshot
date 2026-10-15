@@ -135,6 +135,7 @@ namespace Stackshot
             squashX = 1.18; squashY = 0.84;
             jumpV -= 1.8;
             for (int i = 0; i < 10; i++) Spawn('p', 0, -0.05, 0.9);
+            if (Rhythm) flashUntil = now + FlashMs;
             if (DateTime.Now.Month == 10) for (int i = 0; i < 3; i++) Spawn('b', 0, -0.2, 0.55);
             if (text != null) Say(text, 2600);
             pendingHappy = true;
@@ -357,6 +358,7 @@ namespace Stackshot
 
         void Fidget()
         {
+            if (Rhythm && RhythmFidget()) return;
             int cmd = PickAlone(Alone, Look.Personality, lastAlone, prevAlone, rnd);
             if (cmd < 0) return;
             prevAlone = lastAlone;
@@ -717,12 +719,15 @@ namespace Stackshot
             }
             else MascotParts.PaintFaceAccessory(g, Look, D);
             MascotParts.PaintAccessory(g, Look, D, now, false);
-            MascotParts.PaintHat(g, Look, Look.EffectiveHat(DateTime.Now), D, now);
+            int hat = Look.EffectiveHat(DateTime.Now);
+            if (hat == MascotParts.HatNightcap && still) hat = 0;   // pickers show the look itself
+            MascotParts.PaintHat(g, Look, hat, D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
             if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY);
             else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2);
             g.Restore(st);
             PaintParticles(g, box);
+            PaintFlash(g, box);
         }
 
         // Eyes, mouth and cheeks, depending on mood and eye style. On the robot they glow inside the visor.
@@ -1032,6 +1037,7 @@ namespace Stackshot
         {
             Mascot m = new Mascot();
             m.Look = look;
+            m.still = true;
             m.Box = box;
             m.now = 1;
             m.blinkStart = -1;

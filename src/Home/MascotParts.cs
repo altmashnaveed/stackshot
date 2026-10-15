@@ -45,9 +45,14 @@ namespace Stackshot
         // The hat actually worn: a seasonal costume replaces "no hat" around Halloween and Christmas.
         public int EffectiveHat(DateTime d)
         {
-            if (Hat != 0 || !Seasonal) return Hat;
-            if (d.Month == 10 || (d.Month == 11 && d.Day <= 2)) return MascotParts.HatPumpkin;
-            if ((d.Month == 12 && d.Day >= 10) || (d.Month == 1 && d.Day <= 6)) return MascotParts.HatSanta;
+            if (Hat != 0) return Hat;
+            if (Seasonal)
+            {
+                if (d.Month == 10 || (d.Month == 11 && d.Day <= 2)) return MascotParts.HatPumpkin;
+                if ((d.Month == 12 && d.Day >= 10) || (d.Month == 1 && d.Day <= 6)) return MascotParts.HatSanta;
+            }
+            // Late at night, with no hat of its own: its nightcap.
+            if (MascotParts.NightCaps && (d.Hour >= 22 || d.Hour < 6)) return MascotParts.HatNightcap;
             return 0;
         }
 
@@ -99,7 +104,7 @@ namespace Stackshot
                                                      "Corona", "Aureola", "Boina", "Gorro de chef", "Flores", "Pelo rubio", "Pelo casta\u00F1o", "Pelo de punta", "Pelo blanco", "Pelo granate", "Capucha de oso", "Banda ninja", "Sombrero de paja", "Pelo negro", "Ninja rubio", "Casco de marine", "Casco de caballero", "Casco de astronauta", "Chispa",
                                                      "Pelo de punta oscuro", "Pelo magenta", "Ninja de pelo oscuro", "Pelo verde", "Pelo de llamas", "Melena negra",
                                                      "Ninja de pelo plateado", "Capucha de murci\u00E9lago", "Casco rel\u00E1mpago", "Pelo con rizo", "Casco de armadura",
-                                                     "Sombrero de doctor", "Pelo azul salvaje" };
+                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir" };
         public static readonly string[] OutfitNames = { "Nada", "Bufanda", "Pajarita", "Corbata", "Capa de vampiro", "Capa de h\u00E9roe",
                                                         "Cascabel", "Cadena de oro", "Capa verde", "Abrigo rojo", "Chaleco ninja", "Kimono de lucha", "Haori a cuadros", "Mochila", "Chaleco rojo", "Camiseta roja", "Botones de consola", "Panza del bosque", "Ch\u00E1ndal naranja",
                                                         "Hombrera", "Armadura verde", "Traje espacial", "Chaqueta verde", "Camiseta morada", "Traje de buf\u00F3n",

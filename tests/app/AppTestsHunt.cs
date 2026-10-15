@@ -59,7 +59,7 @@ namespace Stackshot.Tests
             v["MascotPersonality"] = 1; v["MascotSeasonal"] = false; v["MascotDesktop"] = true; v["MascotClimb"] = false;
             v["MascotAllScreens"] = false; v["MascotSpot"] = 400; v["MascotLove"] = 1234; v["MascotFavorites"] = "0:1,2:3";
             v["MascotLooks"] = "a|b"; v["MascotAccessory"] = 3; v["MascotEnergy"] = 2; v["MascotChatter"] = 0; v["MascotAlone"] = 9;
-            v["MascotSleepIdle"] = false;
+            v["MascotSleepIdle"] = false; v["MascotRhythm"] = false;
             v["CheckUpdates"] = false; v["LastUpdateCheck"] = "2026-10-09T10:00:00.0000000Z"; v["AutoUpdate"] = true; v["UpdateNotified"] = "v2.0.1";
             v["CineFps"] = 30; v["CinePeakMemory"] = 1; v["RecordSetup"] = false; v["RecordCountdown"] = 10;
             v["PlayerOpensVideos"] = false; v["PlayerScaling"] = 1; v["PlayerFill"] = true; v["PlayerVolume"] = 35; v["PlayerLoop"] = true; v["ExportQuality"] = 2;
