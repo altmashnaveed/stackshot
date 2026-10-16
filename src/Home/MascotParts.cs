@@ -74,7 +74,9 @@ namespace Stackshot
                                                    "Bola encadenada", "P\u00E1jaro enfadado", "Cerdito verde", "Caballero hueco", "Cubo con coraz\u00F3n", "Bombardero",
                                                    "Globo con gafas", "Jud\u00EDa", "Cerdo de bloques", "Bloque sorpresa", "Medusa", "Bolita naranja",
                                                    "Cient\u00EDfico", "Chica del fuego", "Duplicante", "Duplicante rizado",
-                                                   "Ninja rubio", "Ninja vengador", "Ninja copia", "Pirata de goma", "Espadach\u00EDn", "Cazador de demonios", "Hermana demonio" };
+                                                   "Ninja rubio", "Ninja vengador", "Ninja copia", "Pirata de goma", "Espadach\u00EDn", "Cazador de demonios", "Hermana demonio",
+                                                   "Ni\u00F1a fantasma", "Chico aventurero", "Perro m\u00E1gico", "Consola amiga", "Perro rastreador", "Ninja naranja",
+                                                   "Ninja del abanico", "Ninja enmascarado" };
 
         public static readonly Color[,] Colors =
         {
@@ -153,14 +155,15 @@ namespace Stackshot
             { Color.FromArgb(244, 241, 236), Color.FromArgb(198, 192, 186) },
             { Color.FromArgb(156, 104, 72), Color.FromArgb(108, 70, 46) },
             { Color.FromArgb(248, 212, 180), Color.FromArgb(220, 170, 134) },
-            { Color.FromArgb(255, 234, 216), Color.FromArgb(236, 194, 168) }
+            { Color.FromArgb(255, 234, 216), Color.FromArgb(236, 194, 168) },
+            { Color.FromArgb(255, 251, 226), Color.FromArgb(226, 216, 180) }
         };
         public static readonly string[] ColorNames = { "Aurora", "Menta", "Coral", "Lavanda", "Oc\u00E9ano", "Sol", "Lima", "Grafito",
                                                        "Chicle", "Calabaza", "Noche", "Nieve", "Galaxia", "Cereza", "Hielo", "Bosque", "Oro", "Melocot\u00F3n", "Canela", "Turquesa", "Ceniza", "Arcilla", "Medianoche", "Chocolate", "Miel", "Brasa", "A\u00F1il", "Salvia", "El\u00E9ctrico", "Hoja", "Agua", "Algod\u00F3n", "Petr\u00F3leo", "Morado",
                                                        "Pato", "Crema", "Azul real", "Trapo", "Naranja", "Lila", "Perla", "Sombra", "Fuego", "Musgo blanco",
                                                        "Yoshi", "Azul intenso", "Creeper", "Tripulante", "Blinky", "Blanco", "Osito", "Gris gato",
                                                        "Comecocos", "Pinky", "Inky", "Clyde", "Goomba", "Piel", "Champi\u00F1\u00F3n", "Bob-omb", "P\u00E1jaro rojo", "Cerdito",
-                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee", "Kirby", "1-Up", "Palidez", "Tostado", "Duplicante", "Piel anime" };
+                                                       "Capa", "Cubo", "Pooka", "Fall Guy", "Cerdo", "Bloque", "Metroid", "Waddle Dee", "Kirby", "1-Up", "Palidez", "Tostado", "Duplicante", "Piel anime", "Fantasma" };
 
         public static readonly string[] EyeNames = { "Brillo", "Kawaii", "Puntitos", "Anime", "Chulo", "Estrella", "Pesta\u00F1as", "Drag\u00F3n" };
 
@@ -170,7 +173,8 @@ namespace Stackshot
                                                      "Corona", "Aureola", "Boina", "Gorro de chef", "Flores", "Pelo rubio", "Pelo casta\u00F1o", "Pelo de punta", "Pelo blanco", "Pelo granate", "Capucha de oso", "Banda ninja", "Sombrero de paja", "Pelo negro", "Ninja rubio", "Casco de marine", "Casco de caballero", "Casco de astronauta", "Chispa",
                                                      "Pelo de punta oscuro", "Pelo magenta", "Ninja de pelo oscuro", "Pelo verde", "Pelo de llamas", "Melena negra",
                                                      "Ninja de pelo plateado", "Capucha de murci\u00E9lago", "Casco rel\u00E1mpago", "Pelo con rizo", "Casco de armadura",
-                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir" };
+                                                     "Sombrero de doctor", "Pelo azul salvaje", "Gorro de dormir",
+                                                     "Pelo de Gojo", "Pelo de Killua", "Pelo de Levi", "Pelo de Shin-chan" };
         public static readonly string[] OutfitNames = { "Nada", "Bufanda", "Pajarita", "Corbata", "Capa de vampiro", "Capa de h\u00E9roe",
                                                         "Cascabel", "Cadena de oro", "Capa verde", "Abrigo rojo", "Chaleco ninja", "Kimono de lucha", "Haori a cuadros", "Mochila", "Chaleco rojo", "Camiseta roja", "Botones de consola", "Panza del bosque", "Ch\u00E1ndal naranja",
                                                         "Hombrera", "Armadura verde", "Traje espacial", "Chaqueta verde", "Camiseta morada", "Traje de buf\u00F3n",

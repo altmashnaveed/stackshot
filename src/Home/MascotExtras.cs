@@ -17,7 +17,7 @@ namespace Stackshot
                          KindYoshi = 46, KindPacman = 47, KindCreeper = 48, KindCrewmate = 49, KindBlinky = 50, KindDqSlime = 51,
                          KindSnoopy = 52, KindKitty = 53, KindGroot = 54, KindRilakkuma = 55, KindPusheen = 56, KindPochacco = 57;
 
-        public static bool IsExtra(int kind) { return kind >= KindPsyduck && (kind <= KindDupeCurly || IsFigure(kind)); }
+        public static bool IsExtra(int kind) { return kind >= KindPsyduck && (kind <= KindDupeCurly || IsFigure(kind) || kind == KindAbigail || IsToon(kind)); }
 
         // A dark outline in the body's own shade, for a crisp drawn look; not on the see-through or glowing ones, nor the pixels.
         public static bool Inked(int kind) { return kind != 3 && kind != KindCalcifer && kind != KindMetroid && kind != KindInvader; }
@@ -26,14 +26,14 @@ namespace Stackshot
         public static bool NoHands(int kind)
         {
             return kind == KindMimikyu || kind == KindNoFace || kind == KindCalcifer || kind == KindCreeper || kind == KindCrewmate ||
-                   kind == KindBlinky || kind == KindDqSlime || (IsArcade(kind) && ArcadeNoHands(kind));
+                   kind == KindBlinky || kind == KindDqSlime || kind == KindAbigail || (IsArcade(kind) && ArcadeNoHands(kind));
         }
 
         public static bool NoCheeks(int kind)
         {
             return kind == KindMimikyu || kind == KindDitto || kind == KindNoFace || kind == KindCalcifer || kind == KindKodama ||
                    kind == KindCreeper || kind == KindCrewmate || kind == KindBlinky || kind == KindKitty || kind == KindSnoopy ||
-                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindPsyduck || kind == KindKirby || kind == KindWilson || kind == KindWillow || (IsFigure(kind) && !FigOf(kind).Blush) || (IsArcade(kind) && ArcadeNoCheeks(kind));
+                   kind == KindMewtwo || kind == KindLucario || kind == KindGroot || kind == KindPsyduck || kind == KindKirby || kind == KindWilson || kind == KindWillow || kind == KindAbigail || IsToon(kind) || (IsFigure(kind) && !FigOf(kind).Blush) || (IsArcade(kind) && ArcadeNoCheeks(kind));
         }
 
         static Geo G(float headW, float top, float faceY, float eyeGap, float neckY, float neckW, float bottom, float handX, float handY, float hatW)
@@ -48,6 +48,7 @@ namespace Stackshot
         {
             if (IsArcade(kind)) return ArcadeGeo(kind);
             if (IsKlei(kind)) return KleiGeo(kind);
+            if (IsToon(kind)) return ToonGeo(kind);
             if (IsFigure(kind)) return FigureGeo(kind);
             switch (kind)
             {
@@ -81,7 +82,8 @@ namespace Stackshot
         static GraphicsPath ExtraPath(int kind, Geo geo, float D, double now)
         {
             if (IsArcade(kind)) return ArcadePath(kind, geo, D, now);
-            if (IsKlei(kind)) return KleiPath(kind, D);
+            if (IsKlei(kind)) return KleiPath(kind, D, now);
+            if (IsToon(kind)) return ToonPath(kind, D);
             if (IsFigure(kind)) return FigurePath(D);
             float W = geo.HeadW * D, top = geo.Top * D, bottom = geo.Bottom * D;
             switch (kind)
@@ -219,10 +221,11 @@ namespace Stackshot
         static readonly Color InkBlack = Color.FromArgb(20, 18, 24);
 
         // A whole face of its own, instead of the usual eyes, blush and mouth: the Creeper's pixels (drawn on the body),
-        // the crewmate's visor (also on the body) and the Pac-Man ghost's eyes, which look where it goes.
-        bool ExtraFace(Graphics g, float D, MascotParts.Geo geo, float ex, float ey)
+        // the crewmate's visor (also on the body), the Pac-Man ghost's eyes, which look where it goes, and Finn's small face.
+        bool ExtraFace(Graphics g, float D, MascotParts.Geo geo, float ex, float ey, float blink)
         {
             int k = Look.Kind;
+            if (k == MascotParts.KindFinn) return FinnFace(g, D, geo, ex, ey, blink);
             if (MascotParts.IsArcade(k)) return ArcadeFace(g, D, geo, ex, ey);
             if (k == MascotParts.KindCreeper || k == MascotParts.KindCrewmate) return true;
             if (k != MascotParts.KindBlinky) return false;
@@ -258,6 +261,7 @@ namespace Stackshot
             if (!MascotParts.IsExtra(k)) return false;
             if (MascotParts.IsArcade(k)) return ArcadeEye(g, x, y, D, blink, surprised);
             if (MascotParts.IsKlei(k)) return KleiEye(g, x, y, D, blink, surprised);
+            if (MascotParts.IsToon(k)) return ToonEye(g, x, y, D, blink, surprised);
             if (MascotParts.IsFigure(k)) return FigureEye(g, x, y, D, blink, surprised);
             float sk = surprised ? 1.15f : 1f;
             switch (k)
@@ -365,6 +369,7 @@ namespace Stackshot
             if (!MascotParts.IsExtra(k)) return false;
             if (MascotParts.IsArcade(k)) return ArcadeMouth(g, D, mx, fy, ink, lw, talking);
             if (MascotParts.IsKlei(k)) return KleiMouth(g, D, mx, fy, talking);
+            if (MascotParts.IsToon(k)) return ToonMouth(g, D, mx, fy, talking);
             if (MascotParts.IsFigure(k)) return FigureMouth(g, D, mx, fy, talking);
             bool open = talking || mood == Mood.Happy || mood == Mood.Love;
             switch (k)

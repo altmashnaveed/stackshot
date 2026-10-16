@@ -562,7 +562,10 @@ namespace Stackshot
             Palette pal = Ds.Brushes;
             Border card = SideCard(true);
             Grid g = new Grid();
-            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(84) });
+            // A look shown bigger here (Finn, Jake, BMO) that would reach over the plate makes it a little taller instead.
+            int kind = mascot.Look.Kind;
+            double extra = Math.Max(0, Math.Ceiling((0.44 - MascotParts.HeadTop(kind)) * 56 * MascotParts.PreviewZoom(kind) - (98 - 56 * 0.16 - 24)));
+            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(84 + extra) });
             g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             // Both glows fade to nothing inside their own box, so no edge ever shows.
@@ -579,6 +582,7 @@ namespace Stackshot
             host.HorizontalAlignment = HorizontalAlignment.Center;
             host.VerticalAlignment = VerticalAlignment.Bottom;
             host.Margin = new Thickness(0, -30, 0, 7);
+            host.Ceiling = 24 - extra;   // 3 px under the plate's top edge (the 98 high host overhangs the row by 21 - extra)
             g.Children.Add(host);
             UseMascot(host);
 
@@ -1143,6 +1147,7 @@ namespace Stackshot
         public event Action Poked;
         public Func<MascotHost, Rect> Room;     // where the bubble may go, in this host's coordinates (empty: anywhere)
         public List<FrameworkElement> Avoid;    // controls the bubble must not cover
+        public double Ceiling;                  // how far down from its top a look shown bigger must stay (a plate's edge)
 
         public MascotHost(Mascot mascot, double box, bool mini)
         {
@@ -1203,11 +1208,21 @@ namespace Stackshot
             Layer.Release();
         }
 
-        // The mascot box inside the layer, in device pixels.
+        // The mascot box inside the layer, in device pixels. A look shown bigger grows up from where its shadow lies.
         D.RectangleF Box(float k)
         {
-            float d = (float)(box * k), w = (float)(ActualWidth * k), h = (float)(ActualHeight * k);
-            return new D.RectangleF((w - d) / 2, h - d - d * 0.06f, d, d);
+            float d = (float)(box * k), w = (float)(ActualWidth * k), h = (float)(ActualHeight * k), dz = d * (float)Zoom();
+            return new D.RectangleF((w - dz) / 2, h - d * 0.16f - dz * 0.9f, dz, dz);
+        }
+
+        // Finn, Jake and BMO show bigger in the small views (not on the big stages), as far as the room over them allows.
+        double Zoom()
+        {
+            int kind = mascot.Look.Kind;
+            double z = box < 100 ? MascotParts.PreviewZoom(kind) : 1;
+            if (z <= 1) return 1;
+            double reach = 0.44 - MascotParts.HeadTop(kind), room = ActualHeight - box * 0.16 - Ceiling;
+            return Math.Max(1, Math.Min(z, room / (reach * box)));
         }
 
         public void Step(double now, D.Point screenMouse, bool moved)
@@ -1288,7 +1303,8 @@ namespace Stackshot
             bubble.Measure(new Size(bubble.MaxWidth, double.PositiveInfinity));
             Size s = bubble.DesiredSize;
             double w = ActualWidth, h = ActualHeight, cx = w / 2;
-            double top = h - box - box * 0.06, head = top - (mascot.Look.EffectiveHat(DateTime.Now) != 0 ? box * 0.16 : 0);
+            double top = h - box - box * 0.06, z = Zoom();
+            double head = Math.Min(top, h - box * 0.16 - (0.44 - MascotParts.HeadTop(mascot.Look.Kind)) * box * z) - (mascot.Look.EffectiveHat(DateTime.Now) != 0 ? box * 0.16 * z : 0);
             Rect room = Rect.Empty;
             Func<MascotHost, Rect> rf = Room;
             if (rf != null) { try { room = rf(this); } catch (InvalidOperationException) { room = Rect.Empty; } }

@@ -62,6 +62,9 @@ namespace Stackshot
                 case KindLightFury: e.W = 0.13f; e.H = 0.146f; e.Pupil = 0.6f; break;
             }
             if (IsExtra(kind)) ExtraEyeSpec(kind, ref e);
+            // Pokémon eyes the way their official plush and chibi art draws them: nearly all pupil, a thin ring of colour,
+            // big catchlights. A thin iris with a small pupil made them stare.
+            if (IsPokemonLike(kind) && !e.Dark) e.Pupil = Math.Max(e.Pupil, 0.76f);
             return e;
         }
 

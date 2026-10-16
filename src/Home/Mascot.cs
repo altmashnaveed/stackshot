@@ -36,6 +36,8 @@ namespace Stackshot
         public int Alone = MascotCmd.AloneAll;   // what it may do alone (MascotCmd.Alone* bits)
         public bool SleepIdle = true;   // dozes off when ignored
         public double Facing;          // -1..1: leans that way (the desktop pet walking)
+        public bool Walking;           // the desktop pet is walking: the feet step
+        public bool Airborne;          // the desktop pet is in the air (falling, thrown or held): the legs kick or hang
         public bool Dangling;          // held by the mouse
         public double Pull;            // 0..1: stretched along its way (dragged or thrown)
         public bool Busy;              // walking, falling or showing a menu: no idle activities
@@ -47,6 +49,8 @@ namespace Stackshot
         readonly MascotPose pose = new MascotPose();
         Mood mood = Mood.Idle;
         double now, last, moodUntil, bubbleUntil, nextBlink, blinkStart = -1, waveUntil, lastPoke, lastSeen, lastSpark, nextFidget;
+        double walkAmt;                // eases in and out of the stride when it starts and stops walking
+        double airAmt;                 // the same for the legs moving in the air
         double lookX, lookY, tilt, tiltV, antenna, antennaV, squashX = 1, squashXV, squashY = 1, squashYV, jump, jumpV;
         double earL, earLV, earR, earRV, spin, spinV, appear = 1, sweepUntil, danceUntil;
         double bowUntil, bubblesUntil, nextHop, pendingSleep, lastBubble;
@@ -482,6 +486,8 @@ namespace Stackshot
             double gap = (t - last) / 1000.0;
             double dt = last == 0 || gap > MaxStep ? 0.016 : Math.Max(0.001, gap);
             last = t;
+            walkAmt += ((Walking && !Dangling ? 1.0 : 0.0) - walkAmt) * (1 - Math.Exp(-dt / 0.12));
+            airAmt += ((Airborne ? 1.0 : 0.0) - airAmt) * (1 - Math.Exp(-dt / 0.08));
             if (lastSeen == 0) lastSeen = t;
             if (moved) lastSeen = t;
             if (moved && mood == Mood.Sleep && !forcedSleep) { Wake(); Hop(0.6); }   // dozed off from being ignored: wakes when someone is back
@@ -579,9 +585,11 @@ namespace Stackshot
             }
             if (blinkStart >= 0 && now - blinkStart > 150) blinkStart = -1;
 
-            if (mood == Mood.Sleep && now - lastSpark > 1300) { lastSpark = now; Spawn('z', 0.18, -0.3, 0.16); }
-            if (mood == Mood.Love && now - lastSpark > 380) { lastSpark = now; Spawn('h', 0, -0.25, 0.45); }
-            if (mood == Mood.Dizzy && now - lastSpark > 500) { lastSpark = now; Spawn('s', 0, -0.36, 0.3); }
+            // Over the head, which for some of the toons (Finn, Jake, BMO) is well up from the usual place.
+            double hy = MascotParts.IsToon(Look.Kind) ? MascotParts.GeoFor(Look.Kind).FaceY + 0.05 : 0;
+            if (mood == Mood.Sleep && now - lastSpark > 1300) { lastSpark = now; Spawn('z', 0.18, -0.3 + hy, 0.16); }
+            if (mood == Mood.Love && now - lastSpark > 380) { lastSpark = now; Spawn('h', 0, -0.25 + hy, 0.45); }
+            if (mood == Mood.Dizzy && now - lastSpark > 500) { lastSpark = now; Spawn('s', 0, -0.36 + hy, 0.3); }
 
             // Particles move on their own age (real time since they appeared), integrated exactly, so a frame rate of 16 or
             // 2 fps gives the same path and lifetime. Drag and drift were tuned per 60 fps frame.
@@ -658,7 +666,8 @@ namespace Stackshot
             MascotParts.Geo geo = MascotParts.GeoFor(Look.Kind);
 
             double speed = mood == Mood.Sleep ? 4200.0 : 2600.0;
-            float amp = Look.Kind == 3 ? 0.035f : 0.022f;
+            bool ghost = Look.Kind == 3 || Look.Kind == MascotParts.KindAbigail;   // they float higher, over a fainter shadow
+            float amp = Look.Kind == 3 ? 0.035f : ghost ? 0.03f : 0.022f;
             float bob = Dangling ? 0 : (float)(Math.Sin(now / speed * Math.PI * 2) * D * amp);
             float jy = (float)(jump * D * 0.1);
             float cx = box.X + D / 2, cy = box.Y + D * 0.46f + bob + jy;
@@ -680,10 +689,10 @@ namespace Stackshot
             {
                 float lift = Math.Max(0, -(bob + jy)) / D;
                 float sw = D * 0.5f * (1 - lift * 1.6f) * scale, sh = D * 0.075f * (1 - lift * 1.2f) * scale;
-                if (Look.Kind == 3) { sw *= 0.8f; sh *= 0.8f; }
+                if (ghost) { sw *= 0.8f; sh *= 0.8f; }
                 RectangleF shadow = new RectangleF(cx - sw / 2, box.Y + D * 0.9f - sh / 2, sw, sh);
                 if (sw > 2 && sh > 2)
-                    MascotParts.Glow(g, shadow.X + sw / 2, shadow.Y + sh / 2, sw, sh, Color.Black, (int)(110 * (1 - lift) * (Look.Kind == 3 ? 0.6 : 1)));
+                    MascotParts.Glow(g, shadow.X + sw / 2, shadow.Y + sh / 2, sw, sh, Color.Black, (int)(110 * (1 - lift) * (ghost ? 0.6 : 1)));
             }
 
             g.TranslateTransform(cx, cy);
@@ -704,6 +713,10 @@ namespace Stackshot
             pose.Wave = now < waveUntil ? Math.Min(1, (waveUntil - now) / 1800.0 * 3) : 0;
             pose.WaveRot = Math.Sin(now / 90.0) * 28;
             pose.Facing = Facing;
+            pose.Walk = walkAmt;
+            pose.Step = now * Math.PI / 420.0;   // a step for each of the walk's hops
+            pose.Air = airAmt;
+            pose.Held = Dangling;
             // The tail goes behind the walk and stays on that side once it stops, instead of jumping back.
             if (Facing > 0.2) tailLeft = true;
             else if (Facing < -0.2) tailLeft = false;
@@ -752,8 +765,8 @@ namespace Stackshot
             if (still && hat == MascotParts.HatNightcap && Look.Hat != MascotParts.HatNightcap) hat = 0;   // pickers show the look itself, without the night one
             MascotParts.PaintHat(g, Look, hat, D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
-            if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY);
-            else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2);
+            if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY, MascotParts.MouthY(Look.Kind, geo), Look.Kind);
+            else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2, MascotParts.IsToon(Look.Kind) ? MascotParts.MouthY(Look.Kind, geo) + 0.01f : 0.045f);
             g.Restore(st);
             PaintParticles(g, box);
             PaintFlash(g, box);
@@ -773,7 +786,7 @@ namespace Stackshot
                 double p = (now - blinkStart) / 150.0;
                 blink = (float)Math.Max(0.1, 1 - Math.Sin(Math.PI * Math.Min(1, p)) * 0.95);
             }
-            if (!visor && ExtraFace(g, D, geo, ex, ey)) return;
+            if (!visor && ExtraFace(g, D, geo, ex, ey, blink)) return;
             float stroke = Math.Max(1.5f, D * (visor ? 0.03f : 0.026f));
             bool cheeks = (!visor || mood == Mood.Happy || mood == Mood.Love || mood == Mood.Wink) && !MascotParts.NoCheeks(Look.Kind);
             if (cheeks)
@@ -786,6 +799,7 @@ namespace Stackshot
             for (int i = visor || !MascotParts.CoversEyes(Look) ? 0 : 2; i < 2; i++)
             {
                 float x = (i == 0 ? -gap : gap) + ex, y = ey;
+                if (i == 1 && MascotParts.HidesRightEye(Look.Kind)) continue;   // Kakashi's, under his forehead protector
                 Mood m = mood;
                 if (m == Mood.Wink && i == 1) m = Mood.Sleep;
                 // Eyes that keep their own shape whatever the mood: Gengar's, the kodama's hollows, Mimikyu's painted ones.
@@ -896,7 +910,8 @@ namespace Stackshot
 
         void PaintMouth(Graphics g, float D, float mx, float fy, bool visor)
         {
-            float my = fy + D * (visor ? 0.085f : 0.085f);
+            if (MascotParts.NoMouth(Look.Kind)) return;   // Abigail has none, and Kakashi's is under his mask
+            float my = fy + D * (MascotParts.IsToon(Look.Kind) ? MascotParts.ToonMouthDy(Look.Kind) : 0.085f);
             Color ink = visor ? Mac.Alpha(EyeCore, 0.9) : Ink;
             float lw = Math.Max(1.2f, D * (visor ? 0.018f : 0.016f));
             bool talking = Bubble != null && mood != Mood.Sleep && mood != Mood.Dizzy;
@@ -941,7 +956,7 @@ namespace Stackshot
             }
             if (visor) { if (!talking) return; float w = D * 0.08f, h = D * 0.045f * (float)(0.5 + 0.5 * Math.Abs(Math.Sin(now / 110.0)));
                 using (Pen p = new Pen(ink, lw)) { p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; g.DrawArc(p, mx - w / 2, my - h * 0.5f, w, h, 20, 140); } return; }
-            if (mood == Mood.Sleep) { MascotParts.Line(g, ink, lw, mx - D * 0.02f, my, mx + D * 0.02f, my); return; }
+            if (mood == Mood.Sleep) { if (!MascotParts.MuzzleMouth(Look.Kind)) MascotParts.Line(g, ink, lw, mx - D * 0.02f, my, mx + D * 0.02f, my); return; }
             using (Pen p = new Pen(ink, lw))
             {
                 p.StartCap = LineCap.Round; p.EndCap = LineCap.Round;

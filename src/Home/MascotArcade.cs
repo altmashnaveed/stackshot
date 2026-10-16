@@ -32,7 +32,7 @@ namespace Stackshot
         public static bool KeepsOwnEyes(int kind)
         {
             return kind == KindGoomba || kind == KindBobomb || kind == KindChomp || kind == KindRedBird || kind == KindGreenPig ||
-                   kind == KindPooka || kind == KindMushroom || kind == KindWillow || (IsFigure(kind) && FigOf(kind).Eyes == EyeNone);
+                   kind == KindPooka || kind == KindMushroom || kind == KindWillow || kind == KindAbigail || (IsFigure(kind) && FigOf(kind).Eyes == EyeNone);
         }
 
         static bool ArcadeNoCheeks(int kind) { return kind != KindToad && kind != KindWaddleDee && kind != KindFallGuy; }
@@ -657,7 +657,8 @@ namespace Stackshot
                     Stroke(g, body, Color.FromArgb(240, 20, 18, 26), D * 0.022f);
                     break;
                 default:
-                    if (IsKlei(l.Kind)) KleiInk(g, body, D);
+                    if (IsStarve(l.Kind)) StarveInk(g, l.Kind, body, D);
+                    else if (IsKlei(l.Kind)) KleiInk(g, body, D);
                     else if (IsFigure(l.Kind)) FigLine(g, body, D);
                     break;
             }

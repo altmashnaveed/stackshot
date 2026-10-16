@@ -86,9 +86,66 @@ namespace Stackshot
 
         static void Hand(Graphics g, Color c1, Color c2, float x, float y)
         {
+            if (noHands) return;
+            if (bodyM != null) { DrawnHand(g, x, y); return; }
             Color c = Mac.Mix(c1, c2, 0.3);
             Dot(g, c, x, y, 0.05f);
             using (Pen p = new Pen(Color.FromArgb(60, 255, 255, 255), 0.007f)) g.DrawEllipse(p, x - 0.05f, y - 0.05f, 0.1f, 0.1f);
+        }
+
+        // Wilson and Willow have drawn arms: while they hold something, each hand gets its arm from the shoulder and is
+        // drawn small and inked, as their game draws them (MascotKlei). Set for the length of one Paint; bodyM is the
+        // drawing in body units, before the prop's fade-in scale.
+        [ThreadStatic] static Matrix bodyM;
+        [ThreadStatic] static int armKind;
+        [ThreadStatic] static float armD;
+        [ThreadStatic] static Color armSkin;
+        [ThreadStatic] static bool armsDone;
+        [ThreadStatic] static bool noHands;   // Abigail, a ghost: what she uses floats by itself
+        [ThreadStatic] static float reach;    // how far up a stretch goes
+
+        // A resting hand: out at the side, closer in for the ones with arms.
+        static float RestX { get { return bodyM != null ? 0.2f : 0.3f; } }
+
+        // Where a point of the current drawing falls in body units.
+        static PointF ToBody(Graphics g, float x, float y)
+        {
+            PointF[] pt = { new PointF(x, y) };
+            using (Matrix m = g.Transform) m.TransformPoints(pt);
+            using (Matrix inv = bodyM.Clone()) { inv.Invert(); inv.TransformPoints(pt); }
+            return pt[0];
+        }
+
+        // The arm from its shoulder to a hand at (x, y) of the current drawing.
+        static void DrawnArm(Graphics g, float x, float y)
+        {
+            PointF h = ToBody(g, x, y);
+            GraphicsState st = g.Save();
+            g.Transform = bodyM;
+            g.ScaleTransform(1 / armD, 1 / armD);
+            MascotParts.StarveArm(g, armD, armKind, h.X < 0 ? -1 : 1, h, armSkin);
+            g.Restore(st);
+        }
+
+        static void DrawnHand(Graphics g, float x, float y)
+        {
+            if (!armsDone) DrawnArm(g, x, y);
+            PointF h = ToBody(g, x, y);
+            GraphicsState st = g.Save();
+            g.Transform = bodyM;
+            g.ScaleTransform(1 / armD, 1 / armD);
+            g.TranslateTransform(h.X * armD, h.Y * armD);
+            MascotParts.StarveHand(g, armD, armKind, armSkin);
+            g.Restore(st);
+        }
+
+        // Arms that pass behind the prop (a console, a book, a camera) go on before it, the hands after.
+        static void ArmsFirst(Graphics g, float x1, float y1, float x2, float y2)
+        {
+            if (bodyM == null) return;
+            DrawnArm(g, x1, y1);
+            DrawnArm(g, x2, y2);
+            armsDone = true;
         }
 
         static Color A(Color c, double k) { return Color.FromArgb(Math.Max(0, Math.Min(255, (int)(c.A * k))), c); }
@@ -102,25 +159,53 @@ namespace Stackshot
         // faceY: the height of the eyes (Geo.FaceY), so what goes to the mouth finds it on every species.
         public static void Paint(Graphics g, int act, float D, double t, double k, Color c1, Color c2, float faceY)
         {
+            Paint(g, act, D, t, k, c1, c2, faceY, faceY + 0.085f, -1);
+        }
+
+        // mouthY: where the mouth is, for what goes to it; kind: the character, for the ones drawn with arms.
+        public static void Paint(Graphics g, int act, float D, double t, double k, Color c1, Color c2, float faceY, float mouthY, int kind)
+        {
             if (act == None || k <= 0.01) return;
             GraphicsState st = g.Save();
             g.ScaleTransform(D, D);
+            noHands = kind == MascotParts.KindAbigail;
+            if (MascotParts.HasDrawnArms(kind) && !noHands) { bodyM = g.Transform; armKind = kind; armD = D; armSkin = c1; armsDone = false; }
+            // Finn stands taller and slimmer than the rest: what he holds is a little smaller and up at his hands, still
+            // reaching his mouth and eyes, and he stretches up past his hat.
+            reach = 0.74f;
+            if (kind == MascotParts.KindFinn)
+            {
+                const float s = 0.8f, dy = -0.14f;
+                g.TranslateTransform(0, dy);
+                g.ScaleTransform(s, s);
+                faceY = (faceY - dy) / s;
+                mouthY = (mouthY - dy) / s;
+                reach = 1.02f;
+            }
             float e = (float)(0.6 + 0.4 * k);
             g.TranslateTransform(0, 0.2f);
             g.ScaleTransform(e, e);
             g.TranslateTransform(0, -0.2f);
-            switch (act)
+            try
             {
-                case Coffee: PaintCoffee(g, t, k, c1, c2, faceY); break;
-                case Juggle: PaintJuggle(g, t, c1, c2); break;
-                case Console: PaintConsole(g, t, c1, c2); break;
-                case Stretch: PaintStretch(g, t, c1, c2); break;
-                case Read: PaintRead(g, t, c1, c2); break;
-                case Photo: PaintPhoto(g, t, c1, c2); break;
-                case Water: PaintWater(g, t, k, c1, c2, faceY); break;
-                case EyeRest: PaintEyeRest(g, t, c1, c2, faceY); break;
-                case Legs: PaintLegs(g, t, c1, c2); break;
-                case Breathe: PaintBreathe(g, t, k, c1, c2); break;
+                switch (act)
+                {
+                    case Coffee: PaintCoffee(g, t, k, c1, c2, mouthY); break;
+                    case Juggle: PaintJuggle(g, t, c1, c2); break;
+                    case Console: PaintConsole(g, t, c1, c2); break;
+                    case Stretch: PaintStretch(g, t, c1, c2); break;
+                    case Read: PaintRead(g, t, c1, c2); break;
+                    case Photo: PaintPhoto(g, t, c1, c2); break;
+                    case Water: PaintWater(g, t, k, c1, c2, mouthY); break;
+                    case EyeRest: PaintEyeRest(g, t, c1, c2, faceY); break;
+                    case Legs: PaintLegs(g, t, c1, c2); break;
+                    case Breathe: PaintBreathe(g, t, k, c1, c2); break;
+                }
+            }
+            finally
+            {
+                if (bodyM != null) { bodyM.Dispose(); bodyM = null; }
+                noHands = false;
             }
             g.Restore(st);
         }
@@ -128,14 +213,14 @@ namespace Stackshot
         static readonly Color GlassEdge = Color.FromArgb(200, 225, 240, 255), Water1 = Color.FromArgb(200, 120, 200, 255), Water2 = Color.FromArgb(220, 40, 130, 230);
 
         // A glass of water raised to the mouth in three sips; the level goes down with each one.
-        static void PaintWater(Graphics g, double t, double k, Color c1, Color c2, float faceY)
+        static void PaintWater(Graphics g, double t, double k, Color c1, Color c2, float mouthY)
         {
             double cyc = (t % 2300) / 2300.0;
             float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
-            float mouthY = faceY + 0.085f, toX = 0.12f, toY = mouthY + 0.05f;
+            float toX = 0.12f, toY = mouthY + 0.05f;
             float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
             float level = (float)(0.85 - 0.6 * Math.Min(1, t / Duration(Water)));
-            Hand(g, c1, c2, -0.3f, 0.22f);
+            Hand(g, c1, c2, -RestX, 0.22f);
             GraphicsState st = g.Save();
             g.TranslateTransform(cx, cy);
             g.RotateTransform(-22 * lift);
@@ -173,21 +258,25 @@ namespace Stackshot
         // Shading the eyes with one hand and looking far away; the other hand rests.
         static void PaintEyeRest(Graphics g, double t, Color c1, Color c2, float faceY)
         {
-            Hand(g, c1, c2, -0.31f, 0.22f);
+            Hand(g, c1, c2, -RestX - 0.01f, 0.22f);
             Color arm = Mac.Mix(c1, c2, 0.25);
             float sway = (float)Math.Sin(t / 1400.0) * 0.008f;
             float y = faceY - 0.1f + sway;
-            Seg(g, arm, 0.07f, 0.27f, 0.08f, 0.25f, y + 0.02f);
-            GraphicsState st = g.Save();
-            g.TranslateTransform(0.1f, y);
-            g.RotateTransform(-8);
-            Color c = Mac.Mix(c1, c2, 0.3);
-            using (GraphicsPath p = Theme.Round(new RectangleF(-0.14f, -0.03f, 0.28f, 0.06f), 0.03f))
+            if (!noHands)
             {
-                using (SolidBrush b = new SolidBrush(c)) g.FillPath(b, p);
-                using (Pen pn = new Pen(Color.FromArgb(60, 255, 255, 255), 0.007f)) g.DrawPath(pn, p);
+                if (bodyM != null) DrawnArm(g, 0.24f, y + 0.01f);
+                else Seg(g, arm, 0.07f, 0.27f, 0.08f, 0.25f, y + 0.02f);
+                GraphicsState st = g.Save();
+                g.TranslateTransform(0.1f, y);
+                g.RotateTransform(-8);
+                Color c = Mac.Mix(c1, c2, 0.3);
+                using (GraphicsPath p = Theme.Round(new RectangleF(-0.14f, -0.03f, 0.28f, 0.06f), 0.03f))
+                {
+                    using (SolidBrush b = new SolidBrush(bodyM != null ? armSkin : c)) g.FillPath(b, p);
+                    using (Pen pn = bodyM != null ? new Pen(MascotParts.DsInkC, 0.009f) : new Pen(Color.FromArgb(60, 255, 255, 255), 0.007f)) g.DrawPath(pn, p);
+                }
+                g.Restore(st);
             }
-            g.Restore(st);
             // Little sparkles where it is looking: far away, out to the side.
             for (int i = 0; i < 3; i++)
             {
@@ -205,7 +294,7 @@ namespace Stackshot
             foreach (int s in new int[] { -1, 1 })
             {
                 float hx = s * 0.17f, hy = 0.16f - 0.12f * d;
-                Seg(g, arm, 0.07f, s * 0.27f, 0.1f, hx, hy);
+                if (bodyM == null && !noHands) Seg(g, arm, 0.07f, s * 0.27f, 0.1f, hx, hy);
                 Hand(g, c1, c2, hx, hy);
             }
             // A drop of effort at the bottom of each squat.
@@ -223,15 +312,15 @@ namespace Stackshot
             Hand(g, c1, c2, 0.12f, 0.2f - 0.02f * b);
         }
 
-        static void PaintCoffee(Graphics g, double t, double k, Color c1, Color c2, float faceY)
+        static void PaintCoffee(Graphics g, double t, double k, Color c1, Color c2, float mouthY)
         {
             double cyc = (t % 4200) / 4200.0;
             float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
             // Raised, the tilted cup's near rim meets the mouth (just right of its middle, as the face draws it), never
             // the eyes: its top-left corner sits 0.098 left of and 0.049 above the cup's centre at full tilt.
-            float mouthY = faceY + 0.085f, toX = 0.128f, toY = mouthY + 0.049f;
+            float toX = 0.128f, toY = mouthY + 0.049f;
             float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
-            Hand(g, c1, c2, -0.3f, 0.22f);
+            Hand(g, c1, c2, -RestX, 0.22f);
             GraphicsState st = g.Save();
             g.TranslateTransform(cx, cy);
             g.RotateTransform(-16 * lift);
@@ -274,6 +363,7 @@ namespace Stackshot
         {
             float bob = (float)Math.Sin(t / 700.0) * 0.006f;
             g.TranslateTransform(0, bob);
+            ArmsFirst(g, -0.2f, 0.285f, 0.2f, 0.285f);
             Color shell = Mac.Mix(c1, Color.White, 0.55);
             Grad(g, shell, Mac.Mix(shell, c2, 0.35), -0.2f, 0.1f, 0.4f, 0.21f, 0.05f);
             Fill(g, Color.FromArgb(24, 30, 46), -0.115f, 0.122f, 0.23f, 0.15f, 0.014f);
@@ -303,14 +393,15 @@ namespace Stackshot
             Color arm = Mac.Mix(c1, c2, 0.25);
             foreach (int s in new int[] { -1, 1 })
             {
-                float hx = s * (0.3f + 0.06f * a), hy = 0.21f - 0.74f * a;
-                Seg(g, arm, 0.075f, s * 0.26f, 0.1f, hx, hy);
+                float hx = s * (0.3f + 0.06f * a), hy = 0.21f - reach * a;
+                if (bodyM == null && !noHands) Seg(g, arm, 0.075f, s * 0.26f, 0.1f, hx, hy);
                 Hand(g, c1, c2, hx, hy);
             }
         }
 
         static void PaintRead(Graphics g, double t, Color c1, Color c2)
         {
+            ArmsFirst(g, -0.2f, 0.29f, 0.2f, 0.29f);
             Fill(g, MascotParts.Darker(c2, 0.35), -0.215f, 0.125f, 0.43f, 0.19f, 0.02f);
             PointF[] l = { new PointF(-0.2f, 0.12f), new PointF(-0.008f, 0.14f), new PointF(-0.008f, 0.3f), new PointF(-0.2f, 0.28f) };
             PointF[] r = { new PointF(0.008f, 0.14f), new PointF(0.2f, 0.12f), new PointF(0.2f, 0.28f), new PointF(0.008f, 0.3f) };
@@ -340,6 +431,7 @@ namespace Stackshot
             double cyc = (t % 2600) / 2600.0;
             float shake = cyc > 0.7 && cyc < 0.78 ? 0.006f : 0;
             g.TranslateTransform(shake, 0.04f);
+            ArmsFirst(g, -0.115f, 0.06f, 0.115f, 0.06f);
             Grad(g, Color.FromArgb(86, 90, 108), Color.FromArgb(48, 50, 66), -0.1f, -0.03f, 0.2f, 0.12f, 0.025f);
             Fill(g, Color.FromArgb(205, 208, 220), -0.1f, -0.03f, 0.2f, 0.022f, 0.011f);
             Fill(g, Color.FromArgb(255, 238, 160), 0.05f, -0.045f, 0.04f, 0.022f, 0.006f);
@@ -362,6 +454,12 @@ namespace Stackshot
 
         // Sleep variants (the owner picks one each time it falls asleep): 1 blanket, 2 snore bubble, 3 nodding off, 4 both.
         public static void PaintSleep(Graphics g, int variant, float D, double now, Color c1, Color c2)
+        {
+            PaintSleep(g, variant, D, now, c1, c2, 0.045f);
+        }
+
+        // bubbleY: the height the snore bubble grows at, by the nose.
+        public static void PaintSleep(Graphics g, int variant, float D, double now, Color c1, Color c2, float bubbleY)
         {
             bool blanket = variant == 1 || variant == 4, bubble = variant == 2 || variant == 4;
             if (!blanket && !bubble) return;
@@ -387,7 +485,7 @@ namespace Stackshot
             {
                 double cyc = (now % 4200) / 4200.0;
                 float r = cyc < 0.8 ? 0.012f + 0.05f * (float)(0.5 - 0.5 * Math.Cos(cyc / 0.8 * Math.PI)) : 0.012f;
-                float x = 0.075f + r * 0.5f, y = 0.045f;
+                float x = 0.075f + r * 0.5f, y = bubbleY;
                 Dot(g, Color.FromArgb(70, 200, 225, 255), x, y, r);
                 using (Pen pn = new Pen(Color.FromArgb(150, 235, 245, 255), 0.007f)) g.DrawEllipse(pn, x - r, y - r, r * 2, r * 2);
                 Dot(g, Color.FromArgb(170, 255, 255, 255), x - r * 0.35f, y - r * 0.35f, r * 0.18f);

@@ -26,6 +26,7 @@ namespace Stackshot
             public Color Iris = Color.FromArgb(40, 36, 44);
             public int Eyes, Mouth;
             public bool Blush = true, Ears = true;
+            public Color Hands = Color.Empty;   // gloves, when the hands are not bare
         }
 
         static Fig[] figs;
@@ -114,10 +115,12 @@ namespace Stackshot
             float bob = (float)Math.Sin(p.Now / 2600.0 * Math.PI * 2) * 0.004f;
             using (GraphicsPath nk = KPoly(D, -0.035f, 0.09f, 0.035f, 0.09f, 0.04f, 0.14f, -0.04f, 0.14f)) FigShape(g, nk, o.Neck.IsEmpty ? skin : o.Neck, o.Neck.IsEmpty ? skin2 : Darker(o.Neck, 0.2), D);
             Color legs = o.Shorts ? skin : o.Legs;
-            FLimb(g, D, legs, 0.036f, -0.045f, 0.27f, -0.05f, 0.33f);
-            FLimb(g, D, legs, 0.036f, 0.045f, 0.27f, 0.05f, 0.33f);
-            FShoe(g, D, -0.06f, 0.345f, o.Shoes);
-            FShoe(g, D, 0.06f, 0.345f, o.Shoes);
+            foreach (int s in Sides)
+            {
+                PointF ft = Stride(p, s);
+                FLimb(g, D, legs, 0.036f, s * 0.045f, 0.27f, s * 0.05f + ft.X, 0.33f + ft.Y);
+                FShoe(g, D, s * 0.06f + ft.X, 0.345f + ft.Y, o.Shoes);
+            }
             Color arm = o.BareArms ? skin : o.Sleeve;
             FLimb(g, D, arm, 0.045f, -0.09f, 0.15f, -0.19f, 0.195f + bob);
             FLimb(g, D, arm, 0.045f, 0.09f, 0.15f, 0.19f, 0.195f + bob);

@@ -58,9 +58,9 @@ namespace Stackshot
         {
             float[][] tips =
             {
-                new float[] { -108, 0.09f, 0.05f }, new float[] { -82, 0.14f, 0.1f }, new float[] { -56, 0.16f, 0.15f }, new float[] { -30, 0.17f, 0.15f },
-                new float[] { -6, 0.16f, 0.1f }, new float[] { 18, 0.17f, 0.12f }, new float[] { 42, 0.16f, 0.15f }, new float[] { 66, 0.15f, 0.12f },
-                new float[] { 90, 0.13f, 0.08f }, new float[] { 110, 0.09f, 0.05f }
+                new float[] { -104, 0.09f, 0.3f }, new float[] { -74, 0.17f, 0.3f }, new float[] { -46, 0.21f, 0.22f }, new float[] { -18, 0.12f, 0.1f },
+                new float[] { 6, 0.22f, 0.05f }, new float[] { 32, 0.14f, 0.1f }, new float[] { 58, 0.21f, 0.22f }, new float[] { 84, 0.15f, 0.3f },
+                new float[] { 108, 0.08f, 0.3f }
             };
             float[][] bangs =
             {
@@ -69,6 +69,10 @@ namespace Stackshot
             };
             using (GraphicsPath h = SpikeHair(D, -0.12f, 0.27f, 0.24f, tips, bangs)) HairShape(g, h, Color.FromArgb(255, 222, 80), Color.FromArgb(226, 156, 24), D);
             Headband(g, D, -0.185f, 0, 0);
+            // The two clumps of bangs that fall over the band, either side of the plate.
+            FigLock(g, D, -0.15f, -0.24f, -0.2f, -0.09f, 0.075f, 0.012f, Color.FromArgb(255, 222, 80), Color.FromArgb(226, 156, 24));
+            FigLock(g, D, 0.15f, -0.24f, 0.21f, -0.1f, 0.075f, -0.012f, Color.FromArgb(255, 222, 80), Color.FromArgb(226, 156, 24));
+            FigLock(g, D, -0.205f, -0.22f, -0.245f, -0.12f, 0.05f, 0.01f, Color.FromArgb(255, 222, 80), Color.FromArgb(226, 156, 24));
             // Three whisker marks on each cheek.
             using (Pen w = new Pen(Color.FromArgb(200, 70, 50, 40), Math.Max(1f, D * 0.008f)))
             {
@@ -114,6 +118,10 @@ namespace Stackshot
             };
             using (GraphicsPath h = SpikeHair(D, -0.13f, 0.27f, 0.23f, tips, bangs)) HairShape(g, h, Color.FromArgb(60, 64, 96), Color.FromArgb(18, 20, 34), D);
             Headband(g, D, -0.2f, 0, 0);
+            // The long locks that frame his face down to the jaw.
+            FigLock(g, D, -0.2f, -0.2f, -0.235f, 0.06f, 0.075f, 0.02f, Color.FromArgb(60, 64, 96), Color.FromArgb(18, 20, 34));
+            FigLock(g, D, 0.2f, -0.2f, 0.235f, 0.06f, 0.075f, -0.02f, Color.FromArgb(60, 64, 96), Color.FromArgb(18, 20, 34));
+            FigLock(g, D, -0.03f, -0.21f, -0.06f, -0.11f, 0.05f, 0.005f, Color.FromArgb(60, 64, 96), Color.FromArgb(18, 20, 34));
         }
 
         // ---- Kakashi

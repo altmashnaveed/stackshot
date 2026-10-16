@@ -16,6 +16,9 @@ namespace Stackshot
         public bool TailLeft;          // the tail is on the left: it last walked to the right
         public bool FaceLeft;          // it last walked to the left (Pac-Man turns its mouth that way)
         public double Shy;             // Boo hiding its face (0-1)
+        public double Walk, Step;      // walking: how much (0-1), and the phase of its stride
+        public double Air;             // in the air (falling, thrown or held up by the mouse): how much (0-1)
+        public bool Held;              // held up by the mouse rather than falling
         public int Power;
         public bool Sleeping, HideHands;
     }
@@ -222,6 +225,8 @@ namespace Stackshot
                 Glow(g, 0, (top + bottom) / 2, W * 1.5f, (bottom - top) * 1.4f, Lighter(c1, 0.3), 60);
                 Fill(g, body, b, Color.FromArgb(238, Lighter(c1, 0.2)), Color.FromArgb(238, c2), 70f);
             }
+            else if (IsStarve(l.Kind)) StarveHead(g, l.Kind, body, D, c1, c2);
+            else if (IsToon(l.Kind)) ToonHead(g, l.Kind, body, D);
             else Fill(g, body, b, c1, c2, 55f);
             if (l.Kind == 1 || l.Kind == 2 || l.Kind == 5 || l.Kind == KindDog || l.Kind == KindReindeer)
             {
@@ -246,9 +251,12 @@ namespace Stackshot
             if (IsClassic(l.Kind)) ClassicBody(g, l, D, body, c1, c2);
             if (IsPokemon(l.Kind)) PokemonBody(g, l, D, body, c1, c2);
             if (IsExtra(l.Kind)) ExtraBody(g, l, D, body, c1, c2, p);
-            if (!IsKlei(l.Kind) && !IsFigure(l.Kind)) Shine(g, body, b, l.Kind == 4 ? 150 : 105);   // Klei's characters are flat, inked drawings
-            if (Inked(l.Kind)) Stroke(g, body, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
-            Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
+            if (!IsKlei(l.Kind) && !IsFigure(l.Kind) && !IsToon(l.Kind)) Shine(g, body, b, l.Kind == 4 ? 150 : 105);   // Klei's characters are flat, inked drawings
+            bool series = (IsSeries(l.Kind) || SeriesLook(l)) && Inked(l.Kind);
+            if (series) SeriesFinish(g, body, b, c2, D);
+            if (series) Stroke(g, body, Color.FromArgb(235, Darker(c2, 0.62)), Math.Max(1.6f, D * 0.021f));
+            else if (Inked(l.Kind) && !IsStarve(l.Kind) && !IsToon(l.Kind)) Stroke(g, body, Color.FromArgb(205, Darker(c2, 0.5)), Math.Max(1.2f, D * 0.014f));
+            if (!IsStarve(l.Kind) && !IsToon(l.Kind)) Stroke(g, body, Color.FromArgb(60, 255, 255, 255), Math.Max(1f, D * 0.008f));
             BodyInk(g, l, D, p, body);
             body.Dispose();
             return null;
@@ -327,23 +335,26 @@ namespace Stackshot
         public static void PaintHands(Graphics g, MascotLook l, float D, Color c1, Color c2, MascotPose p)
         {
             if (p.HideHands || NoHands(l.Kind)) return;
+            if (IsFigure(l.Kind) && !FigOf(l.Kind).Hands.IsEmpty) { c1 = FigOf(l.Kind).Hands; c2 = Darker(c1, 0.3); }
             Geo geo = GeoFor(l.Kind);
             foreach (int side in new int[] { -1, 1 })
             {
                 double phase = side * 0.9;
                 float hy = geo.HandY * D + (float)(Math.Sin(p.Now / 2600.0 * Math.PI * 2 + phase) * D * 0.02);
+                if (HasDrawnArms(l.Kind)) hy += HandSwing(p, side) * D;   // the drawn arms swing as it walks
                 float hx = side * geo.HandX * D;
                 float rot = 0;
                 if (side > 0 && p.Wave > 0)
                 {
                     hy -= (float)(D * 0.2 * p.Wave);
-                    hx += (float)(D * 0.03 * p.Wave);
+                    hx += (float)(D * (0.03 + (IsStarve(l.Kind) || IsToon(l.Kind) ? StarveWaveOut : 0)) * p.Wave);
                     rot = (float)p.WaveRot;
                 }
                 GraphicsState st = g.Save();
                 g.TranslateTransform(hx, hy);
                 g.RotateTransform(rot);
-                if (l.Kind == 0)
+                if (IsStarve(l.Kind) || IsToon(l.Kind)) StarveHand(g, D, l.Kind, c1);   // small pale hands in ink, as the game draws them
+                else if (l.Kind == 0)
                 {
                     RectangleF hand = new RectangleF(-D * 0.05f, -D * 0.06f, D * 0.1f, D * 0.12f);
                     using (GraphicsPath hp = Theme.Round(hand, D * 0.05f))

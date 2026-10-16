@@ -73,7 +73,8 @@ namespace Stackshot
     public static partial class MascotParts
     {
         public static readonly string[] AccessoryNames = { "Ninguno", "Gafas de coraz\u00F3n", "Gafas 3D", "Gafas de aviador", "Bufanda a rayas", "Collar de flores",
-                                                           "Orejeras", "Mariposa", "Medalla de oro", "Estrellas en las mejillas", "Pecas" };
+                                                           "Orejeras", "Mariposa", "Medalla de oro", "Estrellas en las mejillas", "Pecas", "Flor de Abigail" };
+        public const int AccFlower = 11;
 
         static readonly Color[] Petals =
         {
@@ -214,6 +215,10 @@ namespace Stackshot
                 case 9:
                     foreach (int s in new int[] { -1, 1 })
                         using (GraphicsPath sp = Star(s * (gap + 0.1f * D), fy + 0.075f * D, 0.03f * D, 0.45f)) FillSolid(g, sp, Color.FromArgb(235, 255, 206, 20));
+                    break;
+                case AccFlower:
+                    // Abigail's Flower from Don't Starve, worn in the hair as Wendy and Abigail wear theirs (Abigail has hers).
+                    if (l.Kind != KindAbigail) AbigailFlower(g, D, geo.HeadW * 0.31f, geo.Top + 0.04f, 0.13f, 30f, false, false);
                     break;
                 default:
                     foreach (int s in new int[] { -1, 1 })

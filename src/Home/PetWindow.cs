@@ -1389,6 +1389,8 @@ namespace Stackshot
             double lean = state == State.Walk ? dir * 0.8 : state == State.Drag ? dragVx / (650 * s) : state == State.Fall && thrown ? vx / (1100 * s) : 0;
             double pull = state == State.Drag ? Math.Sqrt(dragVx * dragVx + dragVy * dragVy) / (2000 * s) : state == State.Fall ? Math.Abs(vy) / (Terminal * s) * 0.6 : 0;
             m.Facing = Math.Max(-1.5, Math.Min(1.5, lean));
+            m.Walking = state == State.Walk;
+            m.Airborne = state == State.Drag || state == State.Fall;
             dragPull += (Math.Min(1, pull) - dragPull) * (1 - Math.Exp(-dt / 0.08));
             m.Pull = dragPull;
             m.Dangling = state == State.Drag;

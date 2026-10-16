@@ -95,6 +95,7 @@ namespace Stackshot
         public static string[] OwnLines(int kind)
         {
             if (IsKlei(kind)) return KleiLines(kind);
+            if (IsToon(kind)) return ToonLines(kind);
             return OwnLinesOf(kind);
         }
 

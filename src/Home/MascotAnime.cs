@@ -28,7 +28,7 @@ namespace Stackshot
                                                        "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco",
                                                        "Pinky", "Inky", "Clyde", "Space Invader", "Goomba", "Boo", "Toad", "Champi\u00F1\u00F3n", "Bob-omb", "Chomp Cadenas",
                                                        "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee", "Champi\u00F1\u00F3n 1-Up",
-                                                       "Wilson", "Willow", "Bumpo", "Ollmeister" };
+                                                       "Wilson", "Willow", "Bumpo", "Ollmeister", "Abigail" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -45,36 +45,37 @@ namespace Stackshot
                                                              "Among Us", "Pac-Man", "Dragon Quest", "Peanuts", "Sanrio", "Marvel", "San-X", "Pusheen", "Sanrio",
                                                              "Pac-Man", "Pac-Man", "Pac-Man", "Space Invaders", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario",
                                                              "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby", "Super Mario",
-                                                             "Don't Starve Together", "Don't Starve Together", "Oxygen Not Included", "Oxygen Not Included" };
+                                                             "Don't Starve Together", "Don't Starve Together", "Oxygen Not Included", "Oxygen Not Included",
+                                                             "Don't Starve Together" };
         static readonly int[,] Anime =
         {
-            { 7, 17, 2, 23, 13, 0 },
-            { 6, 5, 2, 0, 0, 0 },
-            { 6, 18, 0, 24, 10, 0 },
+            { 88, 17, 2, 0, 0, 0 },
+            { 89, 5, 2, 0, 0, 0 },
+            { 91, 18, 0, 0, 0, 0 },
             { 7, 17, 3, 18, 9, 0 },
-            { 7, 17, 4, 19, 8, 0 },
+            { 7, 17, 3, 19, 8, 0 },
             { 83, 75, 7, 0, 0, 0 },
             { 85, 75, 7, 0, 0, 0 },
-            { 7, 17, 0, 21, 0, 8 },
-            { 7, 17, 2, 26, 15, 9 },
-            { 25, 19, 2, 0, 0, 0 },
+            { 7, 17, 0, 46, 0, 8 },
+            { 7, 17, 2, 49, 15, 9 },
+            { 90, 19, 2, 0, 0, 0 },
             { 24, 28, 7, 0, 0, 0 },
             { 26, 4, 7, 0, 0, 0 },
-            { 80, 75, 7, 0, 0, 0 },
+            { 92, 75, 7, 0, 0, 0 },
             { 27, 7, 7, 0, 0, 0 },
             { 7, 20, 4, 0, 19, 12 },
             { 7, 15, 0, 28, 20, 0 },
             { 4, 21, 1, 31, 0, 0 },
             { 0, 22, 0, 0, 0, 14 },
             { 7, 17, 2, 32, 22, 0 },
-            { 7, 17, 4, 21, 23, 0 },
+            { 7, 17, 4, 47, 23, 0 },
             { 7, 17, 4, 33, 24, 15 },
-            { 81, 75, 7, 0, 0, 0 },
-            { 82, 75, 7, 0, 0, 0 },
+            { 93, 75, 7, 0, 0, 0 },
+            { 94, 75, 7, 0, 0, 0 },
             { 84, 75, 7, 0, 0, 0 },
             { 12, 23, 1, 43, 36, 19 },
             { 7, 17, 2, 0, 28, 0 },
-            { 7, 17, 4, 26, 8, 0 },
+            { 7, 17, 4, 48, 8, 0 },
             { 86, 75, 7, 0, 0, 0 },
             { 7, 13, 0, 0, 31, 18 },
             { 7, 17, 4, 39, 32, 0 },
@@ -152,7 +153,8 @@ namespace Stackshot
             { 76, 72, 7, 0, 0, 0 },
             { 77, 72, 7, 0, 0, 0 },
             { 78, 73, 7, 0, 0, 0 },
-            { 79, 74, 7, 0, 0, 0 }
+            { 79, 74, 7, 0, 0, 0 },
+            { 87, 76, 7, 0, 0, 0 }
         };
 
         // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
@@ -455,6 +457,7 @@ namespace Stackshot
         // Called from the main switches.
         static bool PaintAnimeHat(Graphics g, int hat, float u, double now)
         {
+            if (PaintSeriesHair(g, hat, u, now)) return true;
             if (hat >= HairFirst && hat < HairFirst + 5) { Hair(g, u, hat - HairFirst, now); return true; }
             if (hat == HatHood) { Hood(g, u); return true; }
             if (hat == HatNinja) { NinjaBand(g, u, now); return true; }

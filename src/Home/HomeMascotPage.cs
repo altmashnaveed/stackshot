@@ -2924,8 +2924,7 @@ namespace Stackshot
                     bmp = new D.Bitmap(px, px, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
                     using (D.Graphics g = D.Graphics.FromImage(bmp))
                     {
-                        float d = px * 0.62f;
-                        Mascot.RenderStill(g, new D.RectangleF((px - d) / 2, px * 0.22f, d, d), copy);
+                        Mascot.RenderStill(g, MascotParts.PreviewBox(copy.Kind, px), copy);
                     }
                 }
                 catch (Exception ex)
