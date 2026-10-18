@@ -67,7 +67,13 @@ namespace Stackshot
         public bool CloseToTray = true;     // closing the window keeps Stackshot in the tray
         public int Profile = 1;          // 0 performance, 1 balanced, 2 everything (see HomeWindow.ApplyProfile)
         public bool ShowIntro = true;       // launch animation
-        public bool MascotOn = true;
+        // The mascot as the user switched it (MascotOnSaved, MascotDesktopSaved) and as the profile lets it be: none at all
+        // in Rendimiento (nothing of it is built or run), never on the desktop below Completo.
+        bool mascotOn = true, mascotDesktop = false;
+        public bool MascotOnSaved { get { return mascotOn; } set { mascotOn = value; } }
+        public bool MascotDesktopSaved { get { return mascotDesktop; } set { mascotDesktop = value; } }
+        public bool MascotOn { get { return mascotOn && Profile != 0; } set { mascotOn = value; } }
+        public bool MascotDesktop { get { return mascotDesktop && Profile == 2; } set { mascotDesktop = value; } }
         public string MascotName = "Pixel";
         public int MascotColor = 0;
         public bool MascotTalks = true;     // speech bubbles with tips and greetings
@@ -79,7 +85,6 @@ namespace Stackshot
         public int MascotEyes = 0;
         public int MascotPersonality = 0;
         public bool MascotSeasonal = true;  // seasonal costume when no hat is chosen
-        public bool MascotDesktop = false;  // also live on the desktop, above the taskbar
         public bool MascotClimb = true;     // the desktop mascot hops onto the foreground window
         public bool MascotAllScreens = true; // the desktop mascot roams across every monitor
         public int MascotSpot = 720;        // where the desktop mascot stands, in thousandths of its monitor width
@@ -155,6 +160,8 @@ namespace Stackshot
         public static Settings Load()
         {
             Settings s = Load(FilePath);
+            // Equilibrado no longer has the mascot on the desktop: whoever had put it there is on Completo, as before.
+            if (s.Profile == 1 && s.MascotDesktopSaved && s.MascotOnSaved) s.Profile = 2;
             Policy.Apply(s); // what IT forces; the file keeps the user's own choices
             return s;
         }
@@ -251,7 +258,7 @@ namespace Stackshot
                         case "closetotray": s.CloseToTray = Bool(v, s.CloseToTray); break;
                         case "profile": s.Profile = Int(v, s.Profile, 0, 2); break;
                         case "showintro": s.ShowIntro = Bool(v, s.ShowIntro); break;
-                        case "mascot": s.MascotOn = Bool(v, s.MascotOn); break;
+                        case "mascot": s.MascotOnSaved = Bool(v, s.MascotOnSaved); break;
                         case "mascotname": if (v.Length > 0) s.MascotName = Cut(v, 16); break;
                         case "mascotcolor": s.MascotColor = Int(v, s.MascotColor, 0, 99); break;
                         case "mascottalks": s.MascotTalks = Bool(v, s.MascotTalks); break;
@@ -262,7 +269,7 @@ namespace Stackshot
                         case "mascoteyes": s.MascotEyes = Int(v, s.MascotEyes, 0, MascotParts.EyeNames.Length - 1); break;
                         case "mascotpersonality": s.MascotPersonality = Int(v, s.MascotPersonality, 0, MascotParts.Personalities.Length - 1); break;
                         case "mascotseasonal": s.MascotSeasonal = Bool(v, s.MascotSeasonal); break;
-                        case "mascotdesktop": s.MascotDesktop = Bool(v, s.MascotDesktop); break;
+                        case "mascotdesktop": s.MascotDesktopSaved = Bool(v, s.MascotDesktopSaved); break;
                         case "mascotclimb": s.MascotClimb = Bool(v, s.MascotClimb); break;
                         case "mascotallscreens": s.MascotAllScreens = Bool(v, s.MascotAllScreens); break;
                         case "mascotspot": s.MascotSpot = Int(v, s.MascotSpot, 0, 1000); break;
@@ -461,7 +468,7 @@ namespace Stackshot
             b.AppendLine("HomeStyle = " + HomeStyle);
             b.AppendLine("CloseToTray = " + (CloseToTray ? "1" : "0"));
             b.AppendLine("ShowIntro = " + (ShowIntro ? "1" : "0"));
-            b.AppendLine("Mascot = " + (MascotOn ? "1" : "0"));
+            b.AppendLine("Mascot = " + (MascotOnSaved ? "1" : "0"));
             b.AppendLine("MascotName = " + OneLine(MascotName));
             b.AppendLine("MascotColor = " + MascotColor);
             b.AppendLine("MascotTalks = " + (MascotTalks ? "1" : "0"));
@@ -472,7 +479,7 @@ namespace Stackshot
             b.AppendLine("MascotEyes = " + MascotEyes);
             b.AppendLine("MascotPersonality = " + MascotPersonality);
             b.AppendLine("MascotSeasonal = " + (MascotSeasonal ? "1" : "0"));
-            b.AppendLine("MascotDesktop = " + (MascotDesktop ? "1" : "0"));
+            b.AppendLine("MascotDesktop = " + (MascotDesktopSaved ? "1" : "0"));
             b.AppendLine("MascotClimb = " + (MascotClimb ? "1" : "0"));
             b.AppendLine("MascotAllScreens = " + (MascotAllScreens ? "1" : "0"));
             b.AppendLine("MascotSpot = " + MascotSpot);

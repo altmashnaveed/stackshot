@@ -546,7 +546,8 @@ namespace Stackshot
             {
                 if (job != searchJob) return;
                 if (IsDisposed) { searchJobNext = -1; return; }
-                got.AddRange(IndexPage(SearchPages[searchJobNext++]));
+                string pg = SearchPages[searchJobNext++];
+                if (PageShown(pg)) got.AddRange(IndexPage(pg));
                 if (searchJobNext < SearchPages.Length)
                 {
                     Dispatcher.BeginInvoke(DispatcherPriority.Background, step);

@@ -674,17 +674,21 @@ namespace Stackshot
 
         // ---- General
 
-        // Presets for a few settings that weigh on performance; everything else stays as the user left it.
+        // Presets for the settings that weigh on performance; everything else stays as the user left it. Rendimiento has no
+        // mascot at all (Settings.MascotOn), Equilibrado keeps it inside the window, Completo also on the desktop.
         void ApplyProfile(int p)
         {
             settings.Profile = p;
             settings.ShowIntro = p > 0;
             settings.MascotTalks = p > 0;
+            if (p > 0) settings.MascotOn = true;
             settings.MascotDesktop = p == 2;
             // Rendimiento keeps everything inside the window: nothing pops up outside it. Video is never touched.
-            if (p == 0) { settings.WellToasts = false; settings.HealthTalk = false; }
+            if (p == 0) { settings.WellToasts = false; settings.HealthTalk = false; ReleaseMascot(); }
             owner.MascotChanged();
             owner.ApplySettings();
+            RefreshNav();
+            BuildWidget();
         }
 
         TextBlock profileNote;
@@ -729,9 +733,9 @@ namespace Stackshot
             Header("General", "C\u00F3mo arranca Stackshot y qu\u00E9 hace cada vez que capturas.");
             string[] pdesc =
             {
-                "Solo dentro de la ventana: sin animaci\u00F3n al abrir, la mascota quieta en Stackshot y nada por fuera (ni mascota en el escritorio ni avisos de pausas). Ideal para equipos justos.",
-                "El equilibrio de siempre: animaciones suaves y la mascota solo en la ventana.",
-                "Todo activado: la mascota paseando por el escritorio y sus saludos."
+                "Lo justo para capturar: sin mascota (ni en la ventana ni en el escritorio, y sin gastar nada en ella), sin animaci\u00F3n al abrir y sin avisos por fuera. Ideal para equipos justos.",
+                "El equilibrio de siempre: animaciones suaves y la mascota solo dentro de Stackshot.",
+                "Todo activado: la mascota tambi\u00E9n paseando por el escritorio, sus saludos y los avisos de salud."
             };
             // Choosing a profile moves the switches it touches on this page too (no rebuild: the choice keeps sliding).
             Group("Perfil",
@@ -976,7 +980,7 @@ namespace Stackshot
             BuildAssist();
             Group("En el escritorio",
                 new ToggleRow("Mascota en el escritorio", "Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "screen", Mac.Indigo, Mac.Purple,
-                              delegate { return settings.MascotDesktop; }, delegate(bool v) { settings.MascotDesktop = v; owner.MascotChanged(); })
+                              delegate { return settings.MascotDesktop; }, delegate(bool v) { if (v && settings.Profile != 2) settings.Profile = 2; settings.MascotDesktop = v; owner.MascotChanged(); })
                     { When = shown, WhenOff = "Activa antes \u00ABMostrar la mascota\u00BB." },
                 new ToggleRow("Sube a las ventanas", "De vez en cuando salta a la ventana que tienes delante y pasea por encima. Si la mueves, viaja con ella.", "window", Mac.Teal, Mac.Blue,
                               delegate { return settings.MascotClimb; }, delegate(bool v) { settings.MascotClimb = v; owner.MascotChanged(); })
@@ -994,7 +998,10 @@ namespace Stackshot
             owner.MascotChanged();
             if (reaction != null && settings.MascotTalks) mascot.Celebrate(reaction);
             else mascot.Celebrate(null);
-            Changed();
+            // Saved; the sidebar card is only rebuilt where it shows the mascot (here it shows the capture card, and the
+            // next page builds it afresh), so a click never pays for rebuilding it.
+            owner.ApplySettings();
+            if (MiniMascot) BuildWidget();
             Wake();
         }
 
@@ -1002,6 +1009,7 @@ namespace Stackshot
         void TryOn(MascotLook l)
         {
             mascot.Look = l ?? MascotLook.From(settings);
+            RefreshStagePlate(l);
             if (l != null && settings.MascotOn) mascot.Hop(0.45);
             Wake();
         }

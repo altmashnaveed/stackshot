@@ -205,9 +205,9 @@ namespace Stackshot
             new Slot(s => s.SaveFolder, (s, o) => s.SaveFolder = (string)o, v => v.SaveFolder),
             new Slot(s => s.CheckUpdates, (s, o) => s.CheckUpdates = (bool)o, v => Off(v.CheckUpdates == 0)),
             new Slot(s => s.AutoUpdate, (s, o) => s.AutoUpdate = (bool)o, v => Off(v.AutoUpdate == 0 || v.CheckUpdates == 0)),
-            new Slot(s => s.MascotOn, (s, o) => s.MascotOn = (bool)o, v => Off(v.Mascot == 0)),
+            new Slot(s => s.MascotOnSaved, (s, o) => s.MascotOnSaved = (bool)o, v => Off(v.Mascot == 0)),
             new Slot(s => s.MascotTalks, (s, o) => s.MascotTalks = (bool)o, v => Off(v.Mascot == 0)),
-            new Slot(s => s.MascotDesktop, (s, o) => s.MascotDesktop = (bool)o, v => Off(v.Mascot == 0)),
+            new Slot(s => s.MascotDesktopSaved, (s, o) => s.MascotDesktopSaved = (bool)o, v => Off(v.Mascot == 0)),
             new Slot(s => s.SensitiveAuto, (s, o) => s.SensitiveAuto = (bool)o, v => v.SensitiveAuto >= 0 ? (object)(v.SensitiveAuto == 1) : null),
             new Slot(s => s.HistorySearch, (s, o) => s.HistorySearch = (bool)o, v => Off(v.HistorySearch == 0))
         };
