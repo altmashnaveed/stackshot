@@ -190,9 +190,15 @@ namespace Stackshot
             return b;
         }
 
+        static readonly object dsGrainLock = new object();
+
         static void DsPaper(Graphics g, GraphicsPath p, float D)
         {
-            using (TextureBrush tb = new TextureBrush(DsGrain(), WrapMode.Tile))
+            // The brush copies the shared tile as it is made: one thread at a time (the stage, the desktop pet and the
+            // workers drawing previews and looks ahead all draw paper), or GDI+ finds the tile in use.
+            TextureBrush brush;
+            lock (dsGrainLock) brush = new TextureBrush(DsGrain(), WrapMode.Tile);
+            using (TextureBrush tb = brush)
             {
                 float sc = D * 0.42f / 96f;
                 tb.ScaleTransform(sc, sc);
@@ -498,6 +504,19 @@ namespace Stackshot
             return G(0.44f, -0.38f, -0.11f, 0.095f, 0.12f, 0.3f, 0.13f, 0.18f, 0.22f, 0.44f);
         }
 
+        // Where the face is across (units of D): Shin-chan's, drawn three quarters on, sits off to the right of his middle.
+        public static float FaceX(int kind) { return IsShin(kind) ? 0.038f : 0; }
+
+        // Where the mouth is across, for what goes to it and for a moustache over it (Snoopy's, side on, at the front of
+        // his smile under his snout).
+        public static float MouthX(int kind) { return IsShin(kind) ? 0.135f : kind == KindSnoopySd ? 0.19f : 0; }
+
+        // Where its eye is across, for a hand shading it.
+        public static float EyeX(int kind) { return kind == KindSnoopySd ? 0.05f : FaceX(kind); }
+
+        // How far ahead of its middle a character holds a console, a book or a camera: side on, in front of it.
+        public static float HoldAhead(int kind) { return kind == KindSnoopySd ? 0.13f : 0; }
+
         // Where the mouth is (in units of D), for props brought up to it.
         public static float MouthY(int kind, Geo geo)
         {
@@ -621,35 +640,124 @@ namespace Stackshot
             }
         }
 
-        [ThreadStatic] static System.Collections.Generic.Dictionary<int, Bitmap> dsCache;
+        sealed class PartCache
+        {
+            public readonly System.Collections.Generic.Dictionary<long, CachedPart> Parts = new System.Collections.Generic.Dictionary<long, CachedPart>();
+            public readonly long Budget;
+            public long Pixels, Clock;
+            public PartCache(long budget) { Budget = budget; }
+        }
 
-        // Hair never moves and is the costliest part to draw, so each size of it is drawn once, at twice the
-        // resolution, into a bitmap (per thread: GDI+ bitmaps can't be shared) and copied in from then on. u is the
-        // area it covers, in units of D.
+        sealed class CachedPart
+        {
+            public Bitmap Image;
+            public long Used;
+        }
+
+        [ThreadStatic] static PartCache dsCache;
+
+        // Parts that never move (hair, heads, clothes) are the costliest to draw, so each size of one is drawn once, at
+        // twice the resolution, scaled down into a bitmap (per thread: GDI+ bitmaps can't be shared) and copied in from
+        // then on. Each thread keeps the parts it used last within a budget of pixels, so the stage and the desktop pet
+        // keep theirs while a sweep over the dock tries characters on; the dock's workers only need the one they draw.
+        // u is the area a part covers, in units of D.
         internal static void DsCached(Graphics g, float D, int id, RectangleF u, Action<Graphics> draw)
         {
-            if (dsCache == null) dsCache = new System.Collections.Generic.Dictionary<int, Bitmap>();
-            int key = id * 1000000 + (int)Math.Round(D * 4);
-            Bitmap b;
-            if (!dsCache.TryGetValue(key, out b))
+            PartCache c = dsCache;
+            if (c == null) dsCache = c = NewPartCache();
+            long key = (long)id * 1000000 + (int)Math.Round(D * 4);
+            CachedPart p;
+            if (!c.Parts.TryGetValue(key, out p))
             {
-                if (dsCache.Count >= 8)
+                Bitmap b;
+                using (Bitmap big = new Bitmap(Math.Max(1, (int)Math.Ceiling(u.Width * D * 2)), Math.Max(1, (int)Math.Ceiling(u.Height * D * 2)), System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
                 {
-                    foreach (Bitmap old in dsCache.Values) old.Dispose();
-                    dsCache.Clear();
+                    using (Graphics bg = Graphics.FromImage(big))
+                    {
+                        bg.SmoothingMode = SmoothingMode.AntiAlias;
+                        bg.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        bg.ScaleTransform(2, 2);
+                        bg.TranslateTransform(-u.X * D, -u.Y * D);
+                        draw(bg);
+                    }
+                    b = new Bitmap((big.Width + 1) / 2, (big.Height + 1) / 2, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+                    using (Graphics sg = Graphics.FromImage(b))
+                    {
+                        sg.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        sg.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        sg.DrawImage(big, new RectangleF(0, 0, big.Width / 2f, big.Height / 2f));
+                    }
                 }
-                b = new Bitmap(Math.Max(1, (int)Math.Ceiling(u.Width * D * 2)), Math.Max(1, (int)Math.Ceiling(u.Height * D * 2)), System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-                using (Graphics bg = Graphics.FromImage(b))
-                {
-                    bg.SmoothingMode = SmoothingMode.AntiAlias;
-                    bg.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    bg.ScaleTransform(2, 2);
-                    bg.TranslateTransform(-u.X * D, -u.Y * D);
-                    draw(bg);
-                }
-                dsCache[key] = b;
+                long px = (long)b.Width * b.Height;
+                while (c.Parts.Count > 0 && c.Pixels + px > c.Budget) DropOldestPart(c);
+                p = new CachedPart { Image = b };
+                c.Parts[key] = p;
+                c.Pixels += px;
             }
-            g.DrawImage(b, new RectangleF(u.X * D, u.Y * D, b.Width / 2f, b.Height / 2f));
+            p.Used = ++c.Clock;
+            g.DrawImage(p.Image, new RectangleF(u.X * D, u.Y * D, p.Image.Width, p.Image.Height));
+        }
+
+        // The UI thread (stage, desktop pet) keeps more than a worker that draws one preview at a time.
+        static PartCache NewPartCache()
+        {
+            return new PartCache(System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA ? 2500000 : 400000);
+        }
+
+        // Runs draw on this thread with an empty cache of its own and hands back the parts it drew, now the caller's
+        // (MascotWarm takes them to the UI thread).
+        internal static System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<long, Bitmap>> DrawParts(Action draw)
+        {
+            PartCache keep = dsCache, mine = new PartCache(long.MaxValue);
+            dsCache = mine;
+            try { draw(); }
+            catch
+            {
+                foreach (CachedPart p in mine.Parts.Values) p.Image.Dispose();
+                throw;
+            }
+            finally { dsCache = keep; }
+            System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<long, Bitmap>> got = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<long, Bitmap>>(mine.Parts.Count);
+            foreach (System.Collections.Generic.KeyValuePair<long, CachedPart> kv in mine.Parts) got.Add(new System.Collections.Generic.KeyValuePair<long, Bitmap>(kv.Key, kv.Value.Image));
+            return got;
+        }
+
+        // Takes parts drawn on another thread into this thread's cache, as if drawn here just now (one it already has is
+        // let go).
+        internal static void AdoptParts(System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<long, Bitmap>> parts)
+        {
+            if (parts == null || parts.Count == 0) return;
+            PartCache c = dsCache;
+            if (c == null) dsCache = c = NewPartCache();
+            foreach (System.Collections.Generic.KeyValuePair<long, Bitmap> kv in parts)
+            {
+                if (c.Parts.ContainsKey(kv.Key)) { kv.Value.Dispose(); continue; }
+                long px = (long)kv.Value.Width * kv.Value.Height;
+                while (c.Parts.Count > 0 && c.Pixels + px > c.Budget) DropOldestPart(c);
+                c.Parts[kv.Key] = new CachedPart { Image = kv.Value, Used = ++c.Clock };
+                c.Pixels += px;
+            }
+        }
+
+        // A worker about to end lets its parts go at once instead of leaving them to the finalizer.
+        internal static void DropPartCache()
+        {
+            PartCache c = dsCache;
+            dsCache = null;
+            if (c == null) return;
+            foreach (CachedPart p in c.Parts.Values) p.Image.Dispose();
+            c.Parts.Clear();
+        }
+
+        static void DropOldestPart(PartCache c)
+        {
+            long oldest = 0, at = long.MaxValue;
+            foreach (System.Collections.Generic.KeyValuePair<long, CachedPart> kv in c.Parts)
+                if (kv.Value.Used < at) { at = kv.Value.Used; oldest = kv.Key; }
+            CachedPart p = c.Parts[oldest];
+            c.Parts.Remove(oldest);
+            c.Pixels -= (long)p.Image.Width * p.Image.Height;
+            p.Image.Dispose();
         }
 
         // Dark brown-black, streaked with light where the strokes leave the paper showing, as in the game.

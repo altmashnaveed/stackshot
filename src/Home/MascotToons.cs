@@ -18,14 +18,16 @@ namespace Stackshot
     {
         public const int KindFinn = 88, KindJake = 89, KindBmoAt = 90, KindPakkun = 91, KindNarutoSd = 92, KindSasukeSd = 93, KindKakashiSd = 94;
 
-        public static bool IsToon(int kind) { return kind >= KindFinn && kind <= KindKakashiSd; }
+        public static bool IsToon(int kind) { return (kind >= KindFinn && kind <= KindWaniSd) || IsPersona(kind) || IsSoftFig(kind); }
         static bool IsAdventure(int kind) { return kind >= KindFinn && kind <= KindBmoAt; }
 
         // Kakashi's left eye is under his forehead protector, and no mouth shows through his mask.
         public static bool HidesRightEye(int kind) { return kind == KindKakashiSd; }
-        public static bool NoMouth(int kind) { return kind == KindAbigail || kind == KindKakashiSd; }
+        public static bool NoMouth(int kind) { return kind == KindAbigail || kind == KindKakashiSd || kind == KindSpiderSd || kind == KindIronSd || kind == KindDoomSd || kind == KindKnightSd || kind == KindPantherSd || kind == KindColossalSd || kind == KindAttackSd || kind == KindArmoredSd || kind == KindSmileTitanSd || kind == KindBoboTitanSd; }
         // Their muzzles carry the mouth while it is shut.
         public static bool MuzzleMouth(int kind) { return kind == KindJake || kind == KindPakkun; }
+        // The chibis' arms are short: stretching, their hands go up beside their heads, not far over them.
+        public static bool ShortArms(int kind) { return IsToon(kind) && kind != KindFinn && kind != KindJake && kind != KindBmoAt && kind != KindPakkun; }
 
         // How much bigger they show in the small views (the home's mascot, the sidebar's), room allowing: Finn tall and
         // slim, Jake and BMO smaller than the box.
@@ -44,6 +46,7 @@ namespace Stackshot
         // like a profile picture: its top and bottom (units of D from the point the mascot is drawn around).
         public static bool PreviewFrame(int kind, out float top, out float bottom)
         {
+            if (IsPersona(kind)) return PersonaFrame(kind, out top, out bottom);
             switch (kind)
             {
                 case KindFinn: top = -0.73f; bottom = -0.06f; return true;
@@ -58,6 +61,19 @@ namespace Stackshot
                 case KindWilson: top = -0.68f; bottom = 0.15f; return true;
                 case KindWillow: top = -0.55f; bottom = 0.15f; return true;
                 case KindAbigail: top = -0.62f; bottom = 0.15f; return true;
+                case KindGonSd: top = -0.89f; bottom = 0.16f; return true;
+                case KindKilluaSd: top = -0.66f; bottom = 0.16f; return true;
+                case KindHisokaSd: top = -0.83f; bottom = 0.16f; return true;
+                case KindTanjiroSd: top = -0.68f; bottom = 0.16f; return true;
+                case KindNezukoSd: top = -0.47f; bottom = 0.16f; return true;
+                case KindLuffySd: top = -0.62f; bottom = 0.16f; return true;
+                case KindZoroSd: top = -0.52f; bottom = 0.16f; return true;
+                case KindKaminaSd: top = -0.76f; bottom = 0.16f; return true;
+                case KindShinSd: top = -0.64f; bottom = 0.12f; return true;
+                case KindKantamSd: top = -0.9f; bottom = 0.12f; return true;
+                case KindUltraSd: top = -0.8f; bottom = 0.12f; return true;
+                case KindPiggySd: top = -0.558f; bottom = 0.156f; return true;
+                case KindWaniSd: top = -0.75f; bottom = 0.12f; return true;
                 default: top = bottom = 0; return false;
             }
         }
@@ -77,6 +93,8 @@ namespace Stackshot
         // bubble) keeps above it.
         public static float HeadTop(int kind)
         {
+            if (IsPersona(kind)) return PersonaHeadTop(kind);
+            if (IsSoftFig(kind)) return PkTop(kind);
             switch (kind)
             {
                 case KindFinn: return -0.715f;
@@ -85,6 +103,23 @@ namespace Stackshot
                 case KindKakashiSd: return -0.72f;
                 case KindJake: return -0.515f;
                 case KindBmoAt: return -0.375f;
+                case KindChopper: return -0.655f;
+                case KindKeroSd: return -0.465f;
+                case KindSnoopySd: return -0.5f;
+                case KindGonSd: return -0.87f;
+                case KindKilluaSd: return -0.64f;
+                case KindHisokaSd: return -0.81f;
+                case KindTanjiroSd: return -0.66f;
+                case KindNezukoSd: return -0.45f;
+                case KindLuffySd: return -0.6f;
+                case KindZoroSd: return -0.5f;
+                case KindKaminaSd: return -0.74f;
+                case KindShinSd: return -0.625f;
+                case KindNevadoSd: return -0.21f;
+                case KindKantamSd: return -0.89f;
+                case KindUltraSd: return -0.785f;
+                case KindPiggySd: return -0.545f;
+                case KindWaniSd: return -0.735f;
                 default: return -0.46f;
             }
         }
@@ -137,10 +172,58 @@ namespace Stackshot
 
         static readonly Color AtInk = Color.FromArgb(30, 26, 34), AnInk = Color.FromArgb(46, 30, 28);
         static readonly Color NjSkin = Color.FromArgb(255, 226, 202), NjSkinShade = Color.FromArgb(246, 196, 166);
-        static Color TnInk(int kind) { return IsAdventure(kind) ? AtInk : AnInk; }
+        static Color TnInk(int kind) { return IsAdventure(kind) || kind == KindSnoopySd || (kind >= KindShinSd && kind <= KindWaniSd) || IsSoftFig(kind) ? AtInk : AnInk; }
         static float TnW(float D) { return Math.Max(1.25f, D * 0.0135f); }
-        // Finn is drawn at the show's proportions, smaller than the rest, so his outline is a little finer.
-        static float TnW(float D, int kind) { return kind == KindFinn ? Math.Max(1.1f, D * 0.0108f) : TnW(D); }
+        // Finn is drawn at the show's proportions, smaller than the rest, so his outline is a little finer; Shin-chan's
+        // world, drawn like the 3D models of his games, finer still.
+        static float TnW(float D, int kind) { return kind == KindFinn ? Math.Max(1.1f, D * 0.0108f) : TnFigure(kind) ? Math.Max(1f, D * 0.0075f) : TnW(D); }
+        static bool TnFigure(int kind) { return (kind >= KindShinSd && kind <= KindWaniSd) || IsSoftFig(kind); }
+
+        // The 3D model look: each shape lit softly from the top left, rounding off darker towards its edges with no hard
+        // bands, and a soft shine where the light falls.
+        static void SoftPaint(Graphics g, GraphicsPath p, Color c, Color shade, float D, int glow = 60)
+        {
+            RectangleF r = p.GetBounds();
+            if (r.Width < 0.5f || r.Height < 0.5f) return;
+            Color edge = shade.IsEmpty ? Darker(c, 0.16) : Mac.Mix(c, shade, 0.8);
+            using (PathGradientBrush pb = new PathGradientBrush(p))
+            {
+                pb.CenterPoint = new PointF(r.X + r.Width * 0.4f, r.Y + r.Height * 0.34f);
+                pb.CenterColor = Lighter(c, 0.08);
+                pb.SurroundColors = new Color[] { edge };
+                pb.FocusScales = new PointF(0.45f, 0.45f);
+                g.FillPath(pb, p);
+            }
+            if (r.Width < 0.07f * D || r.Height < 0.06f * D) return;
+            Region old = g.Clip;
+            g.SetClip(p, CombineMode.Intersect);
+            Glow(g, r.X + r.Width * 0.34f, r.Y + r.Height * 0.25f, r.Width * 0.42f, r.Height * 0.26f, Color.White, glow);
+            g.Clip = old;
+            old.Dispose();
+        }
+
+        // A limb in the 3D model look: a tube, darker at its sides, lit along the side towards the light, with a shine.
+        static void SoftLimb(Graphics g, int kind, float D, Color c, float w, PointF a, PointF c1, PointF c2, PointF b)
+        {
+            float W = w * D, o = W * 0.12f;
+            using (Pen ink = new Pen(TnInk(kind), W + TnW(D, kind) * 2))
+            using (Pen body = new Pen(Mac.Mix(c, Darker(c, 0.3), 0.55), W))
+            using (Pen lit = new Pen(c, W * 0.68f))
+            using (Pen shine = new Pen(Color.FromArgb(150, Lighter(c, 0.3)), W * 0.22f))
+            {
+                ink.StartCap = ink.EndCap = body.StartCap = body.EndCap = lit.StartCap = lit.EndCap = shine.StartCap = shine.EndCap = LineCap.Round;
+                g.DrawBezier(ink, a, c1, c2, b);
+                g.DrawBezier(body, a, c1, c2, b);
+                g.DrawBezier(lit, Nudge(a, -o), Nudge(c1, -o), Nudge(c2, -o), Nudge(b, -o));
+                g.DrawBezier(shine, Nudge(a, -o * 2.4f), Nudge(c1, -o * 2.4f), Nudge(c2, -o * 2.4f), Nudge(b, -o * 2.4f));
+            }
+        }
+
+        static PointF Nudge(PointF p, float d) { return new PointF(p.X + d, p.Y + d); }
+
+        // The id each kept piece of a character is cached under (DsCached), one apart from every other character's: part 1
+        // behind it, 2 its head, 3 its clothes, 4 in front of its face, 5 and 6 its eyes.
+        internal static int TnId(int kind, int part) { return 200 + kind * 8 + part; }
 
         static void VPaint(Graphics g, GraphicsPath p, Color c, Color shade, float D, int gloss)
         {
@@ -175,7 +258,8 @@ namespace Stackshot
         static void VFill(Graphics g, int kind, GraphicsPath p, Color c, Color shade, float D, int gloss)
         {
             Stroke(g, p, TnInk(kind), TnW(D, kind) * 2);
-            VPaint(g, p, c, shade, D, gloss);
+            if (TnFigure(kind)) SoftPaint(g, p, c, shade, D);
+            else VPaint(g, p, c, shade, D, gloss);
         }
 
         static void VOval(Graphics g, int kind, float D, Color c, Color shade, int gloss, float cx, float cy, float w, float h)
@@ -207,6 +291,7 @@ namespace Stackshot
         {
             float dx = b.X - a.X, dy = b.Y - a.Y;
             PointF c1 = P((a.X + dx * 0.33f + dy * bow) * D, (a.Y + dy * 0.33f - dx * bow) * D), c2 = P((a.X + dx * 0.66f + dy * bow) * D, (a.Y + dy * 0.66f - dx * bow) * D);
+            if (TnFigure(kind)) { SoftLimb(g, kind, D, c, w, P(a.X * D, a.Y * D), c1, c2, P(b.X * D, b.Y * D)); return; }
             using (Pen ink = new Pen(TnInk(kind), w * D + TnW(D, kind) * 2))
             using (Pen fill = new Pen(c, w * D))
             {
@@ -264,24 +349,46 @@ namespace Stackshot
 
         static Geo ToonGeo(int kind)
         {
+            if (IsSoftFig(kind)) return PkGeo(kind);
             switch (kind)
             {
                 case KindFinn: return G(0.3f, -0.658f, -0.558f, 0.0574f, -0.425f, 0.3f, 0.42f, 0.2375f, 0.02f, 0.3f);
                 case KindJake: return G(0.52f, -0.5f, -0.3064f, 0.127f, -0.12f, 0.4f, 0.17f, 0.335f, 0.07f, 0.4f);
                 case KindBmoAt: return G(0.4f, -0.36f, -0.215f, 0.062f, 0.1f, 0.3f, 0.2f, 0.295f, 0.04f, 0.38f);
                 case KindPakkun: return G(0.57f, -0.34f, -0.085f, 0.11f, 0.12f, 0.3f, 0.155f, 0.19f, 0.25f, 0.5f);
+                // Chopper and Luffy: a hat picked for them sits on the top of their own.
+                case KindChopper: return G(0.41f, -0.648f, -0.12f, 0.105f, -0.01f, 0.16f, 0.29f, 0.2f, 0.2f, 0.42f);
+                case KindLuffySd: return G(0.52f, -0.585f, -0.04f, 0.112f, 0.1f, 0.3f, 0.1f, 0.17f, 0.23f, 0.38f);
+                case KindKeroSd: return G(0.45f, -0.412f, -0.195f, 0.175f, 0.01f, 0.22f, 0.33f, 0.18f, 0.17f, 0.44f);
+                case KindSnoopySd: return G(0.62f, -0.5f, -0.302f, 0.05f, -0.04f, 0.12f, 0.34f, 0.115f, 0.18f, 0.5f);
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: return G(0.56f, -0.6f, -0.37f, 0.07f, -0.17f, 0.3f, 0.21f, 0.238f, 0.068f, 0.52f);
+                case KindPiggySd: return G(0.68f, -0.6f, -0.425f, 0.172f, -0.17f, 0.3f, 0.21f, 0.235f, 0.03f, 0.56f);
+                case KindNevadoSd: return G(0.58f, -0.2f, 0.039f, 0.16f, 0.21f, 0.28f, 0.33f, 0.09f, 0.3f, 0.46f);
                 default: return G(0.52f, -0.36f, -0.04f, 0.112f, 0.1f, 0.3f, 0.1f, 0.17f, 0.23f, 0.52f);
             }
         }
 
         internal static float ToonMouthDy(int kind)
         {
+            if (IsSoftFig(kind)) return PkMouthDy(kind);
             switch (kind)
             {
                 case KindFinn: return 0.022f;
                 case KindJake: return 0.135f;
                 case KindBmoAt: return 0.05f;
                 case KindPakkun: return 0.175f;
+                case KindChopper: return 0.066f;
+                case KindKeroSd: return 0.04f;
+                case KindSnoopySd: return 0.15f;
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: return 0.172f;
+                case KindPiggySd: return 0.225f;
+                case KindNevadoSd: return 0.126f;
                 default: return 0.1f;
             }
         }
@@ -289,6 +396,7 @@ namespace Stackshot
         // The main shape, drawn over the body: Finn's hat, Jake's whole bean, BMO's box, Pakkun's and the ninjas' heads.
         static GraphicsPath ToonPath(int kind, float D)
         {
+            if (IsSoftFig(kind)) return PkPath(kind, D);
             switch (kind)
             {
                 case KindFinn:
@@ -321,6 +429,15 @@ namespace Stackshot
                     // A round pug's head, its cheeks heavy at the bottom.
                     return KCurve(D, 0.5f, 0, -0.34f, 0.17f, -0.32f, 0.26f, -0.22f, 0.285f, -0.08f, 0.275f, 0.04f, 0.21f, 0.125f, 0.1f, 0.155f, 0, 0.16f,
                                   -0.1f, 0.155f, -0.21f, 0.125f, -0.275f, 0.04f, -0.285f, -0.08f, -0.26f, -0.22f, -0.17f, -0.32f);
+                case KindChopper: return ChopperHead(D);
+                case KindKeroSd: return KeroHead(D);
+                case KindSnoopySd: return SnoopyHead(D);
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: return ShinHead(D);
+                case KindPiggySd: return BuriHead(D);
+                case KindNevadoSd: return NevadoHead(D);
                 default:
                 {
                     // A chibi's face: full round cheeks and a small soft chin.
@@ -341,21 +458,44 @@ namespace Stackshot
         static void ToonHead(Graphics g, int kind, GraphicsPath body, float D)
         {
             RectangleF u;
+            if (IsSoftFig(kind)) { DsCached(g, D, TnId(kind, 2), PkHeadArea(kind), bg => DrawHead(bg, kind, D)); return; }
             switch (kind)
             {
                 case KindFinn: u = new RectangleF(-0.17f, -0.715f, 0.34f, 0.305f); break;
                 case KindJake: u = new RectangleF(-0.28f, -0.52f, 0.56f, 0.71f); break;
                 case KindBmoAt: u = new RectangleF(-0.22f, -0.38f, 0.44f, 0.6f); break;
                 case KindPakkun: u = new RectangleF(-0.31f, -0.36f, 0.62f, 0.55f); break;
-                default: u = new RectangleF(-0.34f, -0.42f, 0.68f, 0.56f); break;
+                case KindChopper: u = new RectangleF(-0.23f, -0.33f, 0.46f, 0.35f); break;
+                case KindKeroSd: u = new RectangleF(-0.3f, -0.48f, 0.6f, 0.52f); break;
+                case KindSnoopySd: u = new RectangleF(-0.31f, -0.52f, 0.68f, 0.48f); break;
+                case KindGonSd: u = new RectangleF(-0.42f, -0.66f, 0.84f, 0.8f); break;
+                case KindHisokaSd: u = new RectangleF(-0.36f, -0.52f, 0.72f, 0.66f); break;
+                case KindShinSd: u = new RectangleF(-0.36f, -0.66f, 0.72f, 0.53f); break;
+                case KindKantamSd: u = new RectangleF(-0.4f, -0.92f, 0.8f, 0.82f); break;
+                case KindUltraSd: u = new RectangleF(-0.4f, -0.82f, 0.8f, 0.69f); break;
+                case KindPiggySd: u = new RectangleF(-0.37f, -0.74f, 0.74f, 0.6f); break;
+                case KindWaniSd: u = new RectangleF(-0.39f, -0.75f, 0.78f, 0.69f); break;
+                case KindNevadoSd: u = new RectangleF(-0.52f, -0.24f, 0.88f, 0.54f); break;
+                default: u = IsPersona(kind) ? PersonaHeadArea(kind) : new RectangleF(-0.34f, -0.42f, 0.68f, 0.56f); break;
             }
-            DsCached(g, D, 20 + kind, u, bg => DrawHead(bg, kind, D));
+            int id = TnId(kind, 2);
+            if (kind == KindWizardSd && WornHat != 0) id += 50000;   // his hat off, for the one picked for him
+            DsCached(g, D, id, u, bg => DrawHead(bg, kind, D));
         }
+
+        // Wearing a hat of their own: Chopper's, Luffy's straw hat, the wizard's. A hat picked for them goes on top of
+        // Chopper's and Luffy's and in place of the wizard's; the seasonal and night ones leave all three be.
+        public static bool OwnHat(int kind) { return kind == KindChopper || kind == KindLuffySd || kind == KindWizardSd; }
+
+        // The hat worn while a character is being painted (Mascot.Paint sets it), for the ones that take theirs off for it.
+        [ThreadStatic] internal static int WornHat;
 
         static void DrawHead(Graphics g, int kind, float D)
         {
             using (GraphicsPath body = ToonPath(kind, D))
-                switch (kind)
+                if (IsPersona(kind)) PersonaHead(g, kind, body, D);
+                else if (IsSoftFig(kind)) PkHeadDraw(g, kind, body, D);
+                else switch (kind)
                 {
                     case KindFinn:
                         VFill(g, kind, body, Color.FromArgb(252, 252, 250), Color.FromArgb(216, 224, 234), D, 90);
@@ -372,6 +512,26 @@ namespace Stackshot
                         VFill(g, kind, body, Color.FromArgb(218, 158, 94), Color.FromArgb(188, 126, 66), D, 50);
                         PakkunHood(g, D);
                         break;
+                    case KindChopper: ChopperFace(g, body, D); break;
+                    case KindKeroSd:
+                        foreach (int s in Sides) KeroEarSd(g, D, s);
+                        VFill(g, kind, body, KeFur, KeFurShade, D, 80);
+                        break;
+                    case KindSnoopySd: VFill(g, kind, body, SnWhite, SnShade, D, 90); break;
+                    case KindGonSd:
+                    case KindKilluaSd:
+                    case KindHisokaSd: HunterHead(g, kind, body, D); break;
+                    case KindTanjiroSd:
+                    case KindNezukoSd: SlayerHead(g, kind, body, D); break;
+                    case KindLuffySd:
+                    case KindZoroSd: PirateHead(g, kind, body, D); break;
+                    case KindKaminaSd: KmHead(g, body, D); break;
+                    case KindShinSd:
+                    case KindKantamSd:
+                    case KindUltraSd:
+                    case KindWaniSd: ShinHeadDraw(g, kind, body, D); break;
+                    case KindPiggySd: BuriHeadDraw(g, body, D); break;
+                    case KindNevadoSd: NevadoHeadDraw(g, body, D); break;
                     default:
                     {
                         // The face stops under the forehead protector: above it, the hair behind shows.
@@ -718,6 +878,8 @@ namespace Stackshot
         {
             int k = l.Kind;
             Geo geo = ToonGeo(k);
+            if (IsPersona(k)) { PersonaBack(g, k, D, p, geo); return; }
+            if (IsSoftFig(k)) { PkBack(g, k, D, p, geo); return; }
             switch (k)
             {
                 case KindFinn: FinnBody(g, D, p, geo); break;
@@ -740,7 +902,7 @@ namespace Stackshot
                     Color teal = Color.FromArgb(104, 204, 182);
                     // The side of the box, so it reads as a block rather than a card; then his thin legs with their rounded
                     // ends, stepping as BMO walks, and his arms.
-                    DsCached(g, D, 10 + k, new RectangleF(-0.2f, -0.36f, 0.45f, 0.6f), bg => VRound(bg, KindBmoAt, D, Color.FromArgb(62, 150, 132), Color.Empty, 0, -0.174f, -0.34f, 0.4f, 0.56f, 0.065f));
+                    DsCached(g, D, TnId(k, 1), new RectangleF(-0.2f, -0.36f, 0.45f, 0.6f), bg => VRound(bg, KindBmoAt, D, Color.FromArgb(62, 150, 132), Color.Empty, 0, -0.174f, -0.34f, 0.4f, 0.56f, 0.065f));
                     foreach (int s in Sides)
                     {
                         PointF f = Foot(p, s, s * 0.085f, 0.335f);
@@ -750,6 +912,23 @@ namespace Stackshot
                     break;
                 }
                 case KindPakkun: PakkunBody(g, D, p, geo); break;
+                case KindChopper: ChopperBody(g, D, p, geo); break;
+                case KindKeroSd: KeroBody(g, D, p, geo); break;
+                case KindSnoopySd: SnoopyBody(g, D, p, geo); break;
+                case KindGonSd:
+                case KindKilluaSd:
+                case KindHisokaSd: HunterBack(g, k, D, p, geo); break;
+                case KindTanjiroSd:
+                case KindNezukoSd: SlayerBack(g, k, D, p, geo); break;
+                case KindLuffySd:
+                case KindZoroSd: PirateBack(g, k, D, p, geo); break;
+                case KindKaminaSd: KmBack(g, D, p, geo); break;
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: ShinBody(g, k, D, p, geo); break;
+                case KindPiggySd: BuriBody(g, D, p, geo); break;
+                case KindNevadoSd: NevadoBody(g, D, p); break;
                 default: NinjaBack(g, k, D, p, geo); break;
             }
         }
@@ -760,7 +939,7 @@ namespace Stackshot
         static void FinnBody(Graphics g, float D, MascotPose p, Geo geo)
         {
             int k = KindFinn;
-            DsCached(g, D, 10 + k, new RectangleF(-0.21f, -0.48f, 0.42f, 0.25f), bg => FinnBag(bg, D));
+            DsCached(g, D, TnId(k, 1), new RectangleF(-0.21f, -0.48f, 0.42f, 0.25f), bg => FinnBag(bg, D));
             foreach (int s in Sides)
             {
                 PointF f = Foot(p, s, s * 0.1375f, 0.295f);
@@ -771,7 +950,7 @@ namespace Stackshot
                 VLimb(g, k, D, FinnSkin, 0.02f, P(f.X, f.Y - 0.034f), P(f.X, f.Y - 0.008f), 0);
             }
             if (!p.HideHands) foreach (int s in Sides) ToonArm(g, D, k, s, DsHand(p, geo, s));
-            DsCached(g, D, 30 + k, new RectangleF(-0.18f, -0.46f, 0.36f, 0.55f), bg => FinnClothes(bg, D));
+            DsCached(g, D, TnId(k, 3), new RectangleF(-0.18f, -0.46f, 0.36f, 0.55f), bg => FinnClothes(bg, D));
         }
 
         // A black shoe under the sock's cuff at f, its toe pointing out and down, with a soft shine along its top.
@@ -822,7 +1001,7 @@ namespace Stackshot
         static void PakkunBody(Graphics g, float D, MascotPose p, Geo geo)
         {
             int k = KindPakkun;
-            DsCached(g, D, 10 + k, new RectangleF(-0.37f, -0.27f, 0.74f, 0.56f), bg => PakkunBehind(bg, D));
+            DsCached(g, D, TnId(k, 1), new RectangleF(-0.37f, -0.27f, 0.74f, 0.56f), bg => PakkunBehind(bg, D));
             Color fur = Color.FromArgb(218, 158, 94);
             foreach (int s in Sides)
             {
@@ -831,7 +1010,7 @@ namespace Stackshot
                 VOval(g, k, D, fur, Color.Empty, 0, f.X + s * 0.008f, f.Y + 0.014f, 0.08f, 0.048f);
                 for (int i = 0; i < 2; i++) TnLine(g, Color.FromArgb(150, 110, 70, 40), 0.006f, D, f.X + s * (-0.006f + i * 0.02f), f.Y + 0.02f, f.X + s * (-0.006f + i * 0.02f), f.Y + 0.035f);
             }
-            DsCached(g, D, 30 + k, new RectangleF(-0.17f, 0.11f, 0.34f, 0.26f), bg => PakkunTorso(bg, D));
+            DsCached(g, D, TnId(k, 3), new RectangleF(-0.17f, 0.11f, 0.34f, 0.26f), bg => PakkunTorso(bg, D));
             if (!p.HideHands) foreach (int s in Sides) ToonArm(g, D, k, s, DsHand(p, geo, s));
         }
 
@@ -879,7 +1058,7 @@ namespace Stackshot
         // and over them the clothes (drawn once and kept).
         static void NinjaBack(Graphics g, int k, float D, MascotPose p, Geo geo)
         {
-            DsCached(g, D, 10 + k, new RectangleF(-0.6f, -0.75f, 1.2f, 0.9f), bg => NinjaHairBack(bg, k, D));
+            DsCached(g, D, TnId(k, 1), new RectangleF(-0.6f, -0.75f, 1.2f, 0.9f), bg => NinjaHairBack(bg, k, D));
             Color leg, legShade, shoe;
             switch (k)
             {
@@ -895,7 +1074,7 @@ namespace Stackshot
                 VOval(g, k, D, shoe, Color.Empty, 0, f.X + s * 0.006f, f.Y + 0.022f, 0.08f, 0.042f);
             }
             if (!p.HideHands) foreach (int s in Sides) ToonArm(g, D, k, s, DsHand(p, geo, s));
-            DsCached(g, D, 30 + k, new RectangleF(-0.2f, -0.02f, 0.4f, 0.34f), bg => NinjaClothes(bg, k, D));
+            DsCached(g, D, TnId(k, 3), new RectangleF(-0.2f, -0.02f, 0.4f, 0.34f), bg => NinjaClothes(bg, k, D));
         }
 
         static void NinjaHairBack(Graphics g, int k, float D)
@@ -974,6 +1153,8 @@ namespace Stackshot
         // ---- Arms (also drawn by the props to the hands that hold them) and hands.
         internal static void ToonArm(Graphics g, float D, int kind, int side, PointF h)
         {
+            if (IsPersona(kind)) { PersonaArm(g, D, kind, side, h); return; }
+            if (IsSoftFig(kind)) { PkArm(g, D, kind, side, h); return; }
             switch (kind)
             {
                 case KindFinn:
@@ -999,6 +1180,23 @@ namespace Stackshot
                     }
                     break;
                 }
+                case KindChopper: VLimb(g, kind, D, ChFur, 0.042f, P(side * 0.1f, 0.022f), h, side * 0.03f); break;
+                case KindKeroSd: VLimb(g, kind, D, KeFur, 0.058f, P(side * 0.1f, 0.05f), h, side * 0.02f); break;
+                case KindSnoopySd: VLimb(g, kind, D, SnWhite, 0.042f, P(side * 0.04f, 0.045f), h, side * 0.04f); break;
+                case KindGonSd:
+                case KindKilluaSd:
+                case KindHisokaSd: HunterArm(g, D, kind, side, h); break;
+                case KindTanjiroSd:
+                case KindNezukoSd: SlayerArm(g, D, kind, side, h); break;
+                case KindLuffySd:
+                case KindZoroSd: PirateArm(g, D, kind, side, h); break;
+                case KindKaminaSd: KmArm(g, D, side, h); break;
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: ShinArm(g, D, kind, side, h); break;
+                case KindPiggySd: BuriArm(g, D, side, h); break;
+                case KindNevadoSd: break;
                 case KindNarutoSd: VLimb(g, kind, D, Color.FromArgb(250, 142, 38), 0.056f, P(side * 0.1f, 0.115f), h, side * 0.03f); break;
                 case KindSasukeSd:
                 {
@@ -1014,6 +1212,8 @@ namespace Stackshot
 
         internal static void ToonHand(Graphics g, float D, int kind)
         {
+            if (IsPersona(kind)) { PersonaHand(g, D, kind); return; }
+            if (IsSoftFig(kind)) { PkHand(g, D, kind); return; }
             switch (kind)
             {
                 case KindFinn: VOval(g, kind, D, FinnSkin, Color.Empty, 0, 0, 0, 0.034f, 0.038f); break;
@@ -1023,6 +1223,19 @@ namespace Stackshot
                     VOval(g, kind, D, Color.FromArgb(218, 158, 94), Color.Empty, 0, 0, 0.004f, 0.07f, 0.056f);
                     for (int i = -1; i <= 1; i += 2) TnLine(g, Color.FromArgb(150, 110, 70, 40), 0.006f, D, i * 0.012f, 0.018f, i * 0.012f, 0.03f);
                     break;
+                case KindChopper:
+                    // His wrist, and the small hoof he has for a hand.
+                    VOval(g, kind, D, ChFur, Color.Empty, 0, 0, -0.012f, 0.052f, 0.046f);
+                    ChopperHoof(g, D, 0, 0.018f, 0.68f);
+                    break;
+                case KindKeroSd: VOval(g, kind, D, KeFur, Color.Empty, 0, 0, 0, 0.062f, 0.058f); break;
+                case KindSnoopySd: VOval(g, kind, D, SnWhite, Color.Empty, 0, 0, 0, 0.05f, 0.046f); break;
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: ShinHand(g, D, kind); break;
+                case KindPiggySd: BuriHand(g, D); break;
+                case KindNevadoSd: break;
                 case KindKakashiSd: VOval(g, kind, D, Color.FromArgb(44, 56, 100), Color.Empty, 0, 0, 0, 0.056f, 0.052f); break;
                 default: VOval(g, kind, D, NjSkin, Color.Empty, 0, 0, 0, 0.056f, 0.052f); break;
             }
@@ -1033,6 +1246,8 @@ namespace Stackshot
         {
             int k = l.Kind;
             float f = geo.FaceY;
+            if (IsPersona(k)) { PersonaDetails(g, k, D, f); return; }
+            if (IsSoftFig(k)) { PkDetails(g, k, D, f); return; }
             switch (k)
             {
                 case KindBmoAt:
@@ -1084,6 +1299,16 @@ namespace Stackshot
                         Glow(g, s * 0.16f * D, (f + 0.065f) * D, 0.08f * D, 0.036f * D, Color.FromArgb(255, 140, 140), 50);
                     }
                     break;
+                case KindChopper: ChopperNose(g, D, f); break;
+                case KindKeroSd: KeroNose(g, D, f); break;
+                case KindGonSd:
+                case KindKilluaSd:
+                case KindHisokaSd: HunterDetails(g, k, D, f); break;
+                case KindTanjiroSd:
+                case KindNezukoSd: SlayerDetails(g, k, D, f); break;
+                case KindLuffySd:
+                case KindZoroSd: PirateDetails(g, k, D, f); break;
+                case KindKaminaSd: KmShades(g, D, f); break;
                 case KindKakashiSd:
                     // One grey brow over his visible eye, relaxed.
                     TnLine(g, Color.FromArgb(220, 130, 136, 156), 0.011f, D, -0.05f, f - 0.06f, -0.1f, f - 0.068f, -0.158f, f - 0.062f);
@@ -1093,6 +1318,8 @@ namespace Stackshot
 
         static string[] ToonLines(int kind)
         {
+            if (IsPersona(kind)) return PersonaLines(kind);
+            if (IsSoftFig(kind)) return PkLines(kind);
             switch (kind)
             {
                 case KindFinn: return new string[] { "\u00A1Matem\u00E1tico!", "\u00A1Algebraico!", "\u00A1Es la hora de aventuras!", "\u00A1Vamos, Jake!", "Soy Finn, el humano." };
@@ -1101,6 +1328,26 @@ namespace Stackshot
                 case KindPakkun: return new string[] { "Yo.", "Mi olfato nunca falla.", "\u00BFOtra vez me llamas, Kakashi?" };
                 case KindNarutoSd: return new string[] { "\u00A1Dattebayo!", "\u00A1Ser\u00E9 el pr\u00F3ximo Hokage!", "\u00A1Nunca retiro mi palabra! \u00A1Ese es mi camino ninja!", "\u00A1Kage Bunshin no Jutsu!", "\u00A1Me apetece un ramen!" };
                 case KindSasukeSd: return new string[] { "Hmph.", "Eres molesta.", "Lo que tengo no es un sue\u00F1o, porque lo har\u00E9 realidad.", "\u00A1Chidori!" };
+                case KindChopper: return new string[] { "\u00A1Que me llames mono no me alegra nada, idiota!", "\u00A1Un m\u00E9dico! \u00A1Que alguien llame a un m\u00E9dico! \u2026Ah, que el m\u00E9dico soy yo.",
+                                                        "\u00A1No soy un mapache, soy un reno!", "\u00A1Algod\u00F3n de az\u00FAcar!", "Soy Tony Tony Chopper, el m\u00E9dico de los Sombrero de Paja." };
+                case KindKeroSd: return new string[] { "\u00A1D\u00E9jaselo a Kero-chan!", "Soy Kerberos, la bestia guardiana del sello.", "\u00BFQueda pudin?", "\u00A1Sakura, a por esa carta!",
+                                                       "\u00BFEchamos una partida a la consola?" };
+                case KindGonSd:
+                case KindKilluaSd:
+                case KindHisokaSd: return HunterLines(kind);
+                case KindTanjiroSd:
+                case KindNezukoSd: return SlayerLines(kind);
+                case KindLuffySd:
+                case KindZoroSd: return PirateLines(kind);
+                case KindKaminaSd: return KmLines();
+                case KindShinSd:
+                case KindKantamSd:
+                case KindUltraSd:
+                case KindWaniSd: return ShinLines(kind);
+                case KindPiggySd: return BuriLines();
+                case KindNevadoSd: return NevadoLines();
+                case KindSnoopySd: return new string[] { "\u00A1Hora de bailar!", "Necesito mi caseta\u2026", "\u00A1Maldito Bar\u00F3n Rojo!", "\u00BFYa es la hora de cenar?",
+                                                         "\u00A1Woodstock, ven!" };
                 default: return new string[] { "Yo.", "Mi primera impresi\u00F3n de vosotros\u2026 os odio.", "Los que rompen las reglas son escoria, pero los que abandonan a sus amigos son peor que escoria.",
                                                "Perd\u00F3n por el retraso: me perd\u00ED en el camino de la vida." };
             }
@@ -1112,11 +1359,30 @@ namespace Stackshot
         bool ToonEye(Graphics g, float x, float y, float D, float blink, bool surprised)
         {
             float sk = surprised ? 1.15f : 1f;
+            if (MascotParts.IsPersona(Look.Kind)) return PersonaEye(g, x, y, D, blink, surprised);
+            if (MascotParts.IsSoftFig(Look.Kind)) return PkEye(g, x, y, D, blink, surprised);
             switch (Look.Kind)
             {
                 case MascotParts.KindFinn: FinnDot(g, x, y, D, sk, blink); return true;
                 case MascotParts.KindBmoAt: return DotEye(g, x, y, D, 0.028f * D * sk, 0.042f * D * sk, blink);
                 case MascotParts.KindJake: JakeEye(g, x, y, D, sk, blink); return true;
+                case MascotParts.KindChopper: ChopperEye(g, x, y, D, sk, blink, surprised ? 0.5f : 0.8f); return true;
+                case MascotParts.KindKeroSd: return DotEye(g, x, y, D, 0.025f * D * sk, 0.033f * D * sk, blink);
+                case MascotParts.KindSnoopySd: return DotEye(g, x, y, D, 0.022f * D * sk, 0.062f * D * sk, blink);
+                case MascotParts.KindGonSd: return NinjaEye(g, x, y, D, blink, surprised, 0.12f, 0.15f, Color.FromArgb(110, 58, 18), Color.FromArgb(236, 164, 60), 1f);
+                case MascotParts.KindKilluaSd: return NinjaEye(g, x, y, D, blink, surprised, 0.118f, 0.13f, Color.FromArgb(34, 62, 150), Color.FromArgb(132, 188, 250), 0.84f);
+                case MascotParts.KindHisokaSd: return NinjaEye(g, x, y, D, blink, surprised, 0.12f, 0.11f, Color.FromArgb(168, 108, 20), Color.FromArgb(252, 214, 90), 0.55f);
+                case MascotParts.KindTanjiroSd:
+                case MascotParts.KindNezukoSd: return DotEye(g, x, y, D, 0.05f * D * sk, 0.05f * D * sk, blink);
+                case MascotParts.KindLuffySd: return NinjaEye(g, x, y, D, blink, surprised, 0.12f, 0.15f, Color.FromArgb(24, 22, 28), Color.FromArgb(70, 66, 80), 1f);
+                case MascotParts.KindZoroSd: return NinjaEye(g, x, y, D, blink, surprised, 0.115f, 0.12f, Color.FromArgb(24, 26, 30), Color.FromArgb(90, 96, 100), 0.72f);
+                case MascotParts.KindKaminaSd: return NinjaEye(g, x, y, D, blink, surprised, 0.118f, 0.12f, Color.FromArgb(40, 30, 30), Color.FromArgb(110, 80, 60), 0.7f);
+                case MascotParts.KindShinSd: return DotEye(g, x, y, D, 0.1f * D * sk, 0.108f * D * sk, blink);
+                case MascotParts.KindNevadoSd:
+                case MascotParts.KindKantamSd:
+                case MascotParts.KindUltraSd:
+                case MascotParts.KindPiggySd:
+                case MascotParts.KindWaniSd: return DotEye(g, x, y, D, 0.03f * D * sk, 0.034f * D * sk, blink);
                 case MascotParts.KindPakkun:
                 {
                     // Sleepy eyes: a small black pupil under a heavy lid that hides the top half of the eye.
@@ -1162,7 +1428,7 @@ namespace Stackshot
             }
             GraphicsState st = g.Save();
             g.TranslateTransform(x, y);
-            MascotParts.DsCached(g, D, 130 + (Look.Kind - MascotParts.KindFinn) * 2 + (side > 0 ? 1 : 0), new RectangleF(-0.1f, -0.1f, 0.2f, 0.19f),
+            MascotParts.DsCached(g, D, MascotParts.TnId(Look.Kind, side > 0 ? 6 : 5), new RectangleF(-0.1f, -0.1f, 0.2f, 0.19f),
                                  bg => AnimeEye(bg, 0, 0, D, w * D, h * D, top, bottom, open, 1, side));
             g.Restore(st);
             return true;
@@ -1401,14 +1667,38 @@ namespace Stackshot
             bool adv = k <= MascotParts.KindBmoAt;
             Color ink = adv ? Color.FromArgb(30, 26, 34) : Color.FromArgb(46, 30, 28);
             float w = (k == MascotParts.KindSasukeSd ? 0.045f : k == MascotParts.KindPakkun || k == MascotParts.KindJake ? 0.065f : k == MascotParts.KindBmoAt ? 0.07f : 0.09f) * D;
+            if (MascotParts.IsPersona(k) && PersonaMouth(g, D, mx, my, ink, open)) return true;
+            if (MascotParts.IsSoftFig(k) && PkMouth(g, D, mx, my, open, talking)) return true;
             if (!open)
             {
+                if (k == MascotParts.KindLuffySd || k == MascotParts.KindKaminaSd)
+                {
+                    // The big toothy grin.
+                    float gw = 0.13f * D, gh = 0.055f * D;
+                    using (GraphicsPath m = new GraphicsPath())
+                    {
+                        m.AddArc(mx - gw / 2, my - gh * 0.8f, gw, gh * 1.8f, 0, 180);
+                        m.CloseFigure();
+                        MascotParts.FillSolid(g, m, Color.White);
+                        using (Pen tp = new Pen(Color.FromArgb(150, 46, 30, 28), Math.Max(0.8f, D * 0.006f))) g.DrawLine(tp, mx - gw * 0.45f, my + gh * 0.45f, mx + gw * 0.45f, my + gh * 0.45f);
+                        MascotParts.Stroke(g, m, ink, Math.Max(1f, D * 0.012f));
+                    }
+                    return true;
+                }
                 if (k == MascotParts.KindJake || k == MascotParts.KindPakkun) return true;   // their muzzles carry the mouth
                 using (Pen p = new Pen(ink, Math.Max(1.1f, D * 0.012f)))
                 {
                     p.StartCap = p.EndCap = LineCap.Round;
                     if (k == MascotParts.KindSasukeSd) g.DrawLine(p, mx - w / 2, my, mx + w / 2, my + D * 0.003f);
-                    else if (k == MascotParts.KindNarutoSd) g.DrawArc(p, mx - 0.06f * D, my - 0.045f * D, 0.12f * D, 0.07f * D, 18, 144);   // his wide, sure grin
+                    else if (k == MascotParts.KindNarutoSd || k == MascotParts.KindGonSd) g.DrawArc(p, mx - 0.06f * D, my - 0.045f * D, 0.12f * D, 0.07f * D, 18, 144);   // a wide, sure grin
+                    else if (k == MascotParts.KindKilluaSd)
+                    {
+                        // His cat's mouth.
+                        g.DrawArc(p, mx - 0.03f * D, my - 0.014f * D, 0.03f * D, 0.024f * D, 10, 160);
+                        g.DrawArc(p, mx, my - 0.014f * D, 0.03f * D, 0.024f * D, 10, 160);
+                    }
+                    else if (k == MascotParts.KindHisokaSd) g.DrawBezier(p, mx - 0.045f * D, my + 0.004f * D, mx - 0.01f * D, my + 0.018f * D, mx + 0.03f * D, my + 0.006f * D, mx + 0.05f * D, my - 0.016f * D);   // his smirk
+                    else if (k == MascotParts.KindZoroSd) g.DrawArc(p, mx - 0.03f * D, my - 0.004f * D, 0.06f * D, 0.03f * D, 205, 130);   // his frown
                     else g.DrawArc(p, mx - w / 2, my - D * 0.03f, w, D * 0.05f, 25, 130);
                 }
                 return true;

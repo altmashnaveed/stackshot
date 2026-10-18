@@ -86,6 +86,21 @@ namespace Stackshot
         {
             int a = l.Accessory;
             if (a <= 0 || a >= AccessoryNames.Length || (a == 7) != front) return;
+            // What goes on the face or head follows a face drawn three quarters on; what goes round the neck stays.
+            GraphicsState st0 = g.Save();
+            if (a != 4 && a != 5 && a != 8) g.TranslateTransform(FaceX(l.Kind) * D, 0);
+            if (l.Kind == KindSnoopySd && (a <= 3 || a == 9 || a == 10))
+            {
+                // Glasses and cheek marks on Snoopy, side on: edge on round his one eye (as PaintFaceAccessory does).
+                g.TranslateTransform(0.0775f * D, 0);
+                g.ScaleTransform(-0.55f, 1);
+            }
+            PaintAccessoryItem(g, l, D, now, a);
+            g.Restore(st0);
+        }
+
+        static void PaintAccessoryItem(Graphics g, MascotLook l, float D, double now, int a)
+        {
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D, ny = geo.NeckY * D, nw = geo.NeckW * D, hw = geo.HeadW * D / 2;
             switch (a)

@@ -15,6 +15,19 @@ namespace Stackshot
         // Hairstyles added for characters that used to share a generic one (appended: indices are stored in settings).
         public const int HatGojo = 46, HatKillua = 47, HatLevi = 48, HatShinchan = 49;
 
+        // Levi's curtain of hair on the left (mirrored for the right), in u: along the top to the part, down beside it, then
+        // its points along the bottom and back up his temple.
+        static readonly float[] LeviCurtain =
+        {
+            -0.6f, -0.02f, -0.36f, -0.17f, -0.02f, -0.2f, -0.03f, -0.06f, -0.12f, 0.06f, -0.26f, 0.22f, -0.36f, 0.12f, -0.48f, 0.27f, -0.55f, 0.12f, -0.66f, 0.22f
+        };
+
+        // The characters' own hair (not hats put on): it turns with the face as the eyes follow the pointer.
+        public static bool HairTurns(int hat)
+        {
+            return hat == 18 || hat == 19 || hat == 41 || hat == HatKaminaHair || hat == HatGojo || hat == HatLevi || hat == HatShinchan;
+        }
+
         // One lock from a root to a pointed tip, w wide at the root, bowed sideways by bend (all in u).
         static GraphicsPath Lock(float u, float x0, float y0, float x1, float y1, float w, float bend)
         {
@@ -156,17 +169,19 @@ namespace Stackshot
                 }
                 case 19:
                 {
-                    // Eren: dark brown, medium length, bangs split over the forehead and locks over the ears.
-                    h.Add(Lock(u, -0.48f, 0.1f, -0.66f, 0.66f, 0.24f, 0.03f));
-                    h.Add(Lock(u, 0.48f, 0.1f, 0.66f, 0.66f, 0.24f, -0.03f));
-                    h.Add(Crown(u, 0.64f, -0.09f, 0.24f));
-                    h.Add(Lock(u, -0.36f, -0.02f, -0.56f, 0.4f, 0.26f, 0.05f));
-                    h.Add(Lock(u, 0.36f, -0.02f, 0.56f, 0.4f, 0.26f, -0.05f));
-                    h.Add(Lock(u, -0.2f, -0.05f, -0.34f, 0.3f, 0.24f, 0.05f));
-                    h.Add(Lock(u, 0.18f, -0.05f, 0.3f, 0.3f, 0.24f, -0.06f));
-                    h.Add(Lock(u, -0.04f, -0.05f, -0.1f, 0.34f, 0.18f, 0.03f));
-                    h.Add(Lock(u, 0.06f, -0.05f, 0.1f, 0.28f, 0.14f, -0.02f));
-                    HairDo(g, u, Color.FromArgb(132, 92, 62), Color.FromArgb(58, 36, 24), h, 0.0f, 0.04f, "-0.3,0.0,-0.42,0.2,-0.5,0.36;0.28,0.0,0.4,0.2,0.48,0.36");
+                    // Eren: dark brown, medium length, a full crown over the whole top of his head, bangs split over the
+                    // forehead and locks over the ears.
+                    h.Add(Lock(u, -0.5f, 0.1f, -0.68f, 0.66f, 0.26f, 0.03f));
+                    h.Add(Lock(u, 0.5f, 0.1f, 0.68f, 0.66f, 0.26f, -0.03f));
+                    h.Add(Crown(u, 0.68f, -0.22f, 0.3f));
+                    h.Add(Lock(u, -0.38f, -0.08f, -0.58f, 0.42f, 0.28f, 0.05f));
+                    h.Add(Lock(u, 0.38f, -0.08f, 0.58f, 0.42f, 0.28f, -0.05f));
+                    h.Add(Lock(u, -0.22f, -0.12f, -0.36f, 0.32f, 0.26f, 0.05f));
+                    h.Add(Lock(u, 0.2f, -0.12f, 0.32f, 0.32f, 0.26f, -0.06f));
+                    h.Add(Lock(u, -0.05f, -0.12f, -0.11f, 0.36f, 0.2f, 0.03f));
+                    h.Add(Lock(u, 0.07f, -0.12f, 0.11f, 0.3f, 0.16f, -0.02f));
+                    HairDo(g, u, Color.FromArgb(140, 98, 66), Color.FromArgb(62, 38, 26), h, 0.02f, 0.035f,
+                           "-0.3,-0.06,-0.42,0.2,-0.5,0.36;0.28,-0.06,0.4,0.2,0.48,0.36;-0.1,-0.18,-0.2,0.0,-0.26,0.2;0.1,-0.18,0.18,0.0,0.22,0.2");
                     return true;
                 }
                 case HatGojo:
@@ -197,13 +212,15 @@ namespace Stackshot
                 }
                 case HatLevi:
                 {
-                    // Levi: an undercut, short and dark at the sides, with the curtain bangs parted in the middle.
-                    h.Add(Blob(u, 0.5f, -0.6f, 0.06f, -0.5f, 0.02f, -0.5f, 0.2f, -0.58f, 0.34f, -0.64f, 0.22f));
-                    h.Add(Blob(u, 0.5f, 0.6f, 0.06f, 0.5f, 0.02f, 0.5f, 0.2f, 0.58f, 0.34f, 0.64f, 0.22f));
-                    h.Add(Crown(u, 0.6f, -0.12f, 0.06f));
-                    h.Add(Blob(u, 0.4f, -0.02f, -0.13f, -0.28f, -0.12f, -0.52f, -0.02f, -0.62f, 0.2f, -0.57f, 0.38f, -0.46f, 0.27f, -0.32f, 0.17f, -0.14f, 0.1f, -0.03f, 0.06f));
-                    h.Add(Blob(u, 0.4f, 0.02f, -0.13f, 0.28f, -0.12f, 0.52f, -0.02f, 0.62f, 0.2f, 0.57f, 0.38f, 0.46f, 0.27f, 0.32f, 0.17f, 0.14f, 0.1f, 0.03f, 0.06f));
-                    HairDo(g, u, Color.FromArgb(86, 86, 102), Color.FromArgb(22, 22, 30), h, -0.04f, 0.035f, "-0.04,-0.06,-0.2,0.1,-0.36,0.3;0.04,-0.06,0.2,0.1,0.36,0.3");
+                    // Levi: an undercut, the sides shaved short and dark; the longer hair on top parted in the middle and
+                    // falling either side in a sleek curtain over his temples, ending in a few points.
+                    h.Add(Blob(u, 0.5f, -0.64f, 0.02f, -0.52f, -0.04f, -0.5f, 0.2f, -0.58f, 0.38f, -0.66f, 0.24f));
+                    h.Add(Blob(u, 0.5f, 0.64f, 0.02f, 0.52f, -0.04f, 0.5f, 0.2f, 0.58f, 0.38f, 0.66f, 0.24f));
+                    h.Add(Crown(u, 0.64f, -0.2f, 0.12f));
+                    h.Add(TnSpikes(u, 0.05f, LeviCurtain));
+                    h.Add(TnSpikes(u, 0.05f, Mirror(LeviCurtain)));
+                    HairDo(g, u, Color.FromArgb(92, 92, 110), Color.FromArgb(22, 22, 30), h, 0.0f, 0.035f,
+                           "-0.1,-0.16,-0.3,0.0,-0.44,0.18;0.1,-0.16,0.3,0.0,0.44,0.18;-0.2,-0.14,-0.42,0.0,-0.56,0.16;0.2,-0.14,0.42,0.0,0.56,0.16");
                     return true;
                 }
                 case HatShinchan:
@@ -239,16 +256,20 @@ namespace Stackshot
                 }
                 case 41:
                 {
-                    // Superman: neat black hair combed to the side, and the curl on his forehead.
-                    h.Add(Crown(u, 0.62f, -0.08f, 0.16f));
-                    h.Add(Lock(u, -0.44f, 0.02f, -0.58f, 0.3f, 0.18f, 0.03f));
-                    h.Add(Lock(u, 0.44f, 0.02f, 0.58f, 0.3f, 0.18f, -0.03f));
-                    HairDo(g, u, Color.FromArgb(62, 66, 96), Color.FromArgb(12, 14, 26), h, -0.04f, 0.04f, "0.4,0.0,0.1,0.06,-0.2,0.16");
-                    // The curl.
-                    using (Pen c = new Pen(Color.FromArgb(240, 20, 22, 36), Math.Max(1.2f, u * 0.045f)))
+                    // Superman: short black hair parted at the side, swept up and over in a wave, short at the sides with
+                    // sideburns, and the curl falling on his forehead.
+                    h.Add(Blob(u, 0.45f, -0.63f, 0.3f, -0.67f, 0.06f, -0.6f, -0.12f, -0.42f, -0.24f, -0.16f, -0.3f, 0.12f, -0.3f, 0.4f, -0.23f, 0.6f, -0.1f,
+                               0.67f, 0.08f, 0.63f, 0.3f, 0.55f, 0.22f, 0.5f, 0.1f, 0.32f, 0.06f, 0.14f, 0.09f, 0, 0.05f, -0.14f, -0.02f, -0.3f, 0.02f,
+                               -0.46f, 0.08f, -0.55f, 0.22f));
+                    h.Add(Blob(u, 0.5f, -0.2f, -0.04f, -0.05f, -0.2f, 0.2f, -0.24f, 0.42f, -0.14f, 0.3f, -0.08f, 0.1f, -0.06f, -0.06f, 0.02f));
+                    h.Add(Lock(u, 0.1f, 0.04f, -0.01f, 0.27f, 0.09f, 0.07f));
+                    HairDo(g, u, Color.FromArgb(70, 76, 112), Color.FromArgb(10, 12, 24), h, -0.14f, 0.035f,
+                           "-0.5,0.04,-0.4,-0.14,-0.18,-0.24;-0.3,0.0,-0.1,-0.12,0.18,-0.18;0.2,0.04,0.4,-0.04,0.55,0.04");
+                    // The curl's little hook at its end.
+                    using (Pen c = new Pen(Color.FromArgb(240, 14, 16, 30), Math.Max(1.1f, u * 0.034f)))
                     {
                         c.StartCap = LineCap.Round; c.EndCap = LineCap.Round;
-                        g.DrawBezier(c, P(0.02f * u, 0.16f * u), P(0.1f * u, 0.26f * u), P(-0.04f * u, 0.36f * u), P(-0.08f * u, 0.28f * u));
+                        g.DrawBezier(c, P(-0.01f * u, 0.26f * u), P(-0.02f * u, 0.32f * u), P(0.05f * u, 0.33f * u), P(0.06f * u, 0.28f * u));
                     }
                     return true;
                 }

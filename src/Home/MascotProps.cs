@@ -101,8 +101,36 @@ namespace Stackshot
         [ThreadStatic] static float armD;
         [ThreadStatic] static Color armSkin;
         [ThreadStatic] static bool armsDone;
-        [ThreadStatic] static bool noHands;   // Abigail, a ghost: what she uses floats by itself
+        [ThreadStatic] static bool noHands;   // Abigail, a ghost, and Nevado, a little dog: what they use floats by them
         [ThreadStatic] static float reach;    // how far up a stretch goes
+        [ThreadStatic] static float spread;   // and how far out
+        [ThreadStatic] static Color handTint; // the colour of its hands
+        [ThreadStatic] static float mouthX, faceX;   // where its mouth and face are across, for a face drawn three quarters on
+
+        // The colour of a character's own hand, taken once from its drawing.
+        static readonly System.Collections.Generic.Dictionary<int, Color> handTints = new System.Collections.Generic.Dictionary<int, Color>();
+
+        static Color HandTint(int kind, Color c1, Color c2)
+        {
+            if (!MascotParts.HasDrawnArms(kind)) return Mac.Mix(c1, c2, 0.3);
+            lock (handTints)
+            {
+                Color c;
+                if (handTints.TryGetValue(kind, out c)) return c;
+                using (Bitmap b = new Bitmap(64, 64))
+                using (Graphics hg = Graphics.FromImage(b))
+                {
+                    hg.SmoothingMode = SmoothingMode.AntiAlias;
+                    hg.TranslateTransform(32, 32);
+                    MascotParts.StarveHand(hg, 400, kind, c1);
+                    // The middle of the hand, a little below its shine.
+                    c = b.GetPixel(32, 34);
+                }
+                c = c.A < 200 ? Mac.Mix(c1, c2, 0.3) : Color.FromArgb(255, c);
+                handTints[kind] = c;
+                return c;
+            }
+        }
 
         // A resting hand: out at the side, closer in for the ones with arms.
         static float RestX { get { return bodyM != null ? 0.2f : 0.3f; } }
@@ -168,11 +196,20 @@ namespace Stackshot
             if (act == None || k <= 0.01) return;
             GraphicsState st = g.Save();
             g.ScaleTransform(D, D);
-            noHands = kind == MascotParts.KindAbigail;
+            // Without hands of their own (Abigail, Nevado, Eevee on its four legs, Ditto...): what they use floats by them.
+            noHands = kind >= 0 && MascotParts.NoHands(kind);
             if (MascotParts.HasDrawnArms(kind) && !noHands) { bodyM = g.Transform; armKind = kind; armD = D; armSkin = c1; armsDone = false; }
+            handTint = kind >= 0 && !noHands ? HandTint(kind, c1, c2) : Mac.Mix(c1, c2, 0.3);
+            mouthX = kind >= 0 ? MascotParts.MouthX(kind) : 0;
+            faceX = kind >= 0 ? MascotParts.EyeX(kind) : 0;
             // Finn stands taller and slimmer than the rest: what he holds is a little smaller and up at his hands, still
-            // reaching his mouth and eyes, and he stretches up past his hat.
+            // reaching his mouth and eyes, and he stretches up past his hat. The little ones (the Pokemon, Baby Groot)
+            // only get their short arms up beside their heads.
             reach = 0.74f;
+            spread = 0.3f;
+            if (MascotParts.ShortArms(kind)) reach = 0.48f;
+            if (kind >= 0 && MascotParts.IsSoftFig(kind)) { reach = 0.34f; spread = 0.2f; }
+            else if (bodyM == null) { reach = 0.5f; spread = 0.33f; }   // the round ones' stubby arms, not long poles
             if (kind == MascotParts.KindFinn)
             {
                 const float s = 0.8f, dy = -0.14f;
@@ -192,10 +229,19 @@ namespace Stackshot
                 {
                     case Coffee: PaintCoffee(g, t, k, c1, c2, mouthY); break;
                     case Juggle: PaintJuggle(g, t, c1, c2); break;
-                    case Console: PaintConsole(g, t, c1, c2); break;
+                    case Console:
+                    case Read:
+                    case Photo:
+                    {
+                        // Held out in front: a character drawn side on holds it ahead of its chest, not across it.
+                        float ahead = kind >= 0 ? MascotParts.HoldAhead(kind) : 0;
+                        if (ahead != 0) g.TranslateTransform(ahead, 0);
+                        if (act == Console) PaintConsole(g, t, c1, c2);
+                        else if (act == Read) PaintRead(g, t, c1, c2);
+                        else PaintPhoto(g, t, c1, c2);
+                        break;
+                    }
                     case Stretch: PaintStretch(g, t, c1, c2); break;
-                    case Read: PaintRead(g, t, c1, c2); break;
-                    case Photo: PaintPhoto(g, t, c1, c2); break;
                     case Water: PaintWater(g, t, k, c1, c2, mouthY); break;
                     case EyeRest: PaintEyeRest(g, t, c1, c2, faceY); break;
                     case Legs: PaintLegs(g, t, c1, c2); break;
@@ -212,12 +258,13 @@ namespace Stackshot
 
         static readonly Color GlassEdge = Color.FromArgb(200, 225, 240, 255), Water1 = Color.FromArgb(200, 120, 200, 255), Water2 = Color.FromArgb(220, 40, 130, 230);
 
-        // A glass of water raised to the mouth in three sips; the level goes down with each one.
+        // A glass of water raised to the mouth in three sips; the level goes down with each one. Held from the outside, so
+        // the arm never crosses it; tilted, the near corner of its rim meets the mouth.
         static void PaintWater(Graphics g, double t, double k, Color c1, Color c2, float mouthY)
         {
             double cyc = (t % 2300) / 2300.0;
             float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
-            float toX = 0.12f, toY = mouthY + 0.05f;
+            float toX = mouthX + 0.115f, toY = mouthY + 0.063f;
             float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
             float level = (float)(0.85 - 0.6 * Math.Min(1, t / Duration(Water)));
             Hand(g, c1, c2, -RestX, 0.22f);
@@ -225,6 +272,9 @@ namespace Stackshot
             g.TranslateTransform(cx, cy);
             g.RotateTransform(-22 * lift);
             g.ScaleTransform(1.35f, 1.35f);
+            // The hand behind the glass (seen through it and showing past its side), the glass in front on its way to the
+            // mouth.
+            Hand(g, c1, c2, 0.06f, 0.032f);
             PointF[] glass = { new PointF(-0.048f, -0.07f), new PointF(0.048f, -0.07f), new PointF(0.038f, 0.07f), new PointF(-0.038f, 0.07f) };
             using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 230, 245, 255))) g.FillPolygon(b, glass);
             // Water up to the level, staying level while the glass tilts a little.
@@ -244,7 +294,6 @@ namespace Stackshot
             }
             using (Pen p = new Pen(GlassEdge, 0.007f)) { p.LineJoin = LineJoin.Round; g.DrawPolygon(p, glass); }
             Seg(g, Color.FromArgb(150, 255, 255, 255), 0.008f, -0.03f, -0.05f, -0.024f, 0.04f);
-            Hand(g, c1, c2, -0.05f, 0.02f);
             g.Restore(st);
             // A tiny drop now and then, between sips.
             double d = (t % 2300) / 2300.0;
@@ -261,21 +310,12 @@ namespace Stackshot
             Hand(g, c1, c2, -RestX - 0.01f, 0.22f);
             Color arm = Mac.Mix(c1, c2, 0.25);
             float sway = (float)Math.Sin(t / 1400.0) * 0.008f;
-            float y = faceY - 0.1f + sway;
+            float y = faceY - 0.1f + sway, x = faceX + 0.1f;
             if (!noHands)
             {
-                if (bodyM != null) DrawnArm(g, 0.24f, y + 0.01f);
-                else Seg(g, arm, 0.07f, 0.27f, 0.08f, 0.25f, y + 0.02f);
-                GraphicsState st = g.Save();
-                g.TranslateTransform(0.1f, y);
-                g.RotateTransform(-8);
-                Color c = Mac.Mix(c1, c2, 0.3);
-                using (GraphicsPath p = Theme.Round(new RectangleF(-0.14f, -0.03f, 0.28f, 0.06f), 0.03f))
-                {
-                    using (SolidBrush b = new SolidBrush(bodyM != null ? armSkin : c)) g.FillPath(b, p);
-                    using (Pen pn = bodyM != null ? new Pen(MascotParts.DsInkC, 0.009f) : new Pen(Color.FromArgb(60, 255, 255, 255), 0.007f)) g.DrawPath(pn, p);
-                }
-                g.Restore(st);
+                if (bodyM != null) DrawnArm(g, x + 0.13f, y + 0.015f);
+                else Seg(g, arm, 0.07f, 0.27f, 0.08f, x + 0.15f, y + 0.02f);
+                FlatHand(g, handTint, x, y, -8, reach < 0.4f ? 0.2f : 0.25f);
             }
             // Little sparkles where it is looking: far away, out to the side.
             for (int i = 0; i < 3; i++)
@@ -284,6 +324,36 @@ namespace Stackshot
                 float a = (float)Math.Sin(u * Math.PI);
                 Dot(g, Color.FromArgb((int)(150 * a), 255, 255, 255), -0.44f - i * 0.05f, -0.28f + i * 0.07f, 0.012f + 0.01f * a);
             }
+        }
+
+        // A hand held flat over the eyes, palm down, its fingers together pointing across the brow: from the front, the
+        // back of the hand with the fingertips round at its far end, the thumb tucked under at the wrist. In the
+        // character's own colour, inked like it.
+        static void FlatHand(Graphics g, Color c, float x, float y, float rot, float len)
+        {
+            GraphicsState st = g.Save();
+            g.TranslateTransform(x, y);
+            g.RotateTransform(rot);
+            g.ScaleTransform(len, len);
+            PointF[] pts = { new PointF(-0.5f, 0.0f), new PointF(-0.47f, -0.1f), new PointF(-0.38f, -0.14f), new PointF(0.18f, -0.16f), new PointF(0.42f, -0.12f),
+                             new PointF(0.5f, -0.02f), new PointF(0.47f, 0.1f), new PointF(0.32f, 0.21f), new PointF(0.17f, 0.21f), new PointF(0.1f, 0.13f),
+                             new PointF(-0.38f, 0.13f), new PointF(-0.47f, 0.1f) };
+            using (GraphicsPath p = new GraphicsPath())
+            {
+                p.AddClosedCurve(pts, 0.5f);
+                RectangleF r = p.GetBounds();
+                using (Pen ink = new Pen(Color.FromArgb(30, 26, 34), 0.05f)) { ink.LineJoin = LineJoin.Round; g.DrawPath(ink, p); }
+                using (LinearGradientBrush b = new LinearGradientBrush(RectangleF.Inflate(r, 0.01f, 0.01f), MascotParts.Lighter(c, 0.14), MascotParts.Darker(c, 0.12), 90f)) g.FillPath(b, p);
+                // The gaps between its fingers, and a shine along its back.
+                using (Pen gap = new Pen(Color.FromArgb(110, MascotParts.Darker(c, 0.45)), 0.022f))
+                {
+                    gap.StartCap = gap.EndCap = LineCap.Round;
+                    g.DrawLine(gap, -0.47f, -0.035f, -0.26f, -0.045f);
+                    g.DrawLine(gap, -0.47f, 0.045f, -0.26f, 0.04f);
+                }
+                Seg(g, Color.FromArgb(120, 255, 255, 255), 0.035f, -0.3f, -0.09f, 0.25f, -0.1f);
+            }
+            g.Restore(st);
         }
 
         // Squats with the arms out in front.
@@ -316,21 +386,23 @@ namespace Stackshot
         {
             double cyc = (t % 4200) / 4200.0;
             float lift = (float)Math.Max(0, Math.Min(1, (0.5 - 0.5 * Math.Cos(cyc * Math.PI * 2)) * 1.7));
-            // Raised, the tilted cup's near rim meets the mouth (just right of its middle, as the face draws it), never
-            // the eyes: its top-left corner sits 0.098 left of and 0.049 above the cup's centre at full tilt.
-            float toX = 0.128f, toY = mouthY + 0.049f;
+            // Held by its handle, on the outside, so the arm never crosses the cup. Raised, the tilted cup's near rim meets
+            // the mouth (wherever the face draws it), never the eyes: its top-left corner sits 0.104 left of and 0.035
+            // above the cup's centre at full tilt.
+            float toX = mouthX + 0.124f, toY = mouthY + 0.035f;
             float cx = 0.27f + (toX - 0.27f) * lift, cy = 0.19f + (toY - 0.19f) * lift;
             Hand(g, c1, c2, -RestX, 0.22f);
             GraphicsState st = g.Save();
             g.TranslateTransform(cx, cy);
-            g.RotateTransform(-16 * lift);
+            g.RotateTransform(-24 * lift);
             g.ScaleTransform(1.35f, 1.35f);
+            // The hand behind the cup, gripping the handle and showing past it: the cup it brings to its mouth stays in front.
+            Hand(g, c1, c2, 0.098f, 0.008f);
             Seg(g, Cream, 0.022f, 0.06f, -0.02f, 0.085f, 0.0f);
             Seg(g, Cream, 0.022f, 0.085f, 0.0f, 0.058f, 0.03f);
             Grad(g, Cream, Color.FromArgb(222, 214, 200), -0.06f, -0.055f, 0.12f, 0.11f, 0.028f);
             Fill(g, Color.FromArgb(120, 76, 52), -0.05f, -0.052f, 0.1f, 0.02f, 0.01f);
             Fill(g, Color.FromArgb(70, c2.R, c2.G, c2.B), -0.06f, 0.0f, 0.12f, 0.012f, 0.006f);
-            Hand(g, c1, c2, -0.05f, 0.02f);
             g.Restore(st);
             for (int i = 0; i < 3; i++)
             {
@@ -393,7 +465,7 @@ namespace Stackshot
             Color arm = Mac.Mix(c1, c2, 0.25);
             foreach (int s in new int[] { -1, 1 })
             {
-                float hx = s * (0.3f + 0.06f * a), hy = 0.21f - reach * a;
+                float hx = s * (spread + 0.06f * a), hy = 0.21f - reach * a;
                 if (bodyM == null && !noHands) Seg(g, arm, 0.075f, s * 0.26f, 0.1f, hx, hy);
                 Hand(g, c1, c2, hx, hy);
             }

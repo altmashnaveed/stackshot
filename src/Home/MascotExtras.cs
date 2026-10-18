@@ -26,7 +26,7 @@ namespace Stackshot
         public static bool NoHands(int kind)
         {
             return kind == KindMimikyu || kind == KindNoFace || kind == KindCalcifer || kind == KindCreeper || kind == KindCrewmate ||
-                   kind == KindBlinky || kind == KindDqSlime || kind == KindAbigail || (IsArcade(kind) && ArcadeNoHands(kind));
+                   kind == KindBlinky || kind == KindDqSlime || kind == KindAbigail || kind == KindNevadoSd || PkNoHands(kind) || (IsArcade(kind) && ArcadeNoHands(kind));
         }
 
         public static bool NoCheeks(int kind)
@@ -52,7 +52,7 @@ namespace Stackshot
             if (IsFigure(kind)) return FigureGeo(kind);
             switch (kind)
             {
-                case KindPsyduck: return G(0.74f, -0.3f, -0.08f, 0.11f, 0.14f, 0.62f, 0.31f, 0.37f, 0.17f, 0.56f);
+                case KindPsyduck: return G(0.74f, -0.3f, -0.08f, 0.12f, 0.14f, 0.62f, 0.31f, 0.37f, 0.17f, 0.56f);
                 case KindTogepi: return G(0.66f, -0.28f, -0.1f, 0.1f, 0.1f, 0.56f, 0.32f, 0.33f, 0.1f, 0.5f);
                 case KindMeowth: return G(0.76f, -0.3f, -0.06f, 0.13f, 0.13f, 0.62f, 0.31f, 0.36f, 0.2f, 0.56f);
                 case KindPiplup: return G(0.68f, -0.3f, -0.1f, 0.11f, 0.06f, 0.58f, 0.31f, 0.34f, 0.16f, 0.54f);
@@ -226,6 +226,15 @@ namespace Stackshot
         {
             int k = Look.Kind;
             if (k == MascotParts.KindFinn) return FinnFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindChopper) return ChopperFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindKeroSd) return KeroFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindSnoopySd) return SnoopyFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindTanjiroSd) return TanjiroFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindNezukoSd) return NezukoFace(g, D, geo, ex, ey, blink);
+            if (MascotParts.IsShin(k)) return ShinFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindPiggySd) return BuriFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindNevadoSd) return NevadoFace(g, D, geo, ex, ey, blink);
+            if (k == MascotParts.KindMimikyuSd) return true;   // its face is drawn on the rag, the same whatever its mood
             if (MascotParts.IsArcade(k)) return ArcadeFace(g, D, geo, ex, ey);
             if (k == MascotParts.KindCreeper || k == MascotParts.KindCrewmate) return true;
             if (k != MascotParts.KindBlinky) return false;
@@ -267,8 +276,8 @@ namespace Stackshot
             switch (k)
             {
                 case MascotParts.KindPsyduck:
-                    // Blank round eyes with a tiny dot: always a little lost.
-                    WhiteEye(g, x, y, 0.1f * D * sk, 0.1f * D * sk * blink, 0.02f * D, 0, 0, D);
+                    // Big blank round eyes with a tiny dot: always a little lost.
+                    WhiteEye(g, x, y, 0.125f * D * sk, 0.12f * D * sk * blink, 0.014f * D, 0, 0, D);
                     return true;
                 case MascotParts.KindMeowth:
                 {
@@ -432,6 +441,29 @@ namespace Stackshot
                     float my = fy + (k == MascotParts.KindSnoopy ? 0.13f : 0.11f) * D;
                     if (open) OpenMouth(g, mx, my, 0.08f * D, 0.05f * D, D);
                     else ArcMouth(g, mx, my, 0.08f * D, 0.035f * D, ink, lw);
+                    return true;
+                }
+                case MascotParts.KindMeowth:
+                {
+                    // A cat mouth with one little fang showing; open, it shows both.
+                    float my = fy + 0.085f * D, s = 0.026f * D;
+                    if (open)
+                    {
+                        float w = 0.12f * D, h = 0.075f * D;
+                        if (talking && mood == Mood.Idle) h *= (float)(0.5 + 0.5 * Math.Abs(Math.Sin(now / 110.0)));
+                        OpenMouth(g, mx, my, w, h, D);
+                        MascotParts.Fang(g, mx - w * 0.25f, my, D);
+                        MascotParts.Fang(g, mx + w * 0.25f, my, D);
+                        return true;
+                    }
+                    using (Pen p = new Pen(ink, lw))
+                    {
+                        p.StartCap = LineCap.Round;
+                        p.EndCap = LineCap.Round;
+                        g.DrawArc(p, mx - s * 2, my - s * 0.7f, s * 2, s * 1.4f, 10, 160);
+                        g.DrawArc(p, mx, my - s * 0.7f, s * 2, s * 1.4f, 10, 160);
+                    }
+                    MascotParts.Fang(g, mx + s * 1.05f, my + s * 0.66f, D);
                     return true;
                 }
                 case MascotParts.KindPusheen:

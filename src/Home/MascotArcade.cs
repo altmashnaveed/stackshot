@@ -26,7 +26,7 @@ namespace Stackshot
         }
 
         // Characters with a front that turn whole to face the way they walk.
-        public static bool TurnsToWalk(int kind) { return kind == KindPacman || kind == KindBoo || kind == KindChomp || kind == KindCrewmate; }
+        public static bool TurnsToWalk(int kind) { return kind == KindPacman || kind == KindBoo || kind == KindChomp || kind == KindCrewmate || kind == KindSnoopySd || IsShin(kind) || kind == KindPiggySd || kind == KindNevadoSd; }
 
         // Eyes that are part of the character and stay whatever its mood (no happy arcs on an angry Goomba).
         public static bool KeepsOwnEyes(int kind)

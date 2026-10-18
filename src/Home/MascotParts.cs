@@ -42,10 +42,12 @@ namespace Stackshot
             get { return Kind + "." + Color + "." + Eyes + "." + Hat + "." + Outfit + "." + Face + "." + (Seasonal ? 1 : 0) + (Accessory > 0 ? "." + Accessory : ""); }
         }
 
-        // The hat actually worn: a seasonal costume replaces "no hat" around Halloween and Christmas.
+        // The hat actually worn: a seasonal costume replaces "no hat" around Halloween and Christmas (not on the ones that
+        // already wear a hat of their own).
         public int EffectiveHat(DateTime d)
         {
             if (Hat != 0) return Hat;
+            if (MascotParts.OwnHat(Kind)) return 0;
             if (Seasonal)
             {
                 if (d.Month == 10 || (d.Month == 11 && d.Day <= 2)) return MascotParts.HatPumpkin;
@@ -76,7 +78,16 @@ namespace Stackshot
                                                    "Cient\u00EDfico", "Chica del fuego", "Duplicante", "Duplicante rizado",
                                                    "Ninja rubio", "Ninja vengador", "Ninja copia", "Pirata de goma", "Espadach\u00EDn", "Cazador de demonios", "Hermana demonio",
                                                    "Ni\u00F1a fantasma", "Chico aventurero", "Perro m\u00E1gico", "Consola amiga", "Perro rastreador", "Ninja naranja",
-                                                   "Ninja del abanico", "Ninja enmascarado" };
+                                                   "Ninja del abanico", "Ninja enmascarado", "Reno doctor", "Guardi\u00E1n alado", "Beagle", "Cazador novato", "Chico el\u00E9ctrico", "Mago bromista", "Chico del haori", "Chica del bamb\u00FA", "Pirata del sombrero", "Espadach\u00EDn verde", "L\u00EDder con gafas", "Ni\u00F1o travieso", "Perrito de algod\u00F3n", "Ni\u00F1o robot", "Ni\u00F1o h\u00E9roe", "Cerdito espadach\u00EDn", "Ni\u00F1o cocodrilo",
+                                                   "Alquimista", "Soldado explorador", "Capit\u00E1n de \u00E9lite", "Hechicero vendado",
+                                                   "H\u00E9roe calvo", "Guerrero espartano", "Soldado acorazado", "H\u00E9roe ar\u00E1cnido", "Justiciero nocturno", "Corredor veloz", "H\u00E9roe de la capa roja", "Inventor blindado",
+                                                   "Caballero", "Astronauta", "Mago sabio", "Superh\u00E9roe",
+                                                   "Supersoldado", "Dios del trueno", "Gigante esmeralda", "Esp\u00EDa", "Arquero", "Rey guerrero", "Hechicero supremo",
+                                                   "Hero\u00EDna c\u00F3smica", "Bruja escarlata", "Tit\u00E1n colosal", "Tit\u00E1n de ataque", "Tit\u00E1n acorazado",
+                                                   "Roedor el\u00E9ctrico", "Zorrito de pelo", "Lagartija de fuego", "Bulbo de planta", "Tortuga de agua", "Globo de canto",
+                                                   "Dormil\u00F3n gigante", "Fantasma sonriente", "Gatito singular", "Pato con jaqueca", "Huevo con pinchos", "Gato de la moneda",
+                                                   "Ping\u00FCino emperador", "Disfraz de trapo", "Guerrero del aura", "Drag\u00F3n cari\u00F1oso", "Masa que imita", "Clon gen\u00E9tico",
+                                                   "Arbolito beb\u00E9", "Tit\u00E1n sonriente", "Tit\u00E1n bobalic\u00F3n" };
 
         public static readonly Color[,] Colors =
         {
@@ -244,7 +255,7 @@ namespace Stackshot
         // A random look that only uses unlocked items.
         public static void Randomize(MascotLook l, int level, Random rnd)
         {
-            l.Kind = rnd.Next(Kinds.Length);
+            do l.Kind = rnd.Next(Kinds.Length); while (KindRetired(l.Kind));
             do l.Color = rnd.Next(ColorNames.Length); while (ColorUnlock(l.Color) > level);
             l.Eyes = rnd.Next(EyeNames.Length);
             do l.Hat = rnd.Next(HatNames.Length); while (HatUnlock(l.Hat) > level);

@@ -26,17 +26,16 @@ namespace Stackshot
             switch (l.Kind)
             {
                 case KindPsyduck:
-                    // Three thin hairs on top.
-                    using (Pen h = new Pen(ExBlack, Math.Max(1f, D * 0.013f)))
-                    {
-                        h.StartCap = LineCap.Round;
-                        h.EndCap = LineCap.Round;
-                        g.DrawBezier(h, P(-0.01f * D, -0.27f * D), P(-0.02f * D, -0.35f * D), P(-0.06f * D, -0.39f * D), P(-0.09f * D, -0.4f * D));
-                        g.DrawBezier(h, P(0, -0.27f * D), P(0, -0.36f * D), P(0.02f * D, -0.41f * D), P(0.03f * D, -0.44f * D));
-                        g.DrawBezier(h, P(0.01f * D, -0.27f * D), P(0.04f * D, -0.34f * D), P(0.08f * D, -0.37f * D), P(0.11f * D, -0.38f * D));
-                    }
-                    foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(252, 218, 150), Color.FromArgb(224, 170, 90), p);
+                {
+                    // Three thick black hairs on top, fanning out, and its pale webbed feet.
+                    float sw = (float)Math.Sin(p.Now / 800.0) * 0.008f * D;
+                    float[][] hairs = { new float[] { -0.025f, -0.05f, -0.1f, -0.13f, -0.395f }, new float[] { 0, 0, 0.005f, 0.01f, -0.44f }, new float[] { 0.025f, 0.06f, 0.11f, 0.135f, -0.39f } };
+                    foreach (float[] h in hairs)
+                        using (GraphicsPath hp = Strand(P(h[0] * D, -0.26f * D), P(h[1] * D, -0.34f * D), P(h[2] * D, h[4] * D + 0.02f * D), P(h[3] * D + sw, h[4] * D), 0.052f * D, 0.036f * D))
+                            Fill(g, hp, hp.GetBounds(), Color.FromArgb(52, 50, 60), ExBlack2, 0f);
+                    foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(250, 244, 230), Color.FromArgb(214, 202, 180), p);
                     break;
+                }
                 case KindTogepi:
                     // The crown of round spikes on its head.
                     for (int i = -2; i <= 2; i++)
@@ -51,6 +50,8 @@ namespace Stackshot
                 case KindMeowth:
                     foreach (int s in Sides)
                         SoftEar(g, D, s * 0.22f * D, -0.23f * D, s * (30 + (s < 0 ? earL : earR) * 0.6f), 0.24f, 0.72f, ExBlack, ExBlack2, Color.FromArgb(230, 196, 146, 120));
+                    MeowthWhiskers(g, D);
+                    MeowthTail(g, D, p);
                     foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(200, 150, 100), Color.FromArgb(140, 96, 60), p);
                     break;
                 case KindPiplup:
@@ -73,47 +74,59 @@ namespace Stackshot
                     break;
                 }
                 case KindLucario:
-                    // The black tassels hanging from the back of its head, then the pointed ears.
+                {
+                    // The four black tassels hanging from the back of its head, two to a side, the pointed ears with their
+                    // dark insides and the blue tail.
+                    float sway = (float)Math.Sin(p.Now / 700.0) * 4;
                     foreach (int s in Sides)
-                        SoftEar(g, D, s * 0.29f * D, -0.08f * D, 180 - s * 38, 0.2f, 0.42f, ExBlack, ExBlack2, ExNone);
+                    {
+                        float tw = (float)(s < 0 ? earL : earR) * 0.3f;
+                        SoftEar(g, D, s * 0.27f * D, -0.09f * D, 180 - s * (52 + sway + tw), 0.22f, 0.32f, ExBlack, ExBlack2, ExNone);
+                        SoftEar(g, D, s * 0.3f * D, -0.05f * D, 180 - s * (26 + sway * 0.6f + tw), 0.27f, 0.3f, ExBlack, ExBlack2, ExNone);
+                    }
                     foreach (int s in Sides)
-                        SoftEar(g, D, s * 0.15f * D, -0.25f * D, s * (16 + (s < 0 ? earL : earR) * 0.5f), 0.21f, 0.55f, e1, c2, Color.FromArgb(230, 30, 30, 40));
+                        PointyEar(g, D, s * 0.15f * D, -0.25f * D, s * (16 + (s < 0 ? earL : earR) * 0.5f), 0.24f, 0.5f, e1, c2, ExBlack);
+                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, e1, c2, p.Now, 0.11f, 0.045f, 0, ExNone); g.Restore(ts); }
                     foreach (int s in Sides) Foot(g, D, s, ExBlack, ExBlack2, p);
                     break;
+                }
                 case KindDragonite:
                 {
-                    // Little teal wings, the tail and the two antennae.
-                    Color wing = Color.FromArgb(96, 196, 176);
+                    // Little teal wings framed in orange, the tail, the small horn on top and the two pale antennae.
+                    foreach (int s in Sides) DragoniteWing(g, D, s, (float)(s * (60 + Math.Sin(p.Now / 300.0) * 8)), e1, c2);
+                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, e1, c2, p.Now, 0.12f, 0.05f, 0, ExNone); g.Restore(ts); }
+                    using (GraphicsPath hn = new GraphicsPath())
+                    {
+                        hn.AddBezier(P(-0.036f * D, -0.27f * D), P(-0.032f * D, -0.33f * D), P(-0.014f * D, -0.375f * D), P(0, -0.375f * D));
+                        hn.AddBezier(P(0, -0.375f * D), P(0.014f * D, -0.375f * D), P(0.032f * D, -0.33f * D), P(0.036f * D, -0.27f * D));
+                        hn.CloseFigure();
+                        Fill(g, hn, new RectangleF(-0.036f * D, -0.375f * D, 0.072f * D, 0.105f * D), e1, c2, 0f);
+                        Stroke(g, hn, Color.FromArgb(190, Darker(c2, 0.5)), D * 0.011f);
+                    }
                     foreach (int s in Sides)
                     {
-                        GraphicsState ws = g.Save();
-                        g.TranslateTransform(s * 0.3f * D, -0.02f * D);
-                        g.RotateTransform((float)(s * (60 + Math.Sin(p.Now / 300.0) * 8)));
-                        using (GraphicsPath w = Leaf(0.14f * D, 0.2f * D, D)) Fill(g, w, new RectangleF(-0.08f * D, -0.2f * D, 0.16f * D, 0.22f * D), Lighter(wing, 0.1), Darker(wing, 0.2), 80f);
-                        g.Restore(ws);
-                    }
-                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, e1, c2, p.Now, 0.12f, 0.05f, 0, ExNone); g.Restore(ts); }
-                    using (Pen an = new Pen(Darker(c2, 0.1), Math.Max(1f, D * 0.014f)))
-                    {
-                        an.StartCap = LineCap.Round;
-                        an.EndCap = LineCap.Round;
-                        foreach (int s in Sides)
-                            g.DrawBezier(an, P(s * 0.05f * D, -0.28f * D), P(s * 0.06f * D, -0.38f * D), P(s * 0.12f * D, -0.44f * D), P(s * 0.2f * D, -0.42f * D));
+                        PointF a0 = P(s * 0.05f * D, -0.27f * D), a1 = P(s * 0.05f * D, -0.42f * D), a2 = P(s * 0.16f * D, -0.5f * D), a3 = P(s * 0.225f * D, -0.43f * D);
+                        using (Pen o = new Pen(Color.FromArgb(200, 150, 100, 50), D * 0.027f)) { o.StartCap = LineCap.Round; o.EndCap = LineCap.Round; g.DrawBezier(o, a0, a1, a2, a3); }
+                        using (Pen f = new Pen(Color.FromArgb(255, 238, 192), D * 0.015f)) { f.StartCap = LineCap.Round; f.EndCap = LineCap.Round; g.DrawBezier(f, a0, a1, a2, a3); }
                     }
                     foreach (int s in Sides) Foot(g, D, s, Color.FromArgb(255, 236, 186), Color.FromArgb(234, 200, 140), p);
                     break;
                 }
                 case KindMewtwo:
                 {
-                    // The tube from the back of the head, the two short horns and the long purple tail.
-                    using (Pen tube = new Pen(Mac.Mix(c1, c2, 0.35), D * 0.06f))
+                    // The tube from the back of its head down to its back, the two blunt horns and the long purple tail.
+                    PointF[] tb = { P(0.1f * D, -0.28f * D), P(0.34f * D, -0.35f * D), P(0.47f * D, -0.18f * D), P(0.32f * D, -0.05f * D) };
+                    using (Pen o = new Pen(Color.FromArgb(190, Darker(c2, 0.5)), D * 0.066f)) { o.StartCap = LineCap.Round; o.EndCap = LineCap.Round; g.DrawBezier(o, tb[0], tb[1], tb[2], tb[3]); }
+                    using (Pen t = new Pen(Mac.Mix(c1, c2, 0.55), D * 0.044f)) { t.StartCap = LineCap.Round; t.EndCap = LineCap.Round; g.DrawBezier(t, tb[0], tb[1], tb[2], tb[3]); }
+                    using (Pen h = new Pen(Color.FromArgb(150, Lighter(c1, 0.3)), D * 0.016f))
                     {
-                        tube.StartCap = LineCap.Round;
-                        tube.EndCap = LineCap.Round;
-                        g.DrawBezier(tube, P(0.16f * D, -0.22f * D), P(0.36f * D, -0.2f * D), P(0.4f * D, 0.02f * D), P(0.24f * D, 0.1f * D));
+                        h.StartCap = LineCap.Round;
+                        h.EndCap = LineCap.Round;
+                        float o = -0.008f * D;
+                        g.DrawBezier(h, P(tb[0].X + o, tb[0].Y + o), P(tb[1].X + o, tb[1].Y + o), P(tb[2].X + o, tb[2].Y + o), P(tb[3].X + o, tb[3].Y + o));
                     }
-                    foreach (int s in Sides) SoftEar(g, D, s * 0.13f * D, -0.27f * D, s * 28, 0.1f, 1.0f, e1, c2, ExNone);
-                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, Color.FromArgb(176, 128, 212), Color.FromArgb(112, 70, 160), p.Now, 0.12f, 0.08f, 0.065f, ExNone); g.Restore(ts); }
+                    foreach (int s in Sides) StubHorn(g, D, s * 0.15f * D, -0.26f * D, s * (30 + (s < 0 ? earL : earR) * 0.3f), 0.115f, e1, c2);
+                    { GraphicsState ts = TailSide(g, p); RoundTail(g, D, MwPurple1, MwPurple2, p.Now, 0.13f, 0.07f, 0.065f, ExNone); g.Restore(ts); }
                     foreach (int s in Sides) Foot(g, D, s, e1, c2, p);
                     break;
                 }
@@ -238,6 +251,193 @@ namespace Stackshot
                 }
         }
 
+        static readonly Color MwPurple1 = Color.FromArgb(190, 142, 204), MwPurple2 = Color.FromArgb(132, 88, 156);
+
+        // A strand along a curve, w0 wide at its root and w1 at its round tip.
+        static GraphicsPath Strand(PointF p0, PointF p1, PointF p2, PointF p3, float w0, float w1)
+        {
+            const int n = 12;
+            PointF[] left = new PointF[n + 1], right = new PointF[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float t = i / (float)n;
+                PointF q = Bez(p0, p1, p2, p3, t), d = BezD(p0, p1, p2, p3, t);
+                float len = (float)Math.Max(0.001, Math.Sqrt(d.X * d.X + d.Y * d.Y)), half = (w0 + (w1 - w0) * t) / 2;
+                float nx = -d.Y / len, ny = d.X / len;
+                left[i] = P(q.X + nx * half, q.Y + ny * half);
+                right[n - i] = P(q.X - nx * half, q.Y - ny * half);
+            }
+            PointF e = BezD(p0, p1, p2, p3, 1);
+            float a = (float)(Math.Atan2(e.Y, e.X) * 180 / Math.PI);
+            GraphicsPath sp = new GraphicsPath();
+            sp.AddLines(left);
+            sp.AddArc(p3.X - w1 / 2, p3.Y - w1 / 2, w1, w1, a + 90, -180);
+            sp.AddLines(right);
+            sp.CloseFigure();
+            return sp;
+        }
+
+        // A pointed ear standing on its base at x, y, with a dark mark inside.
+        static void PointyEar(Graphics g, float D, float x, float y, float rot, float len, float width, Color a, Color b, Color inner)
+        {
+            GraphicsState st = g.Save();
+            g.TranslateTransform(x, y);
+            g.RotateTransform(rot);
+            float L = len * D, w = len * width * D;
+            using (GraphicsPath e = new GraphicsPath())
+            {
+                e.AddBezier(P(-w * 0.5f, 0.02f * D), P(-w * 0.64f, -L * 0.45f), P(-w * 0.2f, -L * 0.86f), P(0, -L));
+                e.AddBezier(P(0, -L), P(w * 0.2f, -L * 0.86f), P(w * 0.64f, -L * 0.45f), P(w * 0.5f, 0.02f * D));
+                e.CloseFigure();
+                Fill(g, e, new RectangleF(-w, -L, w * 2, L + 0.03f * D), a, b, 80f);
+                Stroke(g, e, Color.FromArgb(190, Darker(b, 0.5)), D * 0.011f);
+            }
+            using (GraphicsPath i = new GraphicsPath())
+            {
+                i.AddClosedCurve(new PointF[] { P(-w * 0.24f, -L * 0.14f), P(0, -L * 0.68f), P(w * 0.24f, -L * 0.14f) }, 0.25f);
+                FillSolid(g, i, inner);
+            }
+            g.Restore(st);
+        }
+
+        // A short blunt horn, a tube with a round end that flares a little, standing on its base at x, y.
+        static void StubHorn(Graphics g, float D, float x, float y, float rot, float len, Color a, Color b)
+        {
+            GraphicsState st = g.Save();
+            g.TranslateTransform(x, y);
+            g.RotateTransform(rot);
+            float L = len * D, w = 0.068f * D, tw = 0.08f * D;
+            using (GraphicsPath h = new GraphicsPath())
+            {
+                h.AddLine(P(-w / 2, 0.02f * D), P(-tw / 2, -L + tw / 2));
+                h.AddArc(-tw / 2, -L, tw, tw, 180, 180);
+                h.AddLine(P(tw / 2, -L + tw / 2), P(w / 2, 0.02f * D));
+                h.CloseFigure();
+                Fill(g, h, new RectangleF(-tw / 2, -L, tw, L + 0.02f * D), a, b, 0f);
+                Stroke(g, h, Color.FromArgb(190, Darker(b, 0.5)), D * 0.011f);
+            }
+            g.Restore(st);
+        }
+
+        // Dragonite's small wing: a teal membrane with a scalloped back edge, held by an orange bone along its front.
+        static void DragoniteWing(Graphics g, float D, int s, float rot, Color c1, Color c2)
+        {
+            GraphicsState ws = g.Save();
+            g.TranslateTransform(s * 0.3f * D, -0.02f * D);
+            g.RotateTransform(rot);
+            Color wing = Color.FromArgb(84, 184, 168);
+            PointF[] m =
+            {
+                P(0, 0.02f * D), P(s * 0.005f * D, -0.23f * D), P(s * 0.07f * D, -0.17f * D), P(s * 0.115f * D, -0.145f * D), P(s * 0.09f * D, -0.1f * D),
+                P(s * 0.125f * D, -0.05f * D), P(s * 0.08f * D, -0.025f * D), P(s * 0.06f * D, 0.02f * D)
+            };
+            using (GraphicsPath mp = new GraphicsPath())
+            {
+                mp.AddClosedCurve(m, 0.3f);
+                Fill(g, mp, mp.GetBounds(), Lighter(wing, 0.12), Darker(wing, 0.22), 80f);
+                using (Pen r = new Pen(Color.FromArgb(120, Darker(wing, 0.45)), D * 0.007f))
+                {
+                    g.DrawLine(r, 0, 0, s * 0.105f * D, -0.14f * D);
+                    g.DrawLine(r, 0, 0, s * 0.115f * D, -0.05f * D);
+                }
+                Stroke(g, mp, Color.FromArgb(190, Darker(wing, 0.5)), D * 0.009f);
+            }
+            PointF b0 = P(0, 0.02f * D), b1 = P(s * 0.003f * D, -0.08f * D), b2 = P(0, -0.17f * D), b3 = P(s * 0.005f * D, -0.23f * D);
+            using (Pen o = new Pen(Color.FromArgb(200, Darker(c2, 0.45)), D * 0.034f)) { o.StartCap = LineCap.Round; o.EndCap = LineCap.Round; g.DrawBezier(o, b0, b1, b2, b3); }
+            using (Pen f = new Pen(c1, D * 0.02f)) { f.StartCap = LineCap.Round; f.EndCap = LineCap.Round; g.DrawBezier(f, b0, b1, b2, b3); }
+            g.Restore(ws);
+        }
+
+        // Meowth's long stiff whiskers, two to a side, poking out of its cheeks.
+        static void MeowthWhiskers(Graphics g, float D)
+        {
+            Color fill = Color.FromArgb(255, 251, 236), ink = Color.FromArgb(210, 112, 90, 62);
+            foreach (int s in Sides)
+                for (int i = 0; i < 2; i++)
+                {
+                    float y0 = (i == 0 ? -0.005f : 0.045f) * D, y1 = (i == 0 ? -0.085f : 0.105f) * D;
+                    using (GraphicsPath w = Poly(P(s * 0.3f * D, y0 - 0.014f * D), P(s * 0.6f * D, y1), P(s * 0.3f * D, y0 + 0.014f * D)))
+                    {
+                        FillSolid(g, w, fill);
+                        Stroke(g, w, ink, D * 0.008f);
+                    }
+                }
+        }
+
+        // Its thin cream tail rising behind it, rolled up at the end in a brown curl.
+        static void MeowthTail(Graphics g, float D, MascotPose p)
+        {
+            GraphicsState ts = TailSide(g, p);
+            float sw = (float)Math.Sin(p.Now / 650.0) * 0.02f * D, w = 0.032f * D, r0 = 0.05f * D;
+            PointF a0 = P(0.12f * D, 0.27f * D), a1 = P(0.38f * D, 0.4f * D), a2 = P(0.56f * D, 0.34f * D), a3 = P(0.54f * D + sw, 0.18f * D);
+            PointF[] curl = new PointF[18];
+            for (int i = 0; i < curl.Length; i++)
+            {
+                double t = -i / (double)(curl.Length - 1) * 1.6 * Math.PI;   // up first, then turning back over itself
+                float r = r0 * (1 - 0.5f * i / (curl.Length - 1));
+                curl[i] = P(a3.X - r0 + r * (float)Math.Cos(t), a3.Y + r * (float)Math.Sin(t));
+            }
+            using (Pen o = new Pen(Color.FromArgb(200, 112, 84, 52), w + 0.013f * D))
+            {
+                o.StartCap = LineCap.Round;
+                o.EndCap = LineCap.Round;
+                o.LineJoin = LineJoin.Round;
+                g.DrawBezier(o, a0, a1, a2, a3);
+                g.DrawLines(o, curl);
+            }
+            using (Pen c = new Pen(Color.FromArgb(255, 244, 210), w)) { c.StartCap = LineCap.Round; c.EndCap = LineCap.Round; g.DrawBezier(c, a0, a1, a2, a3); }
+            using (Pen t = new Pen(Color.FromArgb(196, 146, 96), w))
+            {
+                t.StartCap = LineCap.Round;
+                t.EndCap = LineCap.Round;
+                t.LineJoin = LineJoin.Round;
+                g.DrawLines(t, curl);
+            }
+            g.Restore(ts);
+        }
+
+        // Paws of their own colour, and what grows on them: Lucario's black paws with a spike on the back, Mewtwo's three
+        // round fingertips.
+        static void PlushPawTint(int kind, ref Color c1, ref Color c2)
+        {
+            if (kind == KindLucario) { c1 = Color.FromArgb(66, 64, 78); c2 = ExBlack2; }
+        }
+
+        static void PlushPaw(Graphics g, int kind, float D, int s, Color c1, Color c2)
+        {
+            if (kind == KindLucario)
+            {
+                using (GraphicsPath sp = Poly(P(s * 0.03f * D, -0.026f * D), P(s * 0.1f * D, -0.016f * D), P(s * 0.034f * D, 0.014f * D)))
+                {
+                    Fill(g, sp, new RectangleF(-0.1f * D, -0.026f * D, 0.2f * D, 0.04f * D), ExWhite, Color.FromArgb(176, 182, 204), 90f);
+                    Stroke(g, sp, Color.FromArgb(150, 60, 60, 80), D * 0.007f);
+                }
+            }
+            else if (kind == KindMewtwo)
+                for (int i = -1; i <= 1; i++)
+                {
+                    double a = i * 42 * Math.PI / 180;
+                    float r = 0.018f * D, fx = s * (float)Math.Cos(a) * 0.056f * D, fy = (float)Math.Sin(a) * 0.046f * D + 0.006f * D;
+                    RectangleF f = new RectangleF(fx - r, fy - r, r * 2, r * 2);
+                    using (GraphicsPath fp = new GraphicsPath())
+                    {
+                        fp.AddEllipse(f);
+                        Fill(g, fp, f, Lighter(c1, 0.04), Mac.Mix(c1, c2, 0.6), 70f);
+                        Stroke(g, fp, Color.FromArgb(190, Darker(c2, 0.5)), Math.Max(1f, D * 0.009f));
+                    }
+                }
+        }
+
+        // A little white fang hanging from the mouth's edge at x, y.
+        public static void Fang(Graphics g, float x, float y, float D)
+        {
+            using (GraphicsPath f = Poly(P(x - 0.013f * D, y - 0.002f * D), P(x + 0.013f * D, y - 0.002f * D), P(x, y + 0.026f * D)))
+            {
+                FillSolid(g, f, Color.White);
+                Stroke(g, f, Color.FromArgb(150, 60, 40, 50), Math.Max(1f, D * 0.006f));
+            }
+        }
+
         // ---- On the body (clipped to it, before the face).
         static void ExtraBody(Graphics g, MascotLook l, float D, GraphicsPath body, Color c1, Color c2, MascotPose p)
         {
@@ -293,19 +493,33 @@ namespace Stackshot
                 }
                 case KindLucario:
                 {
-                    // Black legs, the cream chest fur and the black mask across the eyes.
-                    using (SolidBrush b = new SolidBrush(ExBlack)) g.FillRectangle(b, -0.5f * D, 0.24f * D, D, 0.2f * D);
-                    RectangleF chest = new RectangleF(-0.24f * D, 0.03f * D, 0.48f * D, 0.24f * D);
+                    // The cream chest fur with its spiky collar, the black waist of tufted fur over its blue shorts, the white
+                    // spike on its chest and the black mask: across the eyes and out to the tassels, down the bridge of the
+                    // snout, with the blue forehead coming down between the eyes.
                     using (GraphicsPath cp = new GraphicsPath())
                     {
-                        cp.AddEllipse(chest);
-                        Fill(g, cp, chest, Color.FromArgb(246, 222, 150), Color.FromArgb(216, 182, 100), 90f);
+                        cp.AddLines(new PointF[] { P(-0.17f * D, 0.052f * D), P(-0.115f * D, 0.08f * D), P(-0.058f * D, 0.05f * D), P(0, 0.084f * D), P(0.058f * D, 0.05f * D), P(0.115f * D, 0.08f * D), P(0.17f * D, 0.052f * D) });
+                        cp.AddCurve(new PointF[] { P(0.17f * D, 0.052f * D), P(0.196f * D, 0.13f * D), P(0.15f * D, 0.2f * D), P(0, 0.222f * D), P(-0.15f * D, 0.2f * D), P(-0.196f * D, 0.13f * D), P(-0.17f * D, 0.052f * D) }, 0.5f);
+                        cp.CloseFigure();
+                        Fill(g, cp, new RectangleF(-0.21f * D, 0.045f * D, 0.42f * D, 0.18f * D), Color.FromArgb(250, 232, 164), Color.FromArgb(222, 190, 112), 90f);
+                        Stroke(g, cp, Color.FromArgb(70, 120, 90, 40), D * 0.006f);
+                    }
+                    using (GraphicsPath wb = Poly(P(-0.5f * D, 0.2f * D), P(-0.21f * D, 0.208f * D), P(-0.16f * D, 0.186f * D), P(-0.1f * D, 0.21f * D), P(-0.04f * D, 0.19f * D),
+                                                  P(0.04f * D, 0.21f * D), P(0.1f * D, 0.19f * D), P(0.16f * D, 0.21f * D), P(0.21f * D, 0.186f * D), P(0.5f * D, 0.2f * D),
+                                                  P(0.5f * D, 0.258f * D), P(-0.5f * D, 0.258f * D)))
+                        FillSolid(g, wb, ExBlack);
+                    using (GraphicsPath sp = Poly(P(-0.034f * D, 0.172f * D), P(0, 0.092f * D), P(0.034f * D, 0.172f * D)))
+                    {
+                        Fill(g, sp, new RectangleF(-0.034f * D, 0.092f * D, 0.068f * D, 0.08f * D), ExWhite, Color.FromArgb(176, 182, 204), 0f);
+                        Stroke(g, sp, Color.FromArgb(120, 70, 70, 90), D * 0.006f);
                     }
                     PointF[] mask =
                     {
-                        P(-0.37f * D, fy - 0.02f * D), P(-0.2f * D, fy - 0.075f * D), P(-0.05f * D, fy - 0.045f * D), P(0, fy - 0.075f * D), P(0.05f * D, fy - 0.045f * D),
-                        P(0.2f * D, fy - 0.075f * D), P(0.37f * D, fy - 0.02f * D), P(0.3f * D, fy + 0.065f * D), P(0.15f * D, fy + 0.07f * D), P(0.04f * D, fy + 0.035f * D),
-                        P(0, fy + 0.05f * D), P(-0.04f * D, fy + 0.035f * D), P(-0.15f * D, fy + 0.07f * D), P(-0.3f * D, fy + 0.065f * D)
+                        P(-0.4f * D, fy - 0.025f * D), P(-0.3f * D, fy - 0.07f * D), P(-0.17f * D, fy - 0.088f * D), P(-0.075f * D, fy - 0.074f * D), P(0, fy + 0.004f * D),
+                        P(0.075f * D, fy - 0.074f * D), P(0.17f * D, fy - 0.088f * D), P(0.3f * D, fy - 0.07f * D), P(0.4f * D, fy - 0.025f * D),
+                        P(0.4f * D, fy + 0.075f * D), P(0.27f * D, fy + 0.078f * D), P(0.16f * D, fy + 0.074f * D), P(0.075f * D, fy + 0.066f * D), P(0.042f * D, fy + 0.088f * D),
+                        P(0, fy + 0.102f * D), P(-0.042f * D, fy + 0.088f * D), P(-0.075f * D, fy + 0.066f * D), P(-0.16f * D, fy + 0.074f * D), P(-0.27f * D, fy + 0.078f * D),
+                        P(-0.4f * D, fy + 0.075f * D)
                     };
                     using (GraphicsPath mp = new GraphicsPath())
                     {
@@ -332,11 +546,13 @@ namespace Stackshot
                 }
                 case KindMewtwo:
                 {
-                    RectangleF belly = new RectangleF(-0.18f * D, 0.08f * D, 0.36f * D, 0.32f * D);
+                    // The dusky purple belly, from the waist down.
+                    RectangleF belly = new RectangleF(-0.2f * D, 0.07f * D, 0.4f * D, 0.34f * D);
                     using (GraphicsPath bp = new GraphicsPath())
                     {
                         bp.AddEllipse(belly);
-                        Fill(g, bp, belly, Color.FromArgb(176, 128, 212), Color.FromArgb(120, 80, 170), 90f);
+                        Fill(g, bp, belly, MwPurple1, MwPurple2, 90f);
+                        Stroke(g, bp, Color.FromArgb(60, 70, 40, 90), D * 0.006f);
                     }
                     break;
                 }
@@ -445,34 +661,62 @@ namespace Stackshot
             {
                 case KindPsyduck:
                 {
-                    // The wide flat beak with its seam and nostrils.
-                    RectangleF bk = new RectangleF(-0.15f * D, fy + 0.04f * D, 0.3f * D, 0.13f * D);
+                    // The big flat cream bill, wider at its round front, with the lower half a shade darker and two nostrils.
+                    PointF[] bill =
+                    {
+                        P(-0.17f * D, fy + 0.058f * D), P(-0.1f * D, fy + 0.04f * D), P(0, fy + 0.034f * D), P(0.1f * D, fy + 0.04f * D), P(0.17f * D, fy + 0.058f * D),
+                        P(0.205f * D, fy + 0.11f * D), P(0.175f * D, fy + 0.158f * D), P(0, fy + 0.175f * D), P(-0.175f * D, fy + 0.158f * D), P(-0.205f * D, fy + 0.11f * D)
+                    };
                     using (GraphicsPath bp = new GraphicsPath())
                     {
-                        bp.AddEllipse(bk);
-                        Fill(g, bp, bk, Color.FromArgb(255, 236, 188), Color.FromArgb(238, 196, 126), 90f);
-                        Stroke(g, bp, Color.FromArgb(120, 170, 120, 60), D * 0.008f);
+                        bp.AddClosedCurve(bill, 0.5f);
+                        RectangleF bk = bp.GetBounds();
+                        Fill(g, bp, bk, Color.FromArgb(255, 250, 228), Color.FromArgb(240, 222, 178), 90f);
+                        Region old = g.Clip;
+                        g.SetClip(bp, CombineMode.Intersect);
+                        using (GraphicsPath lo = new GraphicsPath())
+                        {
+                            lo.AddBezier(P(-0.25f * D, fy + 0.118f * D), P(-0.1f * D, fy + 0.14f * D), P(0.1f * D, fy + 0.14f * D), P(0.25f * D, fy + 0.118f * D));
+                            lo.AddLine(P(0.25f * D, fy + 0.118f * D), P(0.25f * D, fy + 0.2f * D));
+                            lo.AddLine(P(0.25f * D, fy + 0.2f * D), P(-0.25f * D, fy + 0.2f * D));
+                            lo.CloseFigure();
+                            FillSolid(g, lo, Color.FromArgb(70, 196, 150, 80));
+                        }
+                        g.Clip = old;
+                        old.Dispose();
+                        using (Pen s = new Pen(Color.FromArgb(150, 168, 120, 64), Math.Max(1f, D * 0.008f)))
+                        {
+                            s.StartCap = LineCap.Round;
+                            s.EndCap = LineCap.Round;
+                            g.DrawBezier(s, P(-0.17f * D, fy + 0.116f * D), P(-0.08f * D, fy + 0.138f * D), P(0.08f * D, fy + 0.138f * D), P(0.17f * D, fy + 0.116f * D));
+                        }
+                        Ellipse(g, Color.FromArgb(110, 255, 255, 255), -0.11f * D, fy + 0.052f * D, 0.12f * D, 0.03f * D);
+                        Stroke(g, bp, Color.FromArgb(150, 150, 108, 56), D * 0.009f);
                     }
-                    using (Pen s = new Pen(Color.FromArgb(150, 170, 120, 60), Math.Max(1f, D * 0.008f))) g.DrawArc(s, bk.X + bk.Width * 0.1f, bk.Y + bk.Height * 0.2f, bk.Width * 0.8f, bk.Height * 0.6f, 15, 150);
-                    Ellipse(g, Color.FromArgb(150, 120, 80, 40), -0.035f * D, fy + 0.07f * D, 0.014f * D, 0.01f * D);
-                    Ellipse(g, Color.FromArgb(150, 120, 80, 40), 0.021f * D, fy + 0.07f * D, 0.014f * D, 0.01f * D);
+                    Ellipse(g, Color.FromArgb(160, 130, 90, 44), -0.042f * D, fy + 0.07f * D, 0.017f * D, 0.011f * D);
+                    Ellipse(g, Color.FromArgb(160, 130, 90, 44), 0.025f * D, fy + 0.07f * D, 0.017f * D, 0.011f * D);
                     break;
                 }
                 case KindMeowth:
                 {
-                    // The gold charm on its forehead and long whiskers.
-                    RectangleF coin = new RectangleF(-0.055f * D, geo.Top * D + 0.03f * D, 0.11f * D, 0.12f * D);
+                    // The gold koban on its forehead, an upright oval with its engraved lines.
+                    RectangleF coin = new RectangleF(-0.05f * D, geo.Top * D + 0.02f * D, 0.1f * D, 0.13f * D);
                     using (GraphicsPath cp = new GraphicsPath())
                     {
                         cp.AddEllipse(coin);
                         Fill(g, cp, coin, Gold1, Gold2, 90f);
-                        Stroke(g, cp, Color.FromArgb(160, 150, 96, 10), D * 0.007f);
+                        Region old = g.Clip;
+                        g.SetClip(cp, CombineMode.Intersect);
+                        for (int i = 0; i < 4; i++)
+                        {
+                            float ly = coin.Y + coin.Height * (0.27f + i * 0.155f);
+                            Line(g, Color.FromArgb(210, 170, 104, 10), D * 0.009f, coin.X + coin.Width * 0.18f, ly, coin.Right - coin.Width * 0.18f, ly);
+                        }
+                        g.Clip = old;
+                        old.Dispose();
+                        Stroke(g, cp, Color.FromArgb(210, 146, 92, 8), D * 0.008f);
                     }
-                    Ellipse(g, Color.FromArgb(220, 176, 112, 12), -0.018f * D, coin.Y + 0.025f * D, 0.036f * D, 0.07f * D);
-                    Ellipse(g, Color.FromArgb(200, 255, 255, 230), coin.X + 0.02f * D, coin.Y + 0.02f * D, 0.025f * D, 0.02f * D);
-                    foreach (int s in Sides)
-                        for (int i = -1; i <= 1; i++)
-                            Line(g, Color.FromArgb(170, ExBlack), D * 0.007f, s * 0.14f * D, fy + 0.09f * D + i * 0.02f * D, s * 0.44f * D, fy + 0.07f * D + i * 0.05f * D);
+                    Ellipse(g, Color.FromArgb(210, 255, 255, 232), coin.X + 0.02f * D, coin.Y + 0.014f * D, 0.026f * D, 0.016f * D);
                     break;
                 }
                 case KindPiplup:
@@ -500,16 +744,14 @@ namespace Stackshot
                     }
                     break;
                 case KindLucario:
-                {
-                    // The spike on its chest and a small black nose.
-                    using (GraphicsPath sp = Poly(P(-0.035f * D, 0.16f * D), P(0, 0.08f * D), P(0.035f * D, 0.16f * D)))
-                    {
-                        Fill(g, sp, new RectangleF(-0.035f * D, 0.08f * D, 0.07f * D, 0.08f * D), Color.FromArgb(250, 250, 255), Color.FromArgb(196, 200, 214), 90f);
-                        Stroke(g, sp, Color.FromArgb(90, 80, 80, 100), D * 0.006f);
-                    }
-                    Ellipse(g, ExBlack, -0.02f * D, fy + 0.07f * D, 0.04f * D, 0.024f * D);
+                    // The tip of its black snout, catching the light.
+                    Ellipse(g, ExBlack2, -0.024f * D, fy + 0.058f * D, 0.048f * D, 0.03f * D);
+                    Ellipse(g, Color.FromArgb(150, 255, 255, 255), -0.012f * D, fy + 0.062f * D, 0.018f * D, 0.009f * D);
                     break;
-                }
+                case KindDragonite:
+                    // Two small nostrils on its snout.
+                    foreach (int s in Sides) Ellipse(g, Color.FromArgb(170, 150, 74, 20), s * 0.028f * D - 0.009f * D, fy + 0.048f * D, 0.018f * D, 0.012f * D);
+                    break;
                 case KindYoshi:
                 {
                     // The big round snout and its nostrils.

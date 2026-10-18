@@ -336,6 +336,7 @@ namespace Stackshot
         {
             if (p.HideHands || NoHands(l.Kind)) return;
             if (IsFigure(l.Kind) && !FigOf(l.Kind).Hands.IsEmpty) { c1 = FigOf(l.Kind).Hands; c2 = Darker(c1, 0.3); }
+            PlushPawTint(l.Kind, ref c1, ref c2);
             Geo geo = GeoFor(l.Kind);
             foreach (int side in new int[] { -1, 1 })
             {
@@ -377,6 +378,7 @@ namespace Stackshot
                         if (Inked(l.Kind)) Stroke(g, pp, Color.FromArgb(190, Darker(c2, 0.5)), Math.Max(1f, D * 0.011f));
                         Stroke(g, pp, Color.FromArgb(50, 255, 255, 255), Math.Max(1f, D * 0.006f));
                     }
+                    PlushPaw(g, l.Kind, D, side, c1, c2);
                 }
                 g.Restore(st);
             }
@@ -394,13 +396,17 @@ namespace Stackshot
                 case 2: BowTie(g, D, y, Color.FromArgb(225, 29, 72), Color.FromArgb(150, 15, 50)); break;
                 case 3: Tie(g, D, y); break;
                 case 4:
+                {
+                    // The high collar stands up to the cheeks, never over the mouth of the ones with no neck.
+                    float top = Math.Min(y - 0.05f * D, Math.Max(y - 0.16f * D, (MouthY(l.Kind, geo) + 0.045f) * D));
                     foreach (int s in new int[] { -1, 1 })
-                        using (GraphicsPath c = Poly(P(s * 0.04f * D, y - 0.02f * D), P(s * w * 0.55f, y - 0.16f * D), P(s * w * 0.5f, y + 0.05f * D)))
+                        using (GraphicsPath c = Poly(P(s * 0.04f * D, y - 0.02f * D), P(s * w * 0.55f, top), P(s * w * 0.5f, y + 0.05f * D)))
                         {
-                            Fill(g, c, new RectangleF(-w * 0.6f, y - 0.17f * D, w * 1.2f, 0.24f * D), Color.FromArgb(220, 38, 38), Color.FromArgb(110, 10, 20), 90f);
+                            Fill(g, c, new RectangleF(-w * 0.6f, top - 0.01f * D, w * 1.2f, y + 0.07f * D - top), Color.FromArgb(220, 38, 38), Color.FromArgb(110, 10, 20), 90f);
                             Stroke(g, c, Color.FromArgb(20, 14, 24), D * 0.012f);
                         }
                     break;
+                }
                 case 5:
                     foreach (int s in new int[] { -1, 1 })
                     {
@@ -528,10 +534,25 @@ namespace Stackshot
             }
         }
 
-        // ---- Face accessories, over the eyes.
+        // ---- Face accessories, over the eyes (centred on the face, off to one side on the ones drawn three quarters on).
         public static void PaintFaceAccessory(Graphics g, MascotLook l, float D)
         {
             if (l.Face == 0) return;
+            GraphicsState st = g.Save();
+            g.TranslateTransform(FaceX(l.Kind) * D, 0);
+            if (l.Kind == KindSnoopySd && l.Face != 7)
+            {
+                // Side on: the pair seen edge on, the near half over his one eye and the far one ahead of it on his snout
+                // (the moustache already sits at his mouth).
+                g.TranslateTransform(0.0775f * D, 0);
+                g.ScaleTransform(-0.55f, 1);
+            }
+            PaintFaceItem(g, l, D);
+            g.Restore(st);
+        }
+
+        static void PaintFaceItem(Graphics g, MascotLook l, float D)
+        {
             Geo geo = GeoFor(l.Kind);
             float fy = geo.FaceY * D, gap = geo.EyeGap * D;
             // The robot wears them over a dark visor: frames and dark pieces switch to light tones to stay visible.
@@ -626,16 +647,25 @@ namespace Stackshot
                     }
                     break;
                 case 7:
+                {
+                    // Over the mouth, wherever the face draws it, and as wide as the face allows.
+                    bool own = IsToon(l.Kind) || IsKlei(l.Kind);
+                    float y = own ? (MouthY(l.Kind, geo) - 0.04f) * D : fy + 0.1f * D, mx = (MouthX(l.Kind) - FaceX(l.Kind)) * D;
+                    float k = Math.Max(0.62f, Math.Min(1f, geo.EyeGap / 0.12f));
+                    GraphicsState ms = g.Save();
+                    g.TranslateTransform(mx, y);
+                    g.ScaleTransform(k, k);
                     foreach (int s in new int[] { -1, 1 })
                         using (GraphicsPath m = new GraphicsPath())
                         {
-                            float y = fy + 0.1f * D;
-                            m.AddBezier(P(0, y), P(s * 0.05f * D, y - 0.04f * D), P(s * 0.12f * D, y + 0.01f * D), P(s * 0.15f * D, y - 0.03f * D));
-                            m.AddBezier(P(s * 0.15f * D, y - 0.03f * D), P(s * 0.13f * D, y + 0.05f * D), P(s * 0.05f * D, y + 0.04f * D), P(0, y + 0.02f * D));
+                            m.AddBezier(P(0, 0), P(s * 0.05f * D, -0.04f * D), P(s * 0.12f * D, 0.01f * D), P(s * 0.15f * D, -0.03f * D));
+                            m.AddBezier(P(s * 0.15f * D, -0.03f * D), P(s * 0.13f * D, 0.05f * D), P(s * 0.05f * D, 0.04f * D), P(0, 0.02f * D));
                             m.CloseFigure();
                             FillSolid(g, m, visor ? Color.FromArgb(205, 160, 115) : Color.FromArgb(70, 40, 20));
                         }
+                    g.Restore(ms);
                     break;
+                }
             }
         }
 
@@ -657,7 +687,7 @@ namespace Stackshot
                 case 6: TopHat(g, u); break;
                 case 7: Party(g, u); break;
                 case 8: Cowboy(g, u); break;
-                case 9: Headphones(g, u, geo, D); break;
+                case 9: g.TranslateTransform(FaceX(l.Kind) * D, 0); Headphones(g, u, geo, D); break;   // round the face, wherever it is
                 case 10: g.TranslateTransform(u * 0.3f, u * 0.02f); g.RotateTransform(-14); BowTie(g, u * 1.25f, 0, Color.FromArgb(244, 114, 182), Color.FromArgb(190, 24, 93)); break;
                 case 11: Santa(g, u); break;
                 case 12: Sprout(g, u, now); break;

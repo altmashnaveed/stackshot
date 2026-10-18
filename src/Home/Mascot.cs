@@ -664,9 +664,13 @@ namespace Stackshot
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             Color c1 = C1, c2 = C2;
             MascotParts.Geo geo = MascotParts.GeoFor(Look.Kind);
+            int hat = Look.EffectiveHat(DateTime.Now);
+            if (still && hat == MascotParts.HatNightcap && Look.Hat != MascotParts.HatNightcap) hat = 0;   // pickers show the look itself, without the night one
+            MascotParts.WornHat = hat;
 
             double speed = mood == Mood.Sleep ? 4200.0 : 2600.0;
-            bool ghost = Look.Kind == 3 || Look.Kind == MascotParts.KindAbigail;   // they float higher, over a fainter shadow
+            // They float higher, over a fainter shadow (Kero hovers on his wings).
+            bool ghost = Look.Kind == 3 || Look.Kind == MascotParts.KindAbigail || Look.Kind == MascotParts.KindKeroSd || Look.Kind == MascotParts.KindMewSd;
             float amp = Look.Kind == 3 ? 0.035f : ghost ? 0.03f : 0.022f;
             float bob = Dangling ? 0 : (float)(Math.Sin(now / speed * Math.PI * 2) * D * amp);
             float jy = (float)(jump * D * 0.1);
@@ -701,6 +705,14 @@ namespace Stackshot
             // Characters with a front (Pac-Man, Boo, Chomp, the crewmate) turn whole to face the way they last walked.
             flipped = faceLeft && MascotParts.TurnsToWalk(Look.Kind);
             if (flipped) g.ScaleTransform(-1, 1);
+            float ks = MascotParts.KindScale(Look.Kind);
+            if (ks != 1)
+            {
+                float gy = MascotParts.KindScaleGround * D;
+                g.TranslateTransform(0, gy);
+                g.ScaleTransform(ks, ks);
+                g.TranslateTransform(0, -gy);
+            }
 
             pose.Now = now;
             pose.EarL = earL;
@@ -746,6 +758,7 @@ namespace Stackshot
             g.TranslateTransform((float)(lookX * D * 0.035) * (flipped ? -1 : 1), (float)(lookY * D * 0.025));
             MascotParts.PaintDetails(g, Look, D, c2, pose);
             g.Restore(face);
+            MascotParts.PaintToonFront(g, Look, D, pose);
             MascotParts.PaintDragonFront(g, Look, D, pose);
             if (Look.Kind == 0) MascotParts.PaintHands(g, Look, D, c1, c2, pose);
             // Clothes, glasses and hats are drawn the right way round (no mirrored letters), even on a turned character.
@@ -761,11 +774,23 @@ namespace Stackshot
             }
             else MascotParts.PaintFaceAccessory(g, Look, D);
             MascotParts.PaintAccessory(g, Look, D, now, false);
-            int hat = Look.EffectiveHat(DateTime.Now);
-            if (still && hat == MascotParts.HatNightcap && Look.Hat != MascotParts.HatNightcap) hat = 0;   // pickers show the look itself, without the night one
-            MascotParts.PaintHat(g, Look, hat, D, now);
+            if (MascotParts.HairTurns(hat))
+            {
+                // A character's own hair turns with its face, a little less than the eyes, so the face never slides under it.
+                GraphicsState hs = g.Save();
+                g.TranslateTransform((float)(lookX * D * 0.022), (float)(lookY * D * 0.014));
+                MascotParts.PaintHat(g, Look, hat, D, now);
+                g.Restore(hs);
+            }
+            else MascotParts.PaintHat(g, Look, hat, D, now);
             MascotParts.PaintAccessory(g, Look, D, now, true);
-            if (act != MascotProps.None) MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY, MascotParts.MouthY(Look.Kind, geo), Look.Kind);
+            if (act != MascotProps.None)
+            {
+                // Turned the way it faces, like its mouth and hands (Snoopy, Shin-chan): what it holds stays on its front.
+                if (flipped) g.ScaleTransform(-1, 1);
+                MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY, MascotParts.MouthY(Look.Kind, geo), Look.Kind);
+                if (flipped) g.ScaleTransform(-1, 1);
+            }
             else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2, MascotParts.IsToon(Look.Kind) ? MascotParts.MouthY(Look.Kind, geo) + 0.01f : 0.045f);
             g.Restore(st);
             PaintParticles(g, box);
@@ -1087,6 +1112,17 @@ namespace Stackshot
 
         internal double TestJump { get { return jump; } }
 
+        // The look at rest as a view shows it (not a picker's still), d pixels wide: what MascotWarm draws off screen to
+        // fill the part cache.
+        internal static void PaintAtRest(Graphics g, float d, MascotLook look)
+        {
+            Mascot m = new Mascot();
+            m.Look = look;
+            m.Box = new RectangleF(0, 0, d, d);
+            m.now = 1;
+            m.Paint(g);
+        }
+
         // A still, front-facing render for pickers and previews.
         public static void RenderStill(Graphics g, RectangleF box, MascotLook look)
         {
@@ -1097,6 +1133,64 @@ namespace Stackshot
             m.now = 1;
             m.blinkStart = -1;
             m.Paint(g);
+        }
+
+        // The still for a picker tile px square: the ones drawn to their series' proportions as a bust; every other look
+        // whole, as big as the tile allows, framed by where the drawing really reaches (hats, wings, tails, accessories),
+        // so nothing is cut and none shows small. Without its shadow: the tile is no floor.
+        public static void RenderPreview(Graphics g, int px, MascotLook look)
+        {
+            float top, bottom;
+            if (MascotParts.PreviewFrame(look.Kind, out top, out bottom))
+            {
+                RenderStill(g, MascotParts.PreviewBox(look.Kind, px), look);
+                return;
+            }
+            const int probe = 128, size = probe * 3;
+            RectangleF pbox = new RectangleF(probe, probe, probe, probe);
+            Rectangle ink;
+            using (Bitmap b = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            {
+                using (Graphics pg = Graphics.FromImage(b)) RenderStill(pg, pbox, look, false);
+                ink = Inked(b);
+            }
+            if (ink.Width <= 0 || ink.Height <= 0) { RenderStill(g, MascotParts.PreviewBox(look.Kind, px), look); return; }
+            float s = Math.Min(px * 0.9f / ink.Width, px * 0.9f / ink.Height);
+            float d = probe * s, cx = ink.X + ink.Width / 2f, cy = ink.Y + ink.Height / 2f;
+            RenderStill(g, new RectangleF(px / 2f - (cx - pbox.X) * s, px / 2f - (cy - pbox.Y) * s, d, d), look, false);
+        }
+
+        static void RenderStill(Graphics g, RectangleF box, MascotLook look, bool shadow)
+        {
+            Mascot m = new Mascot();
+            m.Look = look;
+            m.still = true;
+            m.Box = box;
+            m.now = 1;
+            m.blinkStart = -1;
+            m.ShowShadow = shadow;
+            m.Paint(g);
+        }
+
+        // The bounds of what was drawn (anything more than faintly opaque).
+        static Rectangle Inked(Bitmap b)
+        {
+            Rectangle r = new Rectangle(0, 0, b.Width, b.Height);
+            System.Drawing.Imaging.BitmapData bd = b.LockBits(r, System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            int[] px = new int[b.Width * b.Height];
+            try { System.Runtime.InteropServices.Marshal.Copy(bd.Scan0, px, 0, px.Length); }
+            finally { b.UnlockBits(bd); }
+            int x0 = b.Width, y0 = b.Height, x1 = -1, y1 = -1;
+            for (int y = 0; y < b.Height; y++)
+                for (int x = 0; x < b.Width; x++)
+                    if (((px[y * b.Width + x] >> 24) & 0xFF) > 24)
+                    {
+                        if (x < x0) x0 = x;
+                        if (x > x1) x1 = x;
+                        if (y < y0) y0 = y;
+                        if (y > y1) y1 = y;
+                    }
+            return x1 < 0 ? Rectangle.Empty : Rectangle.FromLTRB(x0, y0, x1 + 1, y1 + 1);
         }
     }
 }

@@ -28,7 +28,11 @@ namespace Stackshot
                                                        "Snoopy", "Hello Kitty", "Baby Groot", "Rilakkuma", "Pusheen", "Pochacco",
                                                        "Pinky", "Inky", "Clyde", "Space Invader", "Goomba", "Boo", "Toad", "Champi\u00F1\u00F3n", "Bob-omb", "Chomp Cadenas",
                                                        "Red", "Cerdito", "El Caballero", "Cubo de compa\u00F1\u00EDa", "Bomberman", "Pooka", "Fall Guy", "Cerdo", "Bloque ?", "Metroid", "Waddle Dee", "Champi\u00F1\u00F3n 1-Up",
-                                                       "Wilson", "Willow", "Bumpo", "Ollmeister", "Abigail" };
+                                                       "Wilson", "Willow", "Bumpo", "Ollmeister", "Abigail",
+                                                       "Nevado", "Cerdito Valiente", "Shin-chan de robot Kantam", "Shin-chan de Ultrah\u00E9roe", "Shin-chan de Waniyama",
+                                                       "Capit\u00E1n Am\u00E9rica", "Thor", "Hulk", "Viuda Negra", "Ojo de Halc\u00F3n", "Pantera Negra", "Doctor Strange",
+                                                       "Capitana Marvel", "Bruja Escarlata", "Tit\u00E1n Colosal", "Tit\u00E1n de Ataque", "Tit\u00E1n Acorazado",
+                                                       "Tit\u00E1n sonriente", "Tit\u00E1n bobalic\u00F3n" };
         public static readonly string[] AnimeInspiration = { "Hora de aventuras", "Hora de aventuras", "Naruto", "Fullmetal Alchemist", "Ataque a los titanes",
                                                              "One Piece", "Kimetsu no Yaiba", "Jujutsu Kaisen", "Crayon Shin-chan",
                                                              "Hora de aventuras", "Pok\u00E9mon", "Doraemon", "Naruto", "Mi vecino Totoro", "God of War", "Doom",
@@ -46,48 +50,52 @@ namespace Stackshot
                                                              "Pac-Man", "Pac-Man", "Pac-Man", "Space Invaders", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario", "Super Mario",
                                                              "Angry Birds", "Angry Birds", "Hollow Knight", "Portal", "Bomberman", "Dig Dug", "Fall Guys", "Minecraft", "Super Mario", "Metroid", "Kirby", "Super Mario",
                                                              "Don't Starve Together", "Don't Starve Together", "Oxygen Not Included", "Oxygen Not Included",
-                                                             "Don't Starve Together" };
+                                                             "Don't Starve Together",
+                                                             "Crayon Shin-chan", "Crayon Shin-chan", "Crayon Shin-chan", "Crayon Shin-chan", "Crayon Shin-chan",
+                                                             "Marvel", "Marvel", "Marvel", "Marvel", "Marvel", "Marvel", "Marvel", "Marvel", "Marvel",
+                                                             "Ataque a los titanes", "Ataque a los titanes", "Ataque a los titanes",
+                                                             "Ataque a los titanes", "Ataque a los titanes" };
         static readonly int[,] Anime =
         {
             { 88, 17, 2, 0, 0, 0 },
             { 89, 5, 2, 0, 0, 0 },
             { 91, 18, 0, 0, 0, 0 },
-            { 7, 17, 3, 18, 9, 0 },
-            { 7, 17, 3, 19, 8, 0 },
-            { 83, 75, 7, 0, 0, 0 },
-            { 85, 75, 7, 0, 0, 0 },
-            { 7, 17, 0, 46, 0, 8 },
-            { 7, 17, 2, 49, 15, 9 },
+            { 112, 17, 0, 0, 0, 0 },
+            { 113, 17, 0, 0, 0, 0 },
+            { 103, 75, 0, 0, 0, 0 },
+            { 101, 75, 0, 0, 0, 0 },
+            { 115, 17, 0, 0, 0, 0 },
+            { 106, 17, 0, 0, 0, 0 },
             { 90, 19, 2, 0, 0, 0 },
-            { 24, 28, 7, 0, 0, 0 },
+            { 140, 28, 0, 0, 0, 0 },
             { 26, 4, 7, 0, 0, 0 },
             { 92, 75, 7, 0, 0, 0 },
             { 27, 7, 7, 0, 0, 0 },
-            { 7, 20, 4, 0, 19, 12 },
-            { 7, 15, 0, 28, 20, 0 },
+            { 117, 20, 0, 0, 0, 0 },
+            { 118, 15, 0, 0, 0, 0 },
             { 4, 21, 1, 31, 0, 0 },
             { 0, 22, 0, 0, 0, 14 },
-            { 7, 17, 2, 32, 22, 0 },
-            { 7, 17, 4, 47, 23, 0 },
-            { 7, 17, 4, 33, 24, 15 },
+            { 98, 75, 0, 0, 0, 0 },
+            { 99, 75, 0, 0, 0, 0 },
+            { 100, 75, 0, 0, 0, 0 },
             { 93, 75, 7, 0, 0, 0 },
             { 94, 75, 7, 0, 0, 0 },
-            { 84, 75, 7, 0, 0, 0 },
-            { 12, 23, 1, 43, 36, 19 },
-            { 7, 17, 2, 0, 28, 0 },
-            { 7, 17, 4, 48, 8, 0 },
-            { 86, 75, 7, 0, 0, 0 },
-            { 7, 13, 0, 0, 31, 18 },
-            { 7, 17, 4, 39, 32, 0 },
-            { 7, 17, 0, 40, 33, 0 },
-            { 7, 17, 0, 41, 34, 0 },
-            { 7, 17, 0, 42, 35, 0 },
-            { 7, 17, 0, 29, 0, 0 },
-            { 7, 17, 1, 30, 21, 0 },
-            { 7, 17, 0, 3, 0, 13 },
-            { 7, 17, 4, 0, 5, 5 },
-            { 13, 24, 0, 0, 0, 0 },
-            { 7, 17, 4, 44, 37, 20 },
+            { 104, 75, 0, 0, 0, 0 },
+            { 95, 23, 0, 0, 0, 0 },
+            { 116, 17, 0, 0, 0, 0 },
+            { 114, 17, 0, 0, 0, 0 },
+            { 102, 75, 0, 0, 0, 0 },
+            { 119, 13, 0, 0, 0, 0 },
+            { 120, 17, 0, 0, 0, 0 },
+            { 121, 17, 0, 0, 0, 0 },
+            { 122, 17, 0, 0, 0, 0 },
+            { 123, 17, 0, 0, 0, 0 },
+            { 124, 17, 0, 0, 0, 0 },
+            { 125, 17, 0, 0, 0, 0 },
+            { 126, 17, 0, 0, 0, 0 },
+            { 127, 17, 0, 0, 0, 0 },
+            { 96, 24, 0, 0, 0, 0 },
+            { 105, 17, 0, 0, 0, 0 },
             { 14, 22, 7, 0, 0, 0 },
             { 15, 11, 7, 0, 0, 0 },
             { 16, 4, 7, 0, 0, 0 },
@@ -96,23 +104,23 @@ namespace Stackshot
             { 19, 26, 7, 0, 0, 0 },
             { 20, 70, 7, 0, 0, 0 },
             { 21, 27, 7, 0, 0, 0 },
-            { 22, 18, 7, 0, 0, 0 },
-            { 23, 9, 7, 0, 0, 0 },
-            { 28, 29, 7, 0, 0, 0 },
-            { 29, 30, 7, 0, 0, 0 },
-            { 30, 31, 7, 0, 0, 0 },
-            { 31, 32, 7, 0, 0, 0 },
-            { 32, 33, 7, 0, 0, 0 },
-            { 33, 31, 7, 0, 0, 0 },
-            { 34, 34, 7, 0, 0, 0 },
-            { 35, 35, 7, 0, 0, 0 },
-            { 36, 35, 7, 0, 0, 0 },
-            { 37, 36, 7, 0, 0, 0 },
-            { 38, 37, 7, 0, 0, 0 },
-            { 39, 36, 7, 0, 0, 0 },
-            { 40, 38, 7, 0, 0, 0 },
-            { 41, 39, 7, 0, 0, 0 },
-            { 42, 40, 7, 0, 0, 0 },
+            { 141, 18, 0, 0, 0, 0 },
+            { 142, 9, 0, 0, 0, 0 },
+            { 143, 29, 0, 0, 0, 0 },
+            { 144, 30, 0, 0, 0, 0 },
+            { 145, 31, 0, 0, 0, 0 },
+            { 146, 32, 0, 0, 0, 0 },
+            { 147, 33, 0, 0, 0, 0 },
+            { 148, 31, 0, 0, 0, 0 },
+            { 149, 34, 0, 0, 0, 0 },
+            { 150, 35, 0, 0, 0, 0 },
+            { 151, 35, 0, 0, 0, 0 },
+            { 152, 36, 0, 0, 0, 0 },
+            { 153, 37, 0, 0, 0, 0 },
+            { 154, 36, 0, 0, 0, 0 },
+            { 155, 38, 0, 0, 0, 0 },
+            { 156, 39, 0, 0, 0, 0 },
+            { 157, 40, 0, 0, 0, 0 },
             { 43, 41, 7, 0, 0, 0 },
             { 44, 42, 7, 0, 0, 0 },
             { 45, 43, 7, 0, 0, 0 },
@@ -122,9 +130,9 @@ namespace Stackshot
             { 49, 47, 7, 0, 0, 0 },
             { 50, 48, 7, 0, 0, 0 },
             { 51, 4, 7, 0, 0, 0 },
-            { 52, 49, 7, 0, 0, 0 },
+            { 97, 49, 0, 0, 0, 0 },
             { 53, 49, 7, 0, 0, 0 },
-            { 54, 23, 7, 0, 0, 0 },
+            { 158, 23, 0, 0, 0, 0 },
             { 55, 50, 7, 0, 0, 0 },
             { 56, 51, 7, 0, 0, 0 },
             { 57, 49, 7, 0, 0, 0 },
@@ -154,29 +162,116 @@ namespace Stackshot
             { 77, 72, 7, 0, 0, 0 },
             { 78, 73, 7, 0, 0, 0 },
             { 79, 74, 7, 0, 0, 0 },
-            { 87, 76, 7, 0, 0, 0 }
+            { 87, 76, 7, 0, 0, 0 },
+            { 107, 17, 0, 0, 0, 0 },
+            { 110, 17, 0, 0, 0, 0 },
+            { 108, 17, 0, 0, 0, 0 },
+            { 109, 17, 0, 0, 0, 0 },
+            { 111, 17, 0, 0, 0, 0 },
+            { 128, 26, 0, 0, 0, 0 },
+            { 129, 46, 0, 0, 0, 0 },
+            { 130, 47, 0, 0, 0, 0 },
+            { 131, 25, 0, 0, 0, 0 },
+            { 132, 33, 0, 0, 0, 0 },
+            { 133, 41, 0, 0, 0, 0 },
+            { 134, 13, 0, 0, 0, 0 },
+            { 135, 9, 0, 0, 0, 0 },
+            { 136, 48, 0, 0, 0, 0 },
+            { 137, 25, 0, 0, 0, 0 },
+            { 138, 23, 0, 0, 0, 0 },
+            { 139, 18, 0, 0, 0, 0 },
+            { 159, 17, 0, 0, 0, 0 },
+            { 160, 17, 0, 0, 0, 0 }
         };
 
-        // The characters grouped by series (each series where it first appears in the catalog, the originals last), so
-        // every Pokemon or every dragon sit together. Only the order shown: the indices the settings store stay.
+        // Taken out of the catalog: Fall Guy and Mewtwo (both its bodies). Their rows stay, so the indices saved for the ones
+        // after them still match.
+        public static bool AnimeRetired(int i) { return i == 95 || i == 63; }
+        public static bool KindRetired(int kind) { return kind == KindFallGuy || kind == KindMewtwo || kind == KindMewtwoSd; }
+
+        // What each character is in its story, shown on the vitrine's plate.
+        public static readonly string[] AnimeRoles =
+        {
+            "Protagonista", "Compa\u00F1ero", "Compa\u00F1ero", "Protagonista", "Protagonista", "Protagonista", "Protagonista", "Mentor",
+            "Protagonista", "Compa\u00F1ero", "Compa\u00F1ero", "Protagonista", "Protagonista", "Esp\u00EDritu", "Protagonista", "Protagonista",
+            "Asistente de IA", "Asistente de IA", "Protagonista", "Compa\u00F1ero", "Villano", "Rival", "Mentor", "Compa\u00F1ero", "Compa\u00F1ero",
+            "Protagonista", "Capit\u00E1n", "Compa\u00F1era", "Vengador", "Superh\u00E9roe", "Superh\u00E9roe", "Superh\u00E9roe", "Vengador",
+            "Original", "Original", "Original", "Original", "Guardi\u00E1n", "L\u00EDder",
+            "Coprotagonista", "Compa\u00F1era", "Compa\u00F1era", "Compa\u00F1ero", "Compa\u00F1era",
+            "Protagonista", "Protagonista", "Compa\u00F1ero", "Compa\u00F1ero", "Inicial",
+            "Inicial", "Inicial", "Cantante", "Dormil\u00F3n", "Fantasma", "Singular",
+            "Compa\u00F1ero", "Compa\u00F1ero", "Villano", "Inicial", "Disfrazado", "Guardi\u00E1n", "Pseudolegendario", "Transformista", "Legendario",
+            "Esp\u00EDritu", "Demonio de fuego", "Esp\u00EDritu", "Compa\u00F1ero", "Protagonista", "Enemigo", "\u00BFImpostor?", "Enemigo", "Monstruo",
+            "Mascota", "Icono", "Guardi\u00E1n", "Icono", "Icono", "Icono",
+            "Enemigo", "Enemigo", "Enemigo", "Enemigo", "Enemigo", "Enemigo", "Aliado", "Potenciador", "Enemigo", "Enemigo",
+            "Protagonista", "Villano", "Protagonista", "Compa\u00F1ero", "Protagonista", "Enemigo", "Concursante", "Animal", "Objeto", "Enemigo", "Enemigo", "Vida extra",
+            "Protagonista", "Superviviente", "Duplicante", "Duplicante", "Fantasma",
+            "Mascota", "Antih\u00E9roe", "Disfraz", "Disfraz", "Disfraz",
+            "L\u00EDder", "Vengador", "Vengador", "Vengadora", "Vengador", "Rey", "Hechicero", "Vengadora", "Vengadora",
+            "Tit\u00E1n", "Protagonista", "Tit\u00E1n", "Tit\u00E1n", "Tit\u00E1n"
+        };
+
+        public static string AnimeRole(int i) { return i >= 0 && i < AnimeRoles.Length ? AnimeRoles[i] : null; }
+
+        // The name under a tile, short enough to read whole there (the group over the tiles says the rest).
+        static readonly string[,] Captions =
+        {
+            { "Shin-chan de robot Kantam", "Kantam" }, { "Shin-chan de Ultrah\u00E9roe", "Ultrah\u00E9roe" }, { "Shin-chan de Waniyama", "Waniyama" },
+            { "Champi\u00F1\u00F3n 1-Up", "1-Up" }, { "Chomp Cadenas", "Chomp" }, { "Cubo de compa\u00F1\u00EDa", "Cubo" }
+        };
+
+        public static string AnimeCaption(int i)
+        {
+            if (i < 0 || i >= AnimeNames.Length) return "";
+            for (int k = 0; k < Captions.GetLength(0); k++) if (Captions[k, 0] == AnimeNames[i]) return Captions[k, 1];
+            return AnimeNames[i];
+        }
+
+        // What the dock writes over each group of characters: a long series name goes by its short one, and Studio
+        // Ghibli's films, the AI assistants, the kawaii classics and the lone characters of smaller games share a group, so
+        // the row reads as a few clear groups instead of a name over every other tile. Only the dock: the plate and the
+        // label on hover keep each one's own series.
+        static readonly string[,] SeriesGroups =
+        {
+            { "Tengen Toppa Gurren Lagann", "Gurren Lagann" }, { "Cardcaptor Sakura", "Sakura" }, { "Crayon Shin-chan", "Shin-chan" },
+            { "Fullmetal Alchemist", "Fullmetal" }, { "Don't Starve Together", "Don't Starve" }, { "Oxygen Not Included", "Oxygen" },
+            { "Mi vecino Totoro", "Studio Ghibli" }, { "El viaje de Chihiro", "Studio Ghibli" }, { "El castillo ambulante", "Studio Ghibli" },
+            { "La princesa Mononoke", "Studio Ghibli" }, { "The Mandalorian", "Star Wars" }, { "Anthropic", "Asistentes de IA" },
+            { "OpenAI", "Asistentes de IA" }, { "Sanrio", "Kawaii" }, { "San-X", "Kawaii" }, { "Pusheen", "Kawaii" },
+            { "Among Us", "M\u00E1s videojuegos" }, { "Dragon Quest", "M\u00E1s videojuegos" }, { "Space Invaders", "M\u00E1s videojuegos" },
+            { "Hollow Knight", "M\u00E1s videojuegos" }, { "Portal", "M\u00E1s videojuegos" }, { "Bomberman", "M\u00E1s videojuegos" },
+            { "Dig Dug", "M\u00E1s videojuegos" }, { "Fall Guys", "M\u00E1s videojuegos" }, { "Metroid", "M\u00E1s videojuegos" }
+        };
+
+        public static string SeriesGroup(string s)
+        {
+            if (s == null) return null;
+            for (int i = 0; i < SeriesGroups.GetLength(0); i++) if (SeriesGroups[i, 0] == s) return SeriesGroups[i, 1];
+            return s;
+        }
+
+        // The characters grouped by series (each group where it first appears in the catalog), so every Pokemon or every
+        // dragon sit together: the app's own originals first, then the series drawn in full detail (the vinyl figures,
+        // then Klei's in their own drawn style), then all the others. Only the order shown: the indices the settings store
+        // stay.
         static int[] animeOrder;
-        static readonly string[] LastSeries = { "Don't Starve Together", "Oxygen Not Included" };
+        static readonly string[] KleiSeries = { "Don't Starve Together", "Oxygen Not Included" };
         static readonly string[,] Beside = { { "Champi\u00F1\u00F3n 1-Up", "Champi\u00F1\u00F3n" } };
         public static int[] AnimeOrder
         {
             get
             {
                 if (animeOrder != null) return animeOrder;
-                System.Collections.Generic.List<string> series = new System.Collections.Generic.List<string>();
-                foreach (string s in AnimeInspiration) if (s != null && !series.Contains(s)) series.Add(s);
+                System.Collections.Generic.List<string> groups = new System.Collections.Generic.List<string>(), first = new System.Collections.Generic.List<string>(), rest = new System.Collections.Generic.List<string>(), klei = new System.Collections.Generic.List<string>();
+                foreach (string s in AnimeInspiration) if (s != null && !groups.Contains(SeriesGroup(s))) groups.Add(SeriesGroup(s));
+                foreach (string s in KleiSeries) klei.Add(SeriesGroup(s));
+                foreach (string gr in groups) if (!klei.Contains(gr)) (GroupDetailed(gr) ? first : rest).Add(gr);
+                first.AddRange(klei);
+                first.AddRange(rest);
                 System.Collections.Generic.List<int> o = new System.Collections.Generic.List<int>();
-                foreach (string s in series)
-                    if (Array.IndexOf(LastSeries, s) < 0)
-                        for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
                 for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == null) o.Add(i);
-                // Klei's games come last of all, in their own drawn style.
-                foreach (string s in LastSeries)
-                    for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] == s) o.Add(i);
+                foreach (string gr in first)
+                    for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] != null && SeriesGroup(AnimeInspiration[i]) == gr) o.Add(i);
                 // Variants sit right next to the one they come from (the green 1-Up beside the red mushroom).
                 for (int k = 0; k < Beside.GetLength(0); k++)
                 {
@@ -188,6 +283,20 @@ namespace Stackshot
                 animeOrder = o.ToArray();
                 return animeOrder;
             }
+        }
+
+        // A group shown right after the app's own: drawn in full detail, or one of Klei's.
+        public static bool GroupFeatured(string gr)
+        {
+            foreach (string s in KleiSeries) if (SeriesGroup(s) == gr) return true;
+            return GroupDetailed(gr);
+        }
+
+        // A group drawn in full detail: one of its characters is a vinyl figure.
+        static bool GroupDetailed(string gr)
+        {
+            for (int i = 0; i < AnimeNames.Length; i++) if (AnimeInspiration[i] != null && SeriesGroup(AnimeInspiration[i]) == gr && IsToon(Anime[i, 0])) return true;
+            return false;
         }
 
         public static void ApplyAnime(MascotLook l, int i)
