@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,6 +14,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using D = System.Drawing;
@@ -63,7 +65,6 @@ namespace Stackshot
         DispatcherTimer dockReflowSoon;
         TextBlock dockEmptyText, dockEmptyLink;
         int dockEmptyTarget = -1;
-        Border dockFadeL, dockFadeR;
         MGroup dockGroup;
         bool dockDirty, dockKeysHooked, dockWheelHooked, shimmerOn;
         LinearGradientBrush shimmerBrush;
@@ -122,6 +123,14 @@ namespace Stackshot
                 Width = 520, Height = 520, Fill = glow, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, cy - 260, 0, 0)
             });
+            // The vitrine: a soft light from above onto the pedestal it stands on (its own shadow falls on the pedestal).
+            bool vitrine = settings.MascotOn && !pal.High;
+            stagePlate = null;
+            if (vitrine)
+            {
+                st.Children.Add(StageSpotlight(feet));
+                st.Children.Add(StagePedestal(feet));
+            }
             if (settings.MascotOn)
             {
                 RadialGradientBrush fb = new RadialGradientBrush(Ds.Argb(pal.High ? 0 : pal.Dark ? 0.42 : 0.15, 0, 0, 0), Ds.Argb(0, 0, 0, 0));
@@ -129,8 +138,8 @@ namespace Stackshot
                 stageFloorScale = new ScaleTransform(1, 1);
                 st.Children.Add(new Sh.Ellipse
                 {
-                    Width = 300, Height = 36, Fill = fb, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, feet - 18, 0, 0),
+                    Width = vitrine ? 150 : 300, Height = vitrine ? 24 : 36, Fill = fb, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, feet - (vitrine ? 12 : 18), 0, 0),
                     RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = stageFloorScale
                 });
             }
@@ -160,11 +169,17 @@ namespace Stackshot
             }
             stageFxFront = new Cv { IsHitTestVisible = false };
             st.Children.Add(stageFxFront);
+            if (vitrine) st.Children.Add(StagePlate(feet));
 
             st.Children.Add(StageInfo());
             if (settings.MascotOn) st.Children.Add(StageCommands());
             st.Children.Add(StageActions());
             st.Children.Add(DockArea());
+            if (vitrine)
+            {
+                st.SizeChanged += delegate { FitStagePlate(st, feet); };
+                dockColumn.SizeChanged += delegate { FitStagePlate(st, feet); };
+            }
             Add(st);
             FillDock(true);
             HookDockKeys();
@@ -335,9 +350,190 @@ namespace Stackshot
         {
             MascotLook cur = MascotLook.From(settings);
             int level = MascotParts.Level(Math.Max(0, settings.MascotLove));
-            if (stageInfo != null) stageInfo.Text = MascotParts.Kinds[cur.Kind] + "  \u00B7  Nivel " + (level + 1) + "  \u00B7  " + MascotParts.LevelNames[level];
+            // Your friendship with it (it grows with every capture); what it is in its story shows on the vitrine's plate.
+            if (stageInfo != null) stageInfo.Text = MascotParts.Kinds[cur.Kind] + "  \u00B7  Amistad: " + MascotParts.LevelNames[level] + " (nivel " + (level + 1) + ")";
             if (stagePersona != null) stagePersona.Text = MascotParts.Personalities[cur.Personality];
             if (stagePersonaDot != null) stagePersonaDot.Fill = Ds.Brush(PersonalityTone(cur.Personality));
+            RefreshStagePlate(null);
+        }
+
+        // ---- The vitrine
+
+        Border stagePlate;
+        TextBlock stagePlateName, stagePlateFrom, stagePlateTitle;
+        FrameworkElement dockColumn;
+
+        static BitmapSource spotCone;
+        static string spotConeFor;
+
+        // A soft cone of light from the top of the stage down onto the pedestal, its edges blurred. The blur is baked
+        // into a picture once: a live one would be redone on every frame the mascot moves over it.
+        static FrameworkElement StageSpotlight(double feet)
+        {
+            bool dark = Ds.Brushes.Dark;
+            double h = feet + 24;
+            Grid g = new Grid { IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Width = 340, Height = h };
+            const int M = 18;
+            string key = dark + "@" + h.ToString(CultureInfo.InvariantCulture);
+            if (spotCone == null || spotConeFor != key)
+            {
+                LinearGradientBrush cone = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+                cone.GradientStops.Add(new GradientStop(Ds.Argb(dark ? 0.11 : 0.6, 255, 255, 255), 0));
+                cone.GradientStops.Add(new GradientStop(Ds.Argb(dark ? 0.045 : 0.25, 255, 255, 255), 0.62));
+                cone.GradientStops.Add(new GradientStop(Ds.Argb(0, 255, 255, 255), 1));
+                cone.Freeze();
+                StreamGeometry shape = new StreamGeometry();
+                using (StreamGeometryContext sc = shape.Open())
+                {
+                    sc.BeginFigure(new Point(M + 170 - 48, M), true, true);
+                    sc.PolyLineTo(new Point[] { new Point(M + 170 + 48, M), new Point(M + 330, M + h), new Point(M + 10, M + h) }, false, false);
+                }
+                shape.Freeze();
+                spotCone = Ink.Render(340 + 2 * M, (int)Math.Ceiling(h) + 2 * M, delegate(DrawingContext dc) { dc.DrawGeometry(cone, null, shape); },
+                                      new BlurEffect { Radius = 14, KernelType = KernelType.Gaussian, RenderingBias = RenderingBias.Quality });
+                spotConeFor = key;
+            }
+            g.Children.Add(new Image
+            {
+                Source = spotCone, Stretch = Stretch.Fill, Width = 340 + 2 * M, Height = Math.Ceiling(h) + 2 * M, Margin = new Thickness(-M, -M, -M, -M),
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false
+            });
+            // The light itself, at the top edge.
+            RadialGradientBrush lamp = new RadialGradientBrush(Ds.Argb(dark ? 0.16 : 0.7, 255, 255, 255), Ds.Argb(0, 255, 255, 255));
+            lamp.Freeze();
+            g.Children.Add(new Sh.Ellipse { Width = 240, Height = 130, Fill = lamp, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -66, 0, 0) });
+            return g;
+        }
+
+        // The pedestal under its feet: a short round plinth lit from above, a fine rim of light on its top edge, and its
+        // shadow on the floor.
+        static FrameworkElement StagePedestal(double feet)
+        {
+            bool dark = Ds.Brushes.Dark;
+            const double W = 196, E = 34, Side = 12;
+            Grid g = new Grid
+            {
+                IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
+                Width = 290, Height = E + Side + 32, Margin = new Thickness(0, feet + 2 - E / 2, 0, 0)
+            };
+            RadialGradientBrush shadow = new RadialGradientBrush(Ds.Argb(dark ? 0.55 : 0.2, 0, 0, 0), Ds.Argb(0, 0, 0, 0));
+            g.Children.Add(new Sh.Ellipse { Width = 290, Height = 36, Fill = shadow, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, Side + E / 2 - 6, 0, 0) });
+            Color edge = dark ? Ds.Rgb(27, 25, 31) : Ds.Rgb(194, 189, 205), mid = dark ? Ds.Rgb(56, 52, 62) : Ds.Rgb(234, 230, 240);
+            LinearGradientBrush side = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
+            side.GradientStops.Add(new GradientStop(edge, 0));
+            side.GradientStops.Add(new GradientStop(mid, 0.42));
+            side.GradientStops.Add(new GradientStop(edge, 1));
+            g.Children.Add(new Sh.Ellipse { Width = W, Height = E, Fill = side, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, Side, 0, 0) });
+            g.Children.Add(new Sh.Rectangle { Width = W, Height = Side, Fill = side, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, E / 2, 0, 0) });
+            RadialGradientBrush top = new RadialGradientBrush { GradientOrigin = new Point(0.45, 0.3), Center = new Point(0.5, 0.42), RadiusX = 0.62, RadiusY = 0.8 };
+            top.GradientStops.Add(new GradientStop(dark ? Ds.Rgb(86, 81, 94) : Ds.Rgb(255, 255, 255), 0));
+            top.GradientStops.Add(new GradientStop(dark ? Ds.Rgb(50, 46, 56) : Ds.Rgb(228, 224, 235), 1));
+            LinearGradientBrush rim = new LinearGradientBrush(Ds.Argb(dark ? 0.26 : 0.9, 255, 255, 255), Ds.Argb(0, 255, 255, 255), 90);
+            g.Children.Add(new Sh.Ellipse { Width = W, Height = E, Fill = top, Stroke = rim, StrokeThickness = 1, VerticalAlignment = VerticalAlignment.Top });
+            shadow.Freeze();
+            side.Freeze();
+            top.Freeze();
+            rim.Freeze();
+            return g;
+        }
+
+        // The plate under the pedestal: who it is dressed as, where that comes from, and its title.
+        FrameworkElement StagePlate(double feet)
+        {
+            Palette pal = Ds.Brushes;
+            StackPanel row = new StackPanel { Orientation = Orientation.Horizontal };
+            stagePlateName = new TextBlock { FontFamily = Ds.Text, FontWeight = FontWeights.SemiBold, FontSize = 13, Foreground = Ds.Brush(pal.Label), VerticalAlignment = VerticalAlignment.Center };
+            stagePlateFrom = new TextBlock { FontFamily = Ds.Text, FontSize = 12, Foreground = Ds.Brush(pal.Label2), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            stagePlateTitle = new TextBlock
+            {
+                FontFamily = Ds.Text, FontWeight = FontWeights.Medium, FontSize = 12, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Ds.Brush(pal.Dark ? Ds.Rgb(243, 201, 107) : Ds.Rgb(158, 104, 0))
+            };
+            row.Children.Add(stagePlateName);
+            row.Children.Add(stagePlateFrom);
+            row.Children.Add(stagePlateTitle);
+            stagePlate = new Border
+            {
+                Child = row, CornerRadius = new CornerRadius(10), Padding = new Thickness(11, 5, 11, 6), IsHitTestVisible = false,
+                Background = Ds.Brush(pal.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.8, 255, 255, 255)), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, feet + 24, 0, 0)
+            };
+            RefreshStagePlate(null);
+            return stagePlate;
+        }
+
+        // The plate follows the look on the stage: the one worn, or the one being tried on.
+        void RefreshStagePlate(MascotLook l)
+        {
+            if (stagePlate == null) return;
+            if (l == null) l = MascotLook.From(settings);
+            string name, from, role;
+            LookName(l, out name, out from, out role);
+            stagePlateName.Text = name;
+            stagePlateFrom.Text = from != null && !string.Equals(from, name, StringComparison.OrdinalIgnoreCase) ? from : "";
+            stagePlateFrom.Visibility = stagePlateFrom.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            stagePlateTitle.Text = role ?? "";
+            stagePlateTitle.Visibility = role != null ? Visibility.Visible : Visibility.Collapsed;
+            if (role != null) stagePlateTitle.Foreground = Ds.Brush(RoleTone(role));
+        }
+
+        // Who a look is: the character or style it is dressed as (where it comes from, and what it is there), or else its
+        // body.
+        static void LookName(MascotLook l, out string name, out string from, out string role)
+        {
+            MascotLook t = new MascotLook();
+            for (int i = 0; i < MascotParts.AnimeNames.Length; i++)
+            {
+                MascotParts.ApplyAnime(t, i);
+                if (SameCostume(t, l)) { name = MascotParts.AnimeNames[i]; from = MascotParts.AnimeInspiration[i]; role = MascotParts.AnimeRole(i); return; }
+            }
+            for (int i = 0; i < MascotParts.StyleNames.Length; i++)
+            {
+                MascotParts.ApplyStyle(t, i);
+                if (SameCostume(t, l) && t.Accessory == l.Accessory) { name = MascotParts.StyleNames[i]; from = null; role = "Estilo"; return; }
+            }
+            name = MascotParts.Kinds[l.Kind];
+            from = null;
+            role = null;
+        }
+
+        // The role's colour: gold for the heroes of their story, blue for their friends, violet for the ones who lead or
+        // guard them, orange for rivals, red for villains and enemies, cyan for the superheroes and pink for the rarest
+        // Pokemon; the rest in grey.
+        static Color RoleTone(string role)
+        {
+            Palette pal = Ds.Brushes;
+            if (pal.High) return pal.Label;
+            bool d = pal.Dark;
+            switch (role)
+            {
+                case "Protagonista": case "Coprotagonista": return d ? Ds.Rgb(243, 201, 107) : Ds.Rgb(158, 104, 0);
+                case "Compa\u00F1ero": case "Compa\u00F1era": case "Aliado": case "Mascota": return d ? Ds.Rgb(128, 182, 255) : Ds.Rgb(28, 98, 200);
+                case "Mentor": case "Capit\u00E1n": case "L\u00EDder": case "Guardi\u00E1n": case "Rey": case "Hechicero": return d ? Ds.Rgb(196, 166, 255) : Ds.Rgb(112, 70, 196);
+                case "Rival": case "Antih\u00E9roe": return d ? Ds.Rgb(255, 176, 100) : Ds.Rgb(186, 92, 0);
+                case "Villano": case "Villana": case "Enemigo": case "Monstruo": case "Tit\u00E1n": return d ? Ds.Rgb(255, 128, 128) : Ds.Rgb(190, 40, 46);
+                case "Superh\u00E9roe": case "Vengador": case "Vengadora": return d ? Ds.Rgb(110, 214, 236) : Ds.Rgb(0, 118, 148);
+                case "Legendario": case "Singular": case "Pseudolegendario": return d ? Ds.Rgb(244, 148, 222) : Ds.Rgb(164, 40, 140);
+                case "Inicial": case "Original": return d ? Ds.Rgb(143, 211, 168) : Ds.Rgb(30, 122, 72);
+                default: return pal.Label2;
+            }
+        }
+
+        static bool SameCostume(MascotLook a, MascotLook b)
+        {
+            return a.Kind == b.Kind && a.Color == b.Color && a.Eyes == b.Eyes && a.Hat == b.Hat && a.Outfit == b.Outfit && a.Face == b.Face;
+        }
+
+        // A short window leaves no room under the pedestal: the plate gives way to the dock, and its title goes back up to
+        // the line under the name.
+        void FitStagePlate(FrameworkElement st, double feet)
+        {
+            if (stagePlate == null || dockColumn == null) return;
+            double dockTop = st.ActualHeight - dockColumn.ActualHeight - dockColumn.Margin.Bottom;
+            Visibility v = dockTop - 6 >= feet + 52 ? Visibility.Visible : Visibility.Collapsed;
+            if (stagePlate.Visibility == v) return;
+            stagePlate.Visibility = v;
+            RefreshStageInfo();
         }
 
         static Color PersonalityTone(int p)
@@ -699,6 +895,8 @@ namespace Stackshot
 
         void SetDesktop(bool on)
         {
+            // On the desktop is Completo's: turning it on from a lighter profile moves to Completo.
+            if (on && settings.Profile != 2) settings.Profile = 2;
             settings.MascotDesktop = on;
             owner.MascotChanged();
             Changed();
@@ -860,6 +1058,7 @@ namespace Stackshot
         {
             Palette pal = Ds.Brushes;
             StackPanel col = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(24, 0, 24, 18) };
+            dockColumn = col;
 
             Grid bar = new Grid { Height = 30 };
             DockTabsBar tabs = new DockTabsBar(DockTabNames, dockTab);
@@ -884,7 +1083,7 @@ namespace Stackshot
             // steps back while it is there.
             Grid dock = new Grid { Margin = new Thickness(0, DockBand, 0, 0) };
             if (!pal.High) dock.Children.Add(new SoftShadow(18, 22, 12, pal.Dark ? 0.55 : 0.13));
-            dock.Children.Add(new Border { CornerRadius = new CornerRadius(18), Background = Ds.Brush(dc), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1) });
+            dock.Children.Add(new Border { CornerRadius = new CornerRadius(18), Background = Ds.Brush(dc) });
             Shelf shelf = new Shelf();
             dockShelf = shelf;
             shelf.MouseLeave += delegate { DockLeft(); };
@@ -898,16 +1097,9 @@ namespace Stackshot
                 if (mascot.Look.Key != MascotLook.From(settings).Key) TryOn(null);
             };
             dock.Children.Add(shelf);
-            // Soft edges where tiles scroll out of sight.
-            dockFadeL = DockFade(dc, true);
-            dockFadeR = DockFade(dc, false);
-            dock.Children.Add(dockFadeL);
-            dock.Children.Add(dockFadeR);
-            shelf.Edges = delegate(double l, double r)
-            {
-                dockFadeL.Opacity = Math.Max(0, Math.Min(1, l / 24));
-                dockFadeR.Opacity = Math.Max(0, Math.Min(1, r / 24));
-            };
+            // The dock's outline over everything, so no tile is ever drawn over the line (the row fades itself out at the
+            // ends, see Shelf).
+            dock.Children.Add(new Border { CornerRadius = new CornerRadius(18), BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(1), IsHitTestVisible = false });
             shelf.HudMoved = delegate(Rect r) { DockHudAt(shelf, bar, r); };
 
             StackPanel empty = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
@@ -933,18 +1125,6 @@ namespace Stackshot
             dock.Children.Add(empty);
             col.Children.Add(dock);
             return col;
-        }
-
-        static Border DockFade(Color c, bool left)
-        {
-            LinearGradientBrush b = new LinearGradientBrush(left ? c : Ds.WithAlpha(c, 0), left ? Ds.WithAlpha(c, 0) : c, 0);
-            b.Freeze();
-            return new Border
-            {
-                Width = 34, Margin = new Thickness(1), Background = b, IsHitTestVisible = false, Opacity = 0,
-                HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right,
-                CornerRadius = left ? new CornerRadius(17, 0, 0, 17) : new CornerRadius(0, 17, 17, 0)
-            };
         }
 
         // The label over the hovered tile floats into the bar above: whatever it would cover (the tabs or the search
@@ -1152,6 +1332,12 @@ namespace Stackshot
             return Slots[it.Slot].Id + ":" + it.Index;
         }
 
+        // A tab's tiles, in order, each with the room it takes in the row. The ones in sight are added at once; the rest
+        // follow a few at a time between frames (dockStepAt: the next to add; dockFill: which filling they belong to).
+        readonly List<Action> dockSteps = new List<Action>();
+        readonly List<double> dockStepW = new List<double>();
+        int dockStepAt, dockFill;
+
         void FillDockCore(bool cascade, bool keep)
         {
             if (dockShelf == null) return;
@@ -1164,29 +1350,54 @@ namespace Stackshot
             MGroup g = new MGroup(this);
             dockGroup = g;
             dockShelf.Clear(keep);
+            dockSteps.Clear();
+            dockStepW.Clear();
+            dockStepAt = 0;
+            int fill = ++dockFill, worn = -1;
             MascotLook cur = MascotLook.From(settings);
             if (dockTab == 0) FillLooksTab(g, cur);
             else if (dockTab == ActionsTab) FillActionsTab(g, cur);
             else
             {
                 int[] sl = DockTabSlots[dockTab];
+                // The characters' tab: every group named over its start (the app's own first, then the series).
+                bool named = Array.IndexOf(sl, SlotAnime) >= 0;
                 for (int k = 0; k < sl.Length; k++)
                 {
-                    if (k > 0) DockGap();
-                    // Characters: each series starts with its name (the favorites come first, before any).
-                    bool anime = Slots[sl[k]].Id == "anime";
-                    string series = null;
-                    foreach (int i in Ordered(sl[k]))
+                    if (k > 0 && !named) DockStep(delegate { DockGap(); }, 18);
+                    List<int> items = Ordered(sl[k]);
+                    for (int j = 0; j < items.Count; j++)
                     {
-                        if (anime && !IsFavorite(sl[k], i))
+                        if (named)
                         {
-                            string from = i < MascotParts.AnimeInspiration.Length && MascotParts.AnimeInspiration[i] != null ? MascotParts.AnimeInspiration[i] : "Originales";
-                            if (from != series) { DockSeries(from); series = from; }
+                            string grp = DockGroupOf(sl[k], items[j]);
+                            if (j == 0 || grp != DockGroupOf(sl[k], items[j - 1]))
+                            {
+                                int n = 1;
+                                while (j + n < items.Count && DockGroupOf(sl[k], items[j + n]) == grp) n++;
+                                DockStep(delegate { DockSeries(grp, n); }, DockGroupGap);
+                            }
                         }
-                        AddDockItem(g, ItemFor(sl[k], i), cur);
+                        MItem it = ItemFor(sl[k], items[j]);
+                        if (worn < 0 && IsWorn(it, cur)) worn = dockSteps.Count;
+                        // Added later, it shows the look worn by then.
+                        DockStep(delegate { AddDockItem(g, it, MascotLook.From(settings)); }, DockSlot);
                     }
                 }
             }
+            // In sight now: the row as far as the window shows from where it stands, and round the worn tile it scrolls to
+            // (to the middle); all of it while searching. The rest is out of sight when it comes.
+            int first = dockSteps.Count;
+            if (Norm(dockQuery).Length == 0)
+            {
+                double view = Math.Max(dockShelf.ActualWidth, ActualWidth), x = 0, wornX = 0;
+                if (view < 200) view = 1600;
+                for (int i = 0; i < worn; i++) wornX += dockStepW[i];
+                double reach = Math.Max((keep ? dockShelf.OffsetTarget : 0) + view, worn >= 0 ? wornX + view / 2 : 0) + 300;
+                first = 0;
+                while (first < dockSteps.Count && (x < reach || first <= worn)) x += dockStepW[first++];
+            }
+            while (dockStepAt < first) dockSteps[dockStepAt++]();
             if (Norm(dockQuery).Length == 0 && !keep)
                 foreach (MItem it in g.Items)
                     if (it.Slot >= 0 && it.Cell != null && it.Cell.Worn) { dockShelf.Reveal(it); break; }
@@ -1196,6 +1407,31 @@ namespace Stackshot
                 int k = 0;
                 foreach (MItem it in g.Items) if (it.Cell != null) it.Cell.Arrive(Math.Min(k++, 14) * 16);
             }
+            if (dockStepAt < dockSteps.Count) DockStepsLater(fill);
+        }
+
+        void DockStep(Action add, double w)
+        {
+            dockSteps.Add(add);
+            dockStepW.Add(w);
+        }
+
+        // The rest of the row, out of sight, a few tiles in each gap between frames (never holding one up).
+        void DockStepsLater(int fill)
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, (Action)delegate
+            {
+                if (fill != dockFill || dockShelf == null || page != "mascot") return;
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp(), budget = System.Diagnostics.Stopwatch.Frequency * 3 / 1000;
+                while (dockStepAt < dockSteps.Count && System.Diagnostics.Stopwatch.GetTimestamp() - t0 < budget) dockSteps[dockStepAt++]();
+                if (dockStepAt < dockSteps.Count) DockStepsLater(fill);
+            });
+        }
+
+        // The whole row now (a search looks through all of it).
+        void FinishDock()
+        {
+            while (dockShelf != null && dockStepAt < dockSteps.Count) dockSteps[dockStepAt++]();
         }
 
         // Saved looks after the button that saves one, then everything starred.
@@ -1232,18 +1468,46 @@ namespace Stackshot
             dockShelf.Add(g, null, null, 18, false);
         }
 
-        // Between two series: a little more room and a short rounded mark at the tiles' height, no words (each tile's
-        // label already says its series, and hovering the mark names it). Hidden while searching, like the other dividers.
-        void DockSeries(string name)
+        // The group a character shows under: the starred ones together, then its series (styles and originals are the
+        // app's own).
+        string DockGroupOf(int slot, int i)
+        {
+            if (Slots[slot].Id != "anime") return "Estilos";
+            if (IsFavorite(slot, i)) return "Favoritos";
+            return i < MascotParts.AnimeInspiration.Length && MascotParts.AnimeInspiration[i] != null ? MascotParts.SeriesGroup(MascotParts.AnimeInspiration[i]) : "Originales";
+        }
+
+        const double DockGroupGap = 16;
+
+        // A group's name over the start of its tiles, small: gold for the app's own (and the starred ones), green for the
+        // series drawn in full detail, grey for the rest. Groups keep the same gap between them and a name stays over its
+        // own tiles (a long one is cut short; the label on hover says it whole), so the row keeps an even rhythm. Hidden
+        // while searching, like the other dividers.
+        void DockSeries(string name, int count)
+        {
+            double inset = (DockSlot - DockTile) / 2;
+            TextBlock t = new TextBlock
+            {
+                Text = name, FontFamily = Ds.Text, FontWeight = FontWeights.SemiBold, FontSize = 11, Foreground = Ds.Brush(SeriesTone(name)),
+                TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = count * DockSlot - inset + DockGroupGap - 2
+            };
+            TextOptions.SetTextFormattingMode(t, TextFormattingMode.Display);
+            Cv c = new Cv { IsHitTestVisible = false };
+            Cv.SetLeft(t, DockGroupGap + inset);
+            Cv.SetTop(t, -18);
+            c.Children.Add(t);
+            Grid g = new Grid { Width = DockGroupGap, Height = DockItemH };
+            g.Children.Add(c);
+            dockShelf.Add(g, null, null, DockGroupGap, false);
+        }
+
+        static Color SeriesTone(string name)
         {
             Palette pal = Ds.Brushes;
-            Grid g = new Grid { Width = 20, Height = DockItemH, Background = Brushes.Transparent, ToolTip = name };
-            g.Children.Add(new Border
-            {
-                Width = 3, Height = 20, CornerRadius = new CornerRadius(1.5), HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 21, 0, 0), Background = Ds.Brush(pal.Separator)
-            });
-            dockShelf.Add(g, null, null, 20, false);
+            if (pal.High) return pal.Label;
+            if (name == "Estilos" || name == "Originales" || name == "Favoritos") return pal.Dark ? Ds.Rgb(243, 201, 107) : Ds.Rgb(158, 104, 0);
+            if (MascotParts.GroupFeatured(name)) return pal.Dark ? Ds.Rgb(143, 211, 168) : Ds.Rgb(30, 122, 72);
+            return pal.Label2;
         }
 
         void DockNote(string text)
@@ -1261,6 +1525,7 @@ namespace Stackshot
         {
             if (it.Saved != null) return MascotParts.Kinds[it.Saved.Kind] + " " + MascotParts.ColorNames[it.Saved.Color].ToLowerInvariant();
             if (it.Slot == SlotAction) return MascotCmd.Short[it.Index];
+            if (it.Slot == SlotAnime) return MascotParts.AnimeCaption(it.Index);
             return it.Name;
         }
 
@@ -1390,6 +1655,7 @@ namespace Stackshot
             if (dockSearch != null && dockSearch.Text != q) { dockSearch.Text = q; return; }   // comes back through TextChanged
             if (q == dockQuery) return;
             dockQuery = q;
+            FinishDock();
             ApplySearch(true, true);
         }
 
@@ -1411,7 +1677,7 @@ namespace Stackshot
             }
             foreach (int s in DockTabSlots[tab])
                 for (int i = 0; i < Slots[s].Names.Length; i++)
-                    if (SlotFind(s, i).Contains(q)) n++;
+                    if (Shown(s, i) && SlotFind(s, i).Contains(q)) n++;
             return n;
         }
 
@@ -1469,6 +1735,8 @@ namespace Stackshot
         // The mouse left the dock: back to the saved look, and reorder if favorites changed meanwhile.
         void DockLeft()
         {
+            if (tryOnTimer != null) tryOnTimer.Stop();
+            tryOnAt = double.NegativeInfinity;
             TryLook(null);
             if (dockShelf != null) dockShelf.HideHud();
             Dispatcher.BeginInvoke((Action)delegate
@@ -1491,6 +1759,64 @@ namespace Stackshot
         {
             if (dockShelf != null && it != null) dockShelf.ShowHud(it, ItemText(it));
         }
+
+        DispatcherTimer tryOnTimer;
+        double tryOnAt = double.NegativeInfinity;
+        bool tryOnFast, tryOnDeferred;   // deferred: hovered while the row scrolled, tried on once it stops
+        MItem tryOnWaits;   // the hovered tile whose look a worker is still drawing for the stage
+
+        // A tile hovered a while after the last one is tried on at once. Sweeping fast over the dock, the stage waits for
+        // the mouse to settle instead of changing for every tile it crosses. A look the stage hasn't drawn yet would be
+        // drawn from scratch on its first frame (a stall of tens of milliseconds): a worker draws it first and it goes on
+        // as soon as that is done, a frame or two later.
+        void TryOnSoon(MGroup g)
+        {
+            double now = Anim.Now;
+            bool fast = now - tryOnAt < 110;
+            tryOnAt = now;
+            tryOnFast = fast;
+            if (tryOnTimer != null) tryOnTimer.Stop();
+            MItem it = g.Hot;
+            tryOnWaits = null;
+            // Scrolling, tiles only slide under a resting mouse: nothing is tried on until the row stops.
+            bool scrolling = dockShelf != null && dockShelf.Scrolling;
+            tryOnDeferred = scrolling;
+            MascotLook l = scrolling ? null : g.LookOf(it);
+            if (l != null && MascotWarm.Ahead(l, StageSize(), OnUi, delegate { LookReady(g, it); })) tryOnWaits = it;
+            if (!fast && !scrolling && tryOnWaits == null) { g.TryOnHot(); return; }
+            if (tryOnTimer == null)
+            {
+                tryOnTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(80) };
+                tryOnTimer.Tick += delegate
+                {
+                    tryOnTimer.Stop();
+                    if (dockGroup == null || page != "mascot") return;
+                    if (dockShelf != null && dockShelf.Scrolling) { tryOnTimer.Start(); return; }
+                    // The row stopped under the mouse: the tile there is tried on as one hovered on purpose (drawn ahead).
+                    if (tryOnDeferred) { tryOnDeferred = false; TryOnSoon(dockGroup); return; }
+                    // Its look still being drawn: it goes on once ready, and anyway a moment later.
+                    if (tryOnWaits != null && tryOnWaits == dockGroup.Hot && Anim.Now - tryOnAt < 400) { tryOnTimer.Start(); return; }
+                    tryOnWaits = null;
+                    dockGroup.TryOnHot();
+                };
+            }
+            tryOnTimer.Start();
+        }
+
+        // The hovered tile's look is ready: on it goes, unless the mouse is still sweeping (the timer puts it on then).
+        void LookReady(MGroup g, MItem it)
+        {
+            if (tryOnWaits != it || dockGroup != g || g.Hot != it || page != "mascot") return;
+            tryOnWaits = null;
+            if (tryOnFast && Anim.Now - tryOnAt < 80) return;
+            if (tryOnTimer != null) tryOnTimer.Stop();
+            g.TryOnHot();
+        }
+
+        // How wide the stage draws the mascot, in device pixels (0 when it isn't on the stage).
+        float StageSize() { return page == "mascot" && mascotHost != null && mascotHost.Live ? mascotHost.PaintSize : 0; }
+
+        void OnUi(Action a) { Dispatcher.BeginInvoke(DispatcherPriority.Normal, a); }
 
         // ---- Catalogs, favorites and saved looks
 
@@ -1629,7 +1955,7 @@ namespace Stackshot
                 int slot = -1;
                 for (int s = 0; s < Slots.Length; s++) if (Slots[s].Id == id) slot = s;
                 if (slot < 0 || !int.TryParse(t.Substring(c + 1).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out idx)) continue;
-                if (idx >= Slots[slot].Names.Length) continue;
+                if (idx >= Slots[slot].Names.Length || !Shown(slot, idx)) continue;
                 string key = Slots[slot].Id + ":" + idx;
                 if (!r.Contains(key)) r.Add(key);
             }
@@ -1664,10 +1990,18 @@ namespace Stackshot
             for (int k = 0; k < n; k++)
             {
                 int i = order != null ? order[k] : k;
-                (IsFavorite(slot, i) ? first : rest).Add(i);
+                if (Shown(slot, i)) (IsFavorite(slot, i) ? first : rest).Add(i);
             }
             first.AddRange(rest);
             return first;
+        }
+
+        // What the catalog no longer offers (the character, and its body as a species), though a look already wearing
+        // it still works.
+        bool Shown(int slot, int i)
+        {
+            string id = Slots[slot].Id;
+            return !(id == "anime" && MascotParts.AnimeRetired(i)) && !(id == "kind" && MascotParts.KindRetired(i));
         }
 
         void SetFavorite(int slot, int i, bool on)
@@ -1849,7 +2183,7 @@ namespace Stackshot
                 hot = it;
                 it.Cell.SetHot(true);
                 w.DockHot(it);
-                TryOnHot();
+                w.TryOnSoon(this);
             }
 
             // Try it on: the big mascot wears the hovered piece until the mouse leaves the dock.
@@ -1857,10 +2191,16 @@ namespace Stackshot
             {
                 MItem it = hot;
                 if (it == null) return;
-                if ((it.Slot < 0 && it.Saved == null) || it.Locked) { w.TryLook(null); return; }
+                w.TryLook(LookOf(it));
+            }
+
+            // What trying a tile on puts on the stage; null for one that only goes back to the look really worn.
+            public MascotLook LookOf(MItem it)
+            {
+                if (it == null || (it.Slot < 0 && it.Saved == null) || it.Locked) return null;
                 MascotLook l = MascotLook.From(w.settings);
                 ApplyItem(it, l);
-                w.TryLook(l);
+                return l;
             }
 
             public void Unhover(MItem it)
@@ -1883,7 +2223,7 @@ namespace Stackshot
         // shrink away when filtered out. A frame callback runs only while something still moves; at rest, nothing.
         partial class Shelf : Panel
         {
-            public const double Pad = 12, Top = 12, Bottom = 8, Reach = 176;
+            public const double Pad = 12, Top = 28, Bottom = 8, Reach = 176;   // Top: room for the groups' names over the tiles
 
             sealed class Entry
             {
@@ -1891,7 +2231,8 @@ namespace Stackshot
                 public ShelfTile Tile;
                 public object Tag;
                 public double W, Scale = 1, ScaleTo = 1, Vis = 1, VisTo = 1;
-                public bool Magnify;
+                public bool Magnify, Away;   // Away: arranged out of sight last time
+                public bool Placed;          // measured and arranged at least once (a tile never in sight is neither)
             }
 
             readonly List<Entry> list = new List<Entry>();
@@ -1904,8 +2245,11 @@ namespace Stackshot
             bool running, hudShown;
             object reveal;
             Rect hudReported = Rect.Empty;
-            public Action<double, double> Edges;   // content hidden on the left and on the right
             public Action<Rect> HudMoved;          // where the label over the hovered tile is (Empty once it goes)
+            // How wide the faded ends are, and their solid part at the very edge.
+            public const double Fade = 44, FadeSolid = 8;
+            readonly LinearGradientBrush fade = new LinearGradientBrush { MappingMode = BrushMappingMode.Absolute, StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
+            double fadeW = -1, fadeL = -1, fadeR = -1;
 
             public Shelf()
             {
@@ -1923,6 +2267,8 @@ namespace Stackshot
                 hud.IsHitTestVisible = false;
                 hud.Opacity = 0;
                 Children.Add(hud);
+                for (int i = 0; i < 6; i++) fade.GradientStops.Add(new GradientStop(Colors.Black, 0));
+                OpacityMask = fade;
                 Unloaded += delegate { Halt(); };
             }
 
@@ -2089,9 +2435,15 @@ namespace Stackshot
                 double max = TargetMax();
                 if (max <= 0) return false;
                 offsetTo = Math.Max(0, Math.Min(max, offsetTo - delta * 1.25));
+                wheelAt = Anim.Now;
                 Kick();
                 return true;
             }
+
+            double wheelAt = double.NegativeInfinity;
+
+            // The row is being scrolled (or still gliding to where it was scrolled): tiles only pass under the mouse.
+            public bool Scrolling { get { return Anim.Now - wheelAt < 200 || Math.Abs(offset - offsetTo) > 2; } }
 
             double TargetMax()
             {
@@ -2169,7 +2521,9 @@ namespace Stackshot
 
             protected override Size MeasureOverride(Size avail)
             {
-                foreach (UIElement c in Children) c.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                // The tiles are measured as they come into sight (ArrangeOverride): a long row costs only what shows, when
+                // a tab fills as when it scrolls. One measured before is remeasured by WPF itself when it changes.
+                hud.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 return new Size(double.IsInfinity(avail.Width) ? 400 : avail.Width, Top + DockItemH + Bottom);
             }
 
@@ -2213,13 +2567,16 @@ namespace Stackshot
                         else if (mb > left[i]) comp += ex[i] * (mb - left[i]) / bw[i];
                     }
                 }
-                double shift = -offset - comp, lo = Pad + shift, hi = x - Pad + total + shift, fix = 0;
+                double shift = -offset - comp, lo = Pad + shift, hi = x + total + shift, fix = 0;
                 // ...but the row doesn't spill past the ends of the dock (the end tiles keep a little air from its edge).
                 const double Air = 5;
                 double needL = offset < 1 && lo < Air ? Air - lo : 0, needR = offset > maxOff - 1 && hi > size.Width - Air ? size.Width - Air - hi : 0;
                 if (needL > 0 && needR < 0) fix = (needL + needR) / 2;
                 else fix = needL > 0 ? needL : needR;
                 shift += fix;
+                // Each end fades the row out as far as it cuts it off (scrolled, or pushed out by the magnified tiles).
+                double fl = Math.Min(1, Math.Max(0, -(Pad + shift)) / 6), fr = Math.Min(1, Math.Max(0, x + total + shift - size.Width) / 6);
+                SetFade(size.Width, fl, fr);
 
                 double acc = 0, hudCx = 0, hudTop = 0;
                 for (int i = 0; i < n; i++)
@@ -2227,15 +2584,24 @@ namespace Stackshot
                     Entry e = list[i];
                     double sl = left[i] + acc + shift, sw = bw[i] + ex[i];
                     acc += ex[i];
+                    if (e == hudOn) { hudCx = sl + sw / 2; hudTop = Top + DockTile * (1 - e.Scale); }
+                    // Far out of sight (by its slot): a tile never shown is left unmeasured and unplaced, and one already
+                    // put out there stays put. Re-placing every tile of a long row on every frame of the magnification, or
+                    // laying them all out when a tab fills, costs more than drawing the dock.
+                    bool away = sl + Math.Max(sw, DockSlot) < -140 || sl > size.Width + 140;
+                    if (away && (!e.Placed || (e.Away && e.El.IsArrangeValid))) continue;
+                    if (!e.El.IsMeasureValid) e.El.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                     Size d = e.El.DesiredSize;
                     double aw = e.Tile != null ? Math.Max(d.Width, sw) : d.Width;
+                    e.Away = away;
+                    e.Placed = true;
                     e.El.Arrange(new Rect(sl + (sw - aw) / 2, Top, aw, d.Height));
-                    if (e == hudOn) { hudCx = sl + sw / 2; hudTop = Top + DockTile * (1 - e.Scale); }
                 }
                 if (hudOn != null)
                 {
                     Size hs = hud.DesiredSize;
-                    hudRect = new Rect(Math.Max(4, Math.Min(size.Width - 4 - hs.Width, hudCx - hs.Width / 2)), hudTop - 9 - hs.Height, hs.Width, hs.Height);
+                    // Clear of the faded ends, so the label always reads whole.
+                    hudRect = new Rect(Math.Max(4 + Fade * fl, Math.Min(size.Width - 4 - hs.Width - Fade * fr, hudCx - hs.Width / 2)), hudTop - 9 - hs.Height, hs.Width, hs.Height);
                     if (hudShown) ReportHud(hudRect);
                 }
                 hud.Arrange(hudRect);
@@ -2244,8 +2610,32 @@ namespace Stackshot
                     clipFor = size;
                     Clip = new RectangleGeometry(new Rect(0, -90, size.Width, size.Height + 90));
                 }
-                if (Edges != null) Edges(offset, maxOff - offset);
                 return size;
+            }
+
+            // The row's own fade at the ends (its opacity mask, across the panel and the magnified tiles standing above
+            // it): solid for a few pixels at the very edge, so a cut never shows, then easing in. l and r (0..1) say how
+            // much each end fades; nothing is cut there, it doesn't.
+            void SetFade(double w, double l, double r)
+            {
+                if (w < Fade * 2 + 2) l = r = 0;
+                if (w == fadeW && l == fadeL && r == fadeR) return;
+                fadeW = w; fadeL = l; fadeR = r;
+                fade.EndPoint = new Point(Math.Max(1, w), 0);
+                double s = FadeSolid / Math.Max(1, w), f = Fade / Math.Max(1, w);
+                FadeStop(0, 0, 1 - l);
+                FadeStop(1, s, 1 - l);
+                FadeStop(2, f, 1);
+                FadeStop(3, 1 - f, 1);
+                FadeStop(4, 1 - s, 1 - r);
+                FadeStop(5, 1, 1 - r);
+            }
+
+            void FadeStop(int i, double at, double a)
+            {
+                GradientStop g = fade.GradientStops[i];
+                g.Offset = at;
+                g.Color = Color.FromArgb((byte)Math.Round(255 * Math.Max(0, Math.Min(1, a))), 0, 0, 0);
             }
         }
 
@@ -2916,7 +3306,7 @@ namespace Stackshot
             previewWaiting[key] = waiting;
             MascotLook copy = look.Clone();
             Dispatcher ui = Dispatcher;
-            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            QueuePreview(delegate
             {
                 D.Bitmap bmp = null;
                 try
@@ -2924,7 +3314,7 @@ namespace Stackshot
                     bmp = new D.Bitmap(px, px, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
                     using (D.Graphics g = D.Graphics.FromImage(bmp))
                     {
-                        Mascot.RenderStill(g, MascotParts.PreviewBox(copy.Kind, px), copy);
+                        Mascot.RenderPreview(g, px, copy);
                     }
                 }
                 catch (Exception ex)
@@ -2932,16 +3322,21 @@ namespace Stackshot
                     ShotStack.Log("Vista previa: " + ex.Message);
                     if (bmp != null) { bmp.Dispose(); bmp = null; }
                 }
-                D.Bitmap done = bmp;
-                ui.BeginInvoke((Action)delegate
+                // Made into a (frozen) WPF picture here, off the UI thread.
+                BitmapSource done = null;
+                if (bmp != null)
+                {
+                    try { done = Ink.FromGdi(bmp); }
+                    catch (Exception ex) { ShotStack.Log("Vista previa: " + ex.Message); }
+                    finally { bmp.Dispose(); }
+                }
+                PreviewDone(ui, delegate
                 {
                     List<Image> imgs;
                     if (!previewWaiting.TryGetValue(key, out imgs)) imgs = new List<Image>();
                     previewWaiting.Remove(key);
                     if (done == null) { foreach (Image i in imgs) PreviewArrived(i); return; }
-                    BitmapSource s;
-                    try { s = Ink.FromGdi(done); }
-                    finally { done.Dispose(); }
+                    BitmapSource s = done;
                     TrimPreviews();
                     previewCache[key] = s;
                     foreach (Image i in imgs)
@@ -2954,6 +3349,135 @@ namespace Stackshot
                     }
                 });
             });
+        }
+
+        // ---- Ready before it is first opened
+
+        static bool mascotPrepared;
+
+        // A little after startup, with the window built but hidden: the code the mascot page runs is compiled on a
+        // low-priority thread, its stage light is drawn, and the look the mascot wears is drawn ahead at the stage's size,
+        // so neither the first visit to the page nor its first frames stall.
+        public void PrepareMascotPage()
+        {
+            if (mascotPrepared || !settings.MascotOn) return;
+            mascotPrepared = true;
+            try
+            {
+                StageSpotlight(StageBoxTop + StageBox * 0.9);
+                StageGrain();
+                MascotWarm.Ahead(MascotLook.From(settings), (float)(StageBox * DeviceScale()), OnUi, delegate { });
+                // Their static parts set up here, on this thread, as they would be on the page; only compiling moves away.
+                List<Type> types = new List<Type>();
+                foreach (Type t in new Type[] { typeof(HomeWindow), typeof(MascotHost), typeof(GdiLayer), typeof(Mascot), typeof(MascotWarm), typeof(SoftShadow) }) Nested(t, types);
+                foreach (Type t in types) if (!t.ContainsGenericParameters) System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(t.TypeHandle);
+                new System.Threading.Thread(delegate() { Precompile(types); }) { IsBackground = true, Priority = System.Threading.ThreadPriority.Lowest, Name = "Mascota: compilar" }.Start();
+            }
+            catch (Exception ex) { ShotStack.Log("Mascota, preparar la p\u00E1gina: " + ex.Message); }
+        }
+
+        // Rendimiento: what the mascot kept in memory goes (the dock's previews, the drawn parts), and is redone only if it
+        // comes back.
+        void ReleaseMascot()
+        {
+            previewCache.Clear();
+            previewInSlot.Clear();
+            previewWaiting.Clear();
+            MascotParts.DropPartCache();
+            MascotWarm.Forget();
+            mascotPrepared = false;
+        }
+
+        static void Nested(Type t, List<Type> into)
+        {
+            into.Add(t);
+            foreach (Type n in t.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)) Nested(n, into);
+        }
+
+        static void Precompile(List<Type> types)
+        {
+            const BindingFlags all = BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            foreach (Type t in types)
+            {
+                if (t.ContainsGenericParameters) continue;
+                try
+                {
+                    foreach (MethodInfo m in t.GetMethods(all))
+                        if (!m.IsAbstract && !m.ContainsGenericParameters && (m.Attributes & MethodAttributes.PinvokeImpl) == 0)
+                            try { System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(m.MethodHandle); } catch (Exception) { }
+                    foreach (ConstructorInfo c in t.GetConstructors(all))
+                        try { System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(c.MethodHandle); } catch (Exception) { }
+                }
+                catch (Exception) { }
+            }
+        }
+
+        // Finished previews go on screen a few at a time in the gaps between frames: a tab's worth of them arriving
+        // together never holds up a frame or the mouse.
+        static readonly Queue<Action> previewsDone = new Queue<Action>();
+        static bool previewsDraining;
+
+        static void PreviewDone(Dispatcher ui, Action show)
+        {
+            lock (previewsDone)
+            {
+                previewsDone.Enqueue(show);
+                if (previewsDraining) return;
+                previewsDraining = true;
+            }
+            ui.BeginInvoke(DispatcherPriority.Background, (Action)delegate { DrainPreviews(ui); });
+        }
+
+        static void DrainPreviews(Dispatcher ui)
+        {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp(), budget = System.Diagnostics.Stopwatch.Frequency * 3 / 1000;
+            while (true)
+            {
+                Action show;
+                lock (previewsDone)
+                {
+                    if (previewsDone.Count == 0) { previewsDraining = false; return; }
+                    show = previewsDone.Dequeue();
+                }
+                try { show(); }
+                catch (Exception ex) { ShotStack.Log("Vista previa: " + ex.Message); }
+                if (System.Diagnostics.Stopwatch.GetTimestamp() - t0 > budget) break;
+            }
+            ui.BeginInvoke(DispatcherPriority.Background, (Action)delegate { DrainPreviews(ui); });
+        }
+
+        static readonly Queue<Action> previewJobs = new Queue<Action>();
+        static int previewWorkers;
+
+        // Previews render on two low-priority workers in the order asked for, so a tab full of characters never takes
+        // every core from the window while it fills in.
+        static void QueuePreview(Action job)
+        {
+            lock (previewJobs)
+            {
+                previewJobs.Enqueue(job);
+                if (previewWorkers >= 2) return;
+                previewWorkers++;
+            }
+            new System.Threading.Thread(PreviewLoop) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal, Name = "Vistas previas" }.Start();
+        }
+
+        static void PreviewLoop()
+        {
+            try
+            {
+                while (true)
+                {
+                    Action job;
+                    lock (previewJobs)
+                    {
+                        if (previewJobs.Count == 0) { previewWorkers--; return; }
+                        job = previewJobs.Dequeue();
+                    }
+                    job();
+                }
+            }
+            finally { MascotParts.DropPartCache(); }
         }
 
         // Keeps the cache bounded; previews still on screen stay.

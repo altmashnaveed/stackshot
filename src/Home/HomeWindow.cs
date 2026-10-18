@@ -164,6 +164,7 @@ namespace Stackshot
                 }
                 ShowInTaskbar = true;
                 ShowActivated = true;
+                Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, (Action)PrepareMascotPage);
             };
             ContentRendered += done;
             Show();
@@ -248,9 +249,12 @@ namespace Stackshot
         {
             navList.Children.Clear();
             navRows.Clear();
-            for (int i = 0; i < PageIds.Length; i++) navList.Children.Add(NavItem(i));
+            for (int i = 0; i < PageIds.Length; i++) if (PageShown(PageIds[i])) navList.Children.Add(NavItem(i));
             UpdateNav(false);
         }
+
+        // The mascot's pages only where the profile has a mascot (Rendimiento leaves it out altogether).
+        bool PageShown(string id) { return settings.Profile != 0 || (id != "mascot" && id != "mascotset"); }
 
         FrameworkElement NavItem(int i)
         {
@@ -429,7 +433,7 @@ namespace Stackshot
 
         void SetPage(string id, bool animate)
         {
-            if (Array.IndexOf(PageIds, id) < 0 && id != "mascotset") id = "home";
+            if ((Array.IndexOf(PageIds, id) < 0 && id != "mascotset") || !PageShown(id)) id = "home";
             CancelListening();
             page = id;
             Build();
@@ -977,8 +981,9 @@ namespace Stackshot
             }
             if (ctrl && key == Key.Tab)
             {
-                int i = Array.IndexOf(PageIds, page == "mascotset" ? "mascot" : page) + (shift ? -1 : 1);
-                SetPage(PageIds[(i + PageIds.Length) % PageIds.Length], true);
+                int i = Array.IndexOf(PageIds, page == "mascotset" ? "mascot" : page), n = PageIds.Length;
+                do i = (i + (shift ? -1 : 1) + n) % n; while (!PageShown(PageIds[i]));
+                SetPage(PageIds[i], true);
                 e.Handled = true;
                 return;
             }
@@ -1240,7 +1245,20 @@ namespace Stackshot
         {
             mascot.Box = Box(k);
             mascot.Paint(g);
+            // What it just drew is in the UI thread's part cache from now on (MascotWarm doesn't draw it again).
+            if (mascot.Look != seenLook || mascot.Box.Width != seenSize)
+            {
+                seenLook = mascot.Look;
+                seenSize = mascot.Box.Width;
+                MascotWarm.Seen(seenLook, seenSize);
+            }
         }
+
+        MascotLook seenLook;
+        float seenSize;
+
+        // How wide this slot draws the mascot, in device pixels (a look prepared ahead for it is drawn at this size).
+        public float PaintSize { get { return (float)(box * Layer.Scale) * (float)Zoom(); } }
 
         double shownAlpha = -1;
         Palette shownPalette;

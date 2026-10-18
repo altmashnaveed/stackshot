@@ -536,7 +536,21 @@ namespace Stackshot
         // Neither a new look nor a capture interrupts a break in progress.
         public void LookChanged()
         {
-            m.Look = MascotLook.From(settings);
+            MascotLook l = MascotLook.From(settings);
+            lookDue = l;
+            // A look it hasn't drawn yet is drawn first on a worker (MascotWarm): changing clothes from the main window then
+            // doesn't stall that window's frames, which run on this same thread.
+            if (MascotWarm.Ahead(l, D, delegate(Action a) { if (IsHandleCreated && !IsDisposed) BeginInvoke(a); }, delegate { PutOn(l); })) return;
+            PutOn(l);
+        }
+
+        MascotLook lookDue;   // the newest look asked for, until it goes on
+
+        void PutOn(MascotLook l)
+        {
+            if (lookDue != l || IsDisposed) return;
+            lookDue = null;
+            m.Look = l;
             if (session < 0) m.Celebrate(null);
         }
 
@@ -927,17 +941,20 @@ namespace Stackshot
         }
 
         string pillLabelFor;
-        float pillLabelW, pillTimeW;
+        float pillLabelW, pillTimeW, pillMeasuredAt;
+        const TextFormatFlags PillFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
 
         RectangleF PillLayout(Graphics g, string time, string label)
         {
-            if (label != pillLabelFor)
+            // Measured as the system draws them (PillText).
+            if (label != pillLabelFor || s != pillMeasuredAt)
             {
                 pillLabelFor = label;
-                pillLabelW = g.MeasureString(label, Fonts.Get(Mac.TextFont, 12 * s), PointF.Empty, StringFormat.GenericTypographic).Width;
+                pillLabelW = TextRenderer.MeasureText(label, Fonts.Get(Mac.TextFont, 12 * s), Size.Empty, PillFlags).Width;
             }
             // The time takes the width of its widest digits, so the pill doesn't twitch every second.
-            if (pillTimeW == 0) pillTimeW = g.MeasureString("00:00", Fonts.Get(Fonts.DisplaySemibold, 14 * s), PointF.Empty, StringFormat.GenericTypographic).Width;
+            if (pillTimeW == 0 || s != pillMeasuredAt) pillTimeW = TextRenderer.MeasureText("00:00", Fonts.Get(Fonts.DisplaySemibold, 14 * s), Size.Empty, PillFlags).Width;
+            pillMeasuredAt = s;
             float tw = time.Length == 0 ? 0 : (time.Length > 5 ? pillTimeW * 1.4f : pillTimeW) + 7 * s;
             float w = 10 * s + 16 * s + 8 * s + tw + pillLabelW + 13 * s, h = 30 * s;
             float x = ClampX(MidX - w / 2, w), y = m.Box.Y - D * 0.38f - h;
@@ -981,22 +998,44 @@ namespace Stackshot
                         g.FillRectangle(bars, ring.X + rs * 0.55f, ring.Y + rs * 0.3f, rs * 0.11f, rs * 0.4f);
                     }
             }
-            float x = ring.Right + 8 * s;
-            using (SolidBrush ink = new SolidBrush(Color.White))
-            using (SolidBrush soft = new SolidBrush(Color.FromArgb(190, 255, 255, 255)))
-            {
-                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-                if (time.Length > 0)
+            // Its time and label, drawn sharp once a second (when the time changes) and copied in between.
+            Bitmap text = PillText(time, label, f.Asking, r, ring.Right + 8 * s);
+            CompositingMode mode = g.CompositingMode;
+            g.CompositingMode = CompositingMode.SourceCopy;
+            g.DrawImage(text, new Rectangle(pillTextAt.X + (int)r.X, pillTextAt.Y + (int)r.Y, text.Width, text.Height), 0, 0, text.Width, text.Height, GraphicsUnit.Pixel);
+            g.CompositingMode = mode;
+        }
+
+        Bitmap pillText;
+        string pillTextFor;
+        Point pillTextAt;   // where it goes, from the pill's top-left
+
+        Bitmap PillText(string time, string label, bool asking, RectangleF r, float left)
+        {
+            string key = time + "|" + label + "|" + asking + "|" + s + "|" + r.Size + "|" + (left - r.X);
+            if (pillText != null && pillTextFor == key) return pillText;
+            Font tf = Fonts.Get(Fonts.DisplaySemibold, 14 * s), lf = Fonts.Get(Mac.TextFont, 12 * s);
+            // Only round the text, inside the pill's round ends.
+            int lineH = Math.Max(TextRenderer.MeasureText("0", tf, Size.Empty, PillFlags).Height, TextRenderer.MeasureText("0", lf, Size.Empty, PillFlags).Height) + 2;
+            int x0 = (int)Math.Round(left - r.X) - 1, y0 = (int)Math.Round((r.Height - lineH) / 2), x1 = (int)Math.Round(r.Width - 13 * s) + 2;
+            Bitmap b = new Bitmap(Math.Max(1, x1 - x0), Math.Max(1, lineH), System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            using (Graphics g = Graphics.FromImage(b))
+                SharpText(g, new Rectangle(0, 0, b.Width, b.Height), CardOnShadow, delegate(Graphics lg, Rectangle lr, Color under)
                 {
-                    Font tf = Fonts.Get(Fonts.DisplaySemibold, 14 * s);
-                    SizeF ts = g.MeasureString(time, tf, PointF.Empty, StringFormat.GenericTypographic);
-                    g.DrawString(time, tf, ink, (float)Math.Round(x), (float)Math.Round(r.Y + (r.Height - ts.Height) / 2), StringFormat.GenericTypographic);
-                    x += (time.Length > 5 ? pillTimeW * 1.4f : pillTimeW) + 7 * s;
-                }
-                Font lf = Fonts.Get(Mac.TextFont, 12 * s);
-                SizeF ls = g.MeasureString(label, lf, PointF.Empty, StringFormat.GenericTypographic);
-                g.DrawString(label, lf, f.Asking ? ink : soft, (float)Math.Round(x), (float)Math.Round(r.Y + (r.Height - ls.Height) / 2), StringFormat.GenericTypographic);
-            }
+                    int x = 1;
+                    if (time.Length > 0)
+                    {
+                        TextRenderer.DrawText(lg, time, tf, new Rectangle(x, 0, lr.Width - x, lr.Height), Over(Color.White, under), PillFlags | TextFormatFlags.VerticalCenter);
+                        x += (int)Math.Round((time.Length > 5 ? pillTimeW * 1.4f : pillTimeW) + 7 * s);
+                    }
+                    TextRenderer.DrawText(lg, label, lf, new Rectangle(x, 0, Math.Max(1, lr.Width - x), lr.Height), Over(asking ? Color.White : Color.FromArgb(190, 255, 255, 255), under),
+                                          PillFlags | TextFormatFlags.VerticalCenter);
+                });
+            if (pillText != null) pillText.Dispose();
+            pillText = b;
+            pillTextFor = key;
+            pillTextAt = new Point(x0, y0);
+            return b;
         }
 
         void Header(string text)
@@ -1406,7 +1445,8 @@ namespace Stackshot
             bool menuMoving = (menu != null && now - menuAt < MenuInMs + 200) || (menuGone != null && now - menuGoneAt < MenuOutMs + 40);
             bool wantFast = state == State.Drag || state == State.Fall || state == State.Walk || slide != 0 || menuMoving;
             SetFast(wantFast);
-            SetInterval(MascotRate.Pet(false, wantFast, menu != null, m.Lively, now - lastNear < MascotRate.NearMs));
+            // Napping while the user is away nobody watches it: a slow clock (it wakes on the first input all the same).
+            SetInterval(asleepForAway && !wantFast && menu == null ? MascotRate.Background : MascotRate.Pet(false, wantFast, menu != null, m.Lively, now - lastNear < MascotRate.NearMs));
         }
 
         double lastNear = -1e9;
@@ -1486,6 +1526,8 @@ namespace Stackshot
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 m.Paint(g);
+                // What it just drew is in this thread's part cache from now on (MascotWarm doesn't draw it again).
+                if (m.Look != seenLook || D != seenSize) { seenLook = m.Look; seenSize = D; MascotWarm.Seen(seenLook, D); }
                 if (menu != null) PaintMenu(g, now, menu, menuRect, menuHot, false);
                 else if (menuGone != null) PaintMenu(g, now, menuGone, menuGoneRect, -1, true);
                 else if (bubble != null && m.BubbleAlpha >= 0.02) PaintBubble(g);
@@ -1508,6 +1550,8 @@ namespace Stackshot
         public static Action<double, double, int> Probe;
 
         RectangleF lastPaint, lastUi;
+        MascotLook seenLook;         // the look last drawn, and its size: already in the part cache
+        int seenSize;
         Point presentAt;             // top-left of the part of the surface currently shown
         string measuredFor;
         SizeF measured;
@@ -1586,8 +1630,13 @@ namespace Stackshot
         RectangleF BubbleLayout(Graphics g)
         {
             Font f = Fonts.Get(Mac.TextFont, 13 * s);
-            // Measured once per text, not every frame.
-            if (bubble != measuredFor) { measured = g.MeasureString(bubble, f, (int)(W - 60 * s)); measuredFor = bubble; }
+            // Measured once per text, not every frame, as the system draws it (see BubbleCard).
+            if (bubble != measuredFor)
+            {
+                Size sz = TextRenderer.MeasureText(bubble, f, new Size((int)(W - 60 * s), int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                measured = new SizeF(sz.Width, sz.Height);
+                measuredFor = bubble;
+            }
             float w = measured.Width + 26 * s, h = measured.Height + 16 * s;
             float x = ClampX(MidX - w / 2, w), y = m.Box.Y - D * 0.38f - h;
             return new RectangleF((float)Math.Round(x), (float)Math.Round(y), (float)Math.Ceiling(w), (float)Math.Ceiling(h));
@@ -1598,21 +1647,89 @@ namespace Stackshot
             if (bubble == null) return;
             double a = Math.Max(0, Math.Min(1, m.BubbleAlpha));
             if (a < 0.02) return;
-            Font f = Fonts.Get(Mac.TextFont, 13 * s);
             RectangleF r = BubbleLayout(g);
-            float x = r.X, y = r.Y, w = r.Width, h = r.Height;
-            using (GraphicsPath p = Theme.Round(r, 12 * s))
+            Bitmap card = BubbleCard(bubble, r, MidX);
+            Rectangle at = new Rectangle((int)r.X - CardPad, (int)r.Y - CardPad, card.Width, card.Height);
+            if (a >= 0.999) g.DrawImage(card, at, 0, 0, card.Width, card.Height, GraphicsUnit.Pixel);
+            else
+                using (System.Drawing.Imaging.ImageAttributes fade = new System.Drawing.Imaging.ImageAttributes())
+                {
+                    fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)a });
+                    g.DrawImage(card, at, 0, 0, card.Width, card.Height, GraphicsUnit.Pixel, fade);
+                }
+        }
+
+        // The speech bubble as one picture with its text drawn sharp (SharpText); redrawn only when what it says, its
+        // size or where its tail points change, and copied as it is on every other frame.
+        Bitmap bubbleCard;
+        string bubbleCardFor;
+        SizeF bubbleCardSize;
+        float bubbleCardTail, bubbleCardScale;
+
+        Bitmap BubbleCard(string text, RectangleF r, float midX)
+        {
+            float tail = midX - r.X;
+            if (bubbleCard != null && bubbleCardFor == text && bubbleCardSize == r.Size && bubbleCardTail == tail && bubbleCardScale == s) return bubbleCard;
+            int pad = CardPad;
+            Bitmap card = new Bitmap((int)Math.Ceiling(r.Width) + pad * 2, (int)Math.Ceiling(r.Height) + pad * 2, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            Color fill = Color.FromArgb(245, 52, 52, 60);
+            using (Graphics g = Graphics.FromImage(card))
             {
-                RectangleF sh = r;
-                sh.Offset(0, 3 * s);
-                using (GraphicsPath sp = Theme.Round(sh, 12 * s)) MascotParts.FillSolid(g, sp, Color.FromArgb((int)(60 * a), 0, 0, 0));
-                MascotParts.FillSolid(g, p, Color.FromArgb((int)(245 * a), 52, 52, 60));
-                PointF[] tail = { new PointF(MidX - 7 * s, r.Bottom - 1), new PointF(MidX, r.Bottom + 7 * s), new PointF(MidX + 7 * s, r.Bottom - 1) };
-                using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(245 * a), 52, 52, 60))) g.FillPolygon(b, tail);
-                MascotParts.Stroke(g, p, Color.FromArgb((int)(40 * a), 255, 255, 255), 1);
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                RectangleF b = new RectangleF(pad, pad, r.Width, r.Height);
+                using (GraphicsPath p = Theme.Round(b, 12 * s))
+                {
+                    RectangleF sh = b;
+                    sh.Offset(0, 3 * s);
+                    using (GraphicsPath sp = Theme.Round(sh, 12 * s)) MascotParts.FillSolid(g, sp, Color.FromArgb(60, 0, 0, 0));
+                    MascotParts.FillSolid(g, p, fill);
+                    float tx = pad + tail;
+                    PointF[] tp = { new PointF(tx - 7 * s, b.Bottom - 1), new PointF(tx, b.Bottom + 7 * s), new PointF(tx + 7 * s, b.Bottom - 1) };
+                    using (SolidBrush tb = new SolidBrush(fill)) g.FillPolygon(tb, tp);
+                    MascotParts.Stroke(g, p, Color.FromArgb(40, 255, 255, 255), 1);
+                }
+                Rectangle tr = new Rectangle(pad + (int)Math.Round(13 * s), pad + (int)Math.Round(8 * s), (int)Math.Ceiling(r.Width - 24 * s), (int)Math.Ceiling(r.Height - 12 * s));
+                Font f = Fonts.Get(Mac.TextFont, 13 * s);
+                SharpText(g, tr, CardOnShadow, delegate(Graphics lg, Rectangle lr, Color under)
+                {
+                    TextRenderer.DrawText(lg, text, f, lr, Over(Mac.Text, under), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                });
             }
-            using (SolidBrush tb = new SolidBrush(Color.FromArgb((int)(255 * a), Mac.Text)))
-                { g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit; g.DrawString(bubble, f, tb, new RectangleF((float)Math.Round(x + 13 * s), (float)Math.Round(y + 8 * s), (float)Math.Ceiling(w - 24 * s), (float)Math.Ceiling(h - 12 * s))); }
+            if (bubbleCard != null) bubbleCard.Dispose();
+            bubbleCard = card;
+            bubbleCardFor = text; bubbleCardSize = r.Size; bubbleCardTail = tail; bubbleCardScale = s;
+            return card;
+        }
+
+        // The dark card of the bubble and the focus clock (245, 52, 52, 60) as it comes out over the soft shadow under it,
+        // premultiplied as GDI+ blends them: what the text's layer has to match.
+        static readonly Color CardOnShadow = Color.FromArgb(247, 52, 52, 60);
+
+        // Text drawn by the system, sharp (ClearType, as in its own menus), on a card of colour bg at bg's opacity. ClearType
+        // needs a solid background: draw puts the text on an opaque layer of the card's colour (lr: the layer, under: its
+        // colour), which is then copied over the card at the card's opacity, so the two match exactly. r must lie on the
+        // card's flat colour, clear of its rounded corners.
+        static void SharpText(Graphics g, Rectangle r, Color bg, Action<Graphics, Rectangle, Color> draw)
+        {
+            if (r.Width < 1 || r.Height < 1) return;
+            Color solid = Color.FromArgb(255, bg);
+            using (Bitmap layer = new Bitmap(r.Width, r.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb))
+            {
+                using (Graphics lg = Graphics.FromImage(layer))
+                {
+                    lg.Clear(solid);
+                    lg.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;   // the quality TextRenderer asks the system for
+                    draw(lg, new Rectangle(0, 0, r.Width, r.Height), solid);
+                }
+                CompositingMode mode = g.CompositingMode;
+                g.CompositingMode = CompositingMode.SourceCopy;
+                using (System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes())
+                {
+                    ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = bg.A / 255f });
+                    g.DrawImage(layer, r, 0, 0, r.Width, r.Height, GraphicsUnit.Pixel, ia);
+                }
+                g.CompositingMode = mode;
+            }
         }
 
         // Keeps a bubble of width w inside the monitor, even when the mascot stands at an edge.
@@ -1740,8 +1857,6 @@ namespace Stackshot
             menuSticky = menuFocus = false;
         }
 
-        static Color Fade(Color c, double k) { return Color.FromArgb((int)Math.Round(c.A * Math.Max(0, Math.Min(1, k))), c); }
-
         // The menu's card (without the arrow): its size from what it holds, above the mascot and inside the monitor.
         bool menuDown;   // the menu had to come down over the mascot (no room above it)
 
@@ -1756,9 +1871,10 @@ namespace Stackshot
                 if (ch.Header) { header = true; continue; }
                 h += ch.Sep ? sepH : rowH;
                 if (ch.Sep) continue;
-                // Wide enough for every label and its shortcut side by side, within the window.
-                if (ch.TextW == 0) ch.TextW = g.MeasureString(ch.Text, item).Width;
-                if (ch.Detail != null && ch.DetailW == 0) ch.DetailW = g.MeasureString(ch.Detail, small).Width;
+                // Wide enough for every label and its shortcut side by side, within the window (measured as the system
+                // draws them, see PaintRows).
+                if (ch.TextW == 0) ch.TextW = TextRenderer.MeasureText(ch.Text, item, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix).Width;
+                if (ch.Detail != null && ch.DetailW == 0) ch.DetailW = TextRenderer.MeasureText(ch.Detail, small, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix).Width;
                 w = Math.Max(w, (float)Math.Ceiling(33 * s + ch.TextW + (ch.Detail != null ? 16 * s + ch.DetailW : 0) + 12 * s + pad * 2));
             }
             if (header) w = Math.Max(w, 270 * s);
@@ -1767,7 +1883,8 @@ namespace Stackshot
             foreach (Choice ch in menu)
                 if (ch.Header)
                 {
-                    if (ch.HeaderH == 0) ch.HeaderH = (float)Math.Ceiling(g.MeasureString(ch.Text, item, (int)(w - pad * 2 - 20 * s)).Height + 14 * s);
+                    if (ch.HeaderH == 0)
+                        ch.HeaderH = (float)Math.Ceiling(TextRenderer.MeasureText(ch.Text, item, new Size((int)(w - pad * 2 - 20 * s), int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height + 14 * s);
                     h += ch.HeaderH;
                 }
             float x = ClampX(MidX - w / 2 - 14 * s, w + 28 * s) + 14 * s, y = m.Box.Y - D * 0.22f - arrow - h;
@@ -1784,10 +1901,7 @@ namespace Stackshot
         // list and box: the open menu, or the one fading out after it closed (away).
         void PaintMenu(Graphics g, double now, List<Choice> list, RectangleF box, int hotRow, bool away)
         {
-            Palette pal = Ds.Brushes;
-            bool dark = pal.Dark;
-            Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
-            float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, arrow = 7 * s;
+            float arrow = 7 * s;
             float x = box.X, y = box.Y, w = box.Width, h = box.Height;
 
             // Opening: it fades in and grows up out of the arrow, eased out. Closing: a quick fade and a slight shrink.
@@ -1809,8 +1923,10 @@ namespace Stackshot
                 rise = 8 * s * (1 - p);
             }
             float tailX = Math.Max(x + 22 * s, Math.Min(x + w - 22 * s, MidX));
+            Bitmap card = MenuCard(list, box, hotRow, tailX);
+            Rectangle at = new Rectangle((int)Math.Round(x) - CardPad, (int)Math.Round(y) - CardPad, card.Width, card.Height);
             GraphicsState st = g.Save();
-            // Moved only while it settles: once there, it is drawn at exactly its size, with no transform left over that
+            // Moved only while it settles: once there, it is copied pixel for pixel, with no transform left over that
             // would soften the text.
             if (sc < 0.997 || rise > 0.05)
             {
@@ -1819,40 +1935,107 @@ namespace Stackshot
                 g.ScaleTransform((float)sc, (float)sc);
                 g.TranslateTransform(-tailX, -oy);
             }
+            if (a >= 0.999) g.DrawImage(card, at, 0, 0, card.Width, card.Height, GraphicsUnit.Pixel);
+            else
+                using (System.Drawing.Imaging.ImageAttributes fade = new System.Drawing.Imaging.ImageAttributes())
+                {
+                    fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)a });
+                    g.DrawImage(card, at, 0, 0, card.Width, card.Height, GraphicsUnit.Pixel, fade);
+                }
+            g.Restore(st);
+        }
 
+        // The menu as one picture: its shadow, card, arrow and rows. Its text is drawn by the system as in its own menus
+        // (ClearType, sharp), which needs a solid background: the rows go on an opaque layer first, then onto the card.
+        // Redrawn only when the row under the mouse, the choices, the place or the theme change; a frame just copies it.
+        Bitmap menuCard;
+        List<Choice> cardFor;
+        int cardHot = -2;
+        RectangleF cardBox;
+        float cardTail, cardScale;
+        bool cardDown;
+        Palette cardPalette;
+
+        // Room around the card for its shadow and arrow.
+        int CardPad { get { return (int)Math.Ceiling(14 * s); } }
+
+        Bitmap MenuCard(List<Choice> list, RectangleF box, int hotRow, float tailX)
+        {
+            Palette pal = Ds.Brushes;
+            if (menuCard != null && cardFor == list && cardHot == hotRow && cardBox == box && cardTail == tailX && cardDown == menuDown && cardPalette == pal && cardScale == s)
+                return menuCard;
+            bool dark = pal.Dark;
+            Font item = Fonts.Get(Mac.TextFont, 13 * s), small = Fonts.Get(Mac.TextFont, 12 * s);
+            float rowH = 28 * s, sepH = 9 * s, pad = 5 * s, arrow = 7 * s;
+            float x = (float)Math.Round(box.X), y = (float)Math.Round(box.Y), w = box.Width, h = box.Height;
+            int cp0 = CardPad;
+            Bitmap card = new Bitmap((int)Math.Ceiling(w) + cp0 * 2, (int)Math.Ceiling(h) + cp0 + (int)Math.Ceiling(22 * s), System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             Color bg = pal.High ? Ds.Gdi(pal.Window) : dark ? Color.FromArgb(44, 44, 47) : Color.FromArgb(250, 250, 251);
             Color border = pal.High ? Ds.Gdi(pal.Hairline) : dark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
-            // Soft shadow: stacked rounded rectangles that fade out.
-            for (int i = pal.High ? 0 : 8; i >= 1; i--)
+            bg = Color.FromArgb(255, bg);
+            using (Graphics g = Graphics.FromImage(card))
             {
-                RectangleF sr = box;
-                sr.Inflate(i * 1.5f * s, i * 1.5f * s);
-                sr.Offset(0, 5 * s);
-                double f = 1 - i / 9.0;
-                using (GraphicsPath sp = Theme.Round(sr, 10 * s + i * 1.5f * s))
-                    MascotParts.FillSolid(g, sp, Color.FromArgb((int)((dark ? 15 : 8) * f * f * a + 0.5), 0, 0, 0));
-            }
-            using (GraphicsPath cp = Theme.Round(box, 10 * s))
-            using (GraphicsPath tp = new GraphicsPath())
-            {
-                MascotParts.FillSolid(g, cp, Fade(bg, a));
-                if (!menuDown)
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TranslateTransform(cp0 - x, cp0 - y);
+                // Soft shadow: stacked rounded rectangles that fade out.
+                for (int i = pal.High ? 0 : 8; i >= 1; i--)
                 {
-                    tp.AddPolygon(new PointF[] { new PointF(tailX - 7 * s, y + h - 0.5f), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h - 0.5f) });
-                    MascotParts.FillSolid(g, tp, Fade(bg, a));
+                    RectangleF sr = box;
+                    sr.Inflate(i * 1.5f * s, i * 1.5f * s);
+                    sr.Offset(0, 5 * s);
+                    double f = 1 - i / 9.0;
+                    using (GraphicsPath sp = Theme.Round(sr, 10 * s + i * 1.5f * s))
+                        MascotParts.FillSolid(g, sp, Color.FromArgb((int)((dark ? 15 : 8) * f * f + 0.5), 0, 0, 0));
                 }
-                MascotParts.Stroke(g, cp, Fade(border, a), 1);
-                // The arrow's two sides, drawn over the card border where they meet.
-                if (!menuDown)
-                using (Pen pen = new Pen(Fade(border, a), 1))
+                using (GraphicsPath cp = Theme.Round(box, 10 * s))
+                using (GraphicsPath tp = new GraphicsPath())
                 {
-                    pen.LineJoin = LineJoin.Round;
-                    g.DrawLines(pen, new PointF[] { new PointF(tailX - 7 * s, y + h), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h) });
+                    MascotParts.FillSolid(g, cp, bg);
+                    if (!menuDown)
+                    {
+                        tp.AddPolygon(new PointF[] { new PointF(tailX - 7 * s, y + h - 0.5f), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h - 0.5f) });
+                        MascotParts.FillSolid(g, tp, bg);
+                    }
+                    MascotParts.Stroke(g, cp, border, 1);
+                    // The arrow's two sides, drawn over the card border where they meet.
+                    if (!menuDown)
+                    using (Pen pen = new Pen(border, 1))
+                    {
+                        pen.LineJoin = LineJoin.Round;
+                        g.DrawLines(pen, new PointF[] { new PointF(tailX - 7 * s, y + h), new PointF(tailX, y + h + arrow), new PointF(tailX + 7 * s, y + h) });
+                    }
+                    if (!menuDown) using (SolidBrush cover = new SolidBrush(bg)) g.FillRectangle(cover, tailX - 6.2f * s, y + h - 1.5f, 12.4f * s, 2.2f);
                 }
-                if (!menuDown) using (SolidBrush cover = new SolidBrush(Fade(bg, a))) g.FillRectangle(cover, tailX - 6.2f * s, y + h - 1.5f, 12.4f * s, 2.2f);
-            }
 
-            Color label = Ds.Gdi(pal.Label), label2 = Ds.Gdi(pal.Label2);
+                // The rows' layer: inside the card's rounded corners and clear of its border.
+                int lx = (int)Math.Floor(x + pad) - 1, ly = (int)Math.Floor(y + pad) - 1;
+                int lw = (int)Math.Ceiling(x + w - pad) + 1 - lx, lh = (int)Math.Ceiling(y + h - pad) + 1 - ly;
+                using (Bitmap layer = new Bitmap(Math.Max(1, lw), Math.Max(1, lh), System.Drawing.Imaging.PixelFormat.Format32bppRgb))
+                {
+                    using (Graphics lg = Graphics.FromImage(layer))
+                    {
+                        lg.Clear(bg);
+                        lg.SmoothingMode = SmoothingMode.AntiAlias;
+                        lg.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;   // the quality TextRenderer asks the system for
+                        lg.TranslateTransform(-lx, -ly);
+                        PaintRows(lg, list, x, y, w, hotRow, bg, lx, ly, item, small, rowH, sepH, pad);
+                    }
+                    g.DrawImage(layer, new Rectangle(lx, ly, layer.Width, layer.Height), 0, 0, layer.Width, layer.Height, GraphicsUnit.Pixel);
+                }
+            }
+            if (menuCard != null) menuCard.Dispose();
+            menuCard = card;
+            cardFor = list; cardHot = hotRow; cardBox = box; cardTail = tailX; cardDown = menuDown; cardPalette = pal; cardScale = s;
+            return card;
+        }
+
+        // The rows on the opaque layer (g is translated to the window's surface; ox, oy: where the layer sits on it, for
+        // the text, which the system draws in the layer's own pixels).
+        void PaintRows(Graphics g, List<Choice> list, float x, float y, float w, int hotRow, Color bg, int ox, int oy, Font item, Font small, float rowH, float sepH, float pad)
+        {
+            Palette pal = Ds.Brushes;
+            Color label = Ds.Gdi(pal.Label), label2 = Ds.Gdi(pal.Label2), accent = Color.FromArgb(255, Ds.Gdi(pal.Accent));
+            const TextFormatFlags Line = TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix;
             float ry = y + pad;
             for (int i = 0; i < list.Count; i++)
             {
@@ -1860,17 +2043,17 @@ namespace Stackshot
                 if (c.Header)
                 {
                     c.R = RectangleF.Empty;
-                    using (SolidBrush ink = new SolidBrush(Fade(label, a)))
-                        g.DrawString(c.Text, item, ink, new RectangleF((float)Math.Round(x + pad + 10 * s), (float)Math.Round(ry + 6 * s), w - pad * 2 - 20 * s, c.HeaderH - 8 * s));
+                    Rectangle hr = new Rectangle((int)Math.Round(x + pad + 10 * s) - ox, (int)Math.Round(ry + 6 * s) - oy, (int)(w - pad * 2 - 20 * s), (int)Math.Ceiling(c.HeaderH - 8 * s));
+                    TextRenderer.DrawText(g, c.Text, item, hr, Over(label, bg), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
                     ry += c.HeaderH;
                     float hy = (float)Math.Round(ry - 2 * s);
-                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, hy, x + w - 10 * s, hy);
+                    using (Pen sp = new Pen(Ds.Gdi(pal.Separator), 1)) g.DrawLine(sp, x + 10 * s, hy, x + w - 10 * s, hy);
                     continue;
                 }
                 if (c.Sep)
                 {
                     float sy = (float)Math.Round(ry + sepH / 2);
-                    using (Pen sp = new Pen(Fade(Ds.Gdi(pal.Separator), a), 1)) g.DrawLine(sp, x + 10 * s, sy, x + w - 10 * s, sy);
+                    using (Pen sp = new Pen(Ds.Gdi(pal.Separator), 1)) g.DrawLine(sp, x + 10 * s, sy, x + w - 10 * s, sy);
                     c.R = RectangleF.Empty;
                     ry += sepH;
                     continue;
@@ -1878,30 +2061,29 @@ namespace Stackshot
                 // Rows on whole pixels too: 9 px separators at 125 % would leave the rows below on half pixels.
                 c.R = new RectangleF((float)Math.Round(x + pad), (float)Math.Round(ry), (float)Math.Round(w - pad * 2), (float)Math.Round(rowH));
                 bool hot = i == hotRow;
+                Color under = hot ? accent : bg;
                 if (hot)
-                    using (GraphicsPath hp = Theme.Round(c.R, 6 * s)) MascotParts.FillSolid(g, hp, Fade(Ds.Gdi(pal.Accent), a));
+                    using (GraphicsPath hp = Theme.Round(c.R, 6 * s)) MascotParts.FillSolid(g, hp, accent);
                 Color fg = hot ? Ds.Gdi(pal.OnAccent) : label;
-                Icons.Draw(g, c.Icon, new RectangleF(c.R.X + 8 * s, c.R.Y + (rowH - 17 * s) / 2, 17 * s, 17 * s), Fade(hot ? fg : label2, a));
-                using (SolidBrush ink = new SolidBrush(Fade(fg, a)))
-                using (StringFormat sf = new StringFormat())
+                Icons.Draw(g, c.Icon, new RectangleF(c.R.X + 8 * s, c.R.Y + (rowH - 17 * s) / 2, 17 * s, 17 * s), hot ? fg : label2);
+                // The label never runs under the shortcut: a very long one ends in "…".
+                float labelW = c.R.Width - 36 * s - (c.Detail != null ? c.DetailW + 16 * s : 0);
+                Rectangle lr = new Rectangle((int)Math.Round(c.R.X + 33 * s) - ox, (int)c.R.Y - oy, (int)Math.Max(10 * s, labelW), (int)c.R.Height);
+                TextRenderer.DrawText(g, c.Text, item, lr, Over(fg, under), Line | TextFormatFlags.EndEllipsis);
+                if (c.Detail != null)
                 {
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.FormatFlags = StringFormatFlags.NoWrap;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    // The label never runs under the shortcut: a very long one ends in "…".
-                    float labelW = c.R.Width - 36 * s - (c.Detail != null ? c.DetailW + 16 * s : 0);
-                    g.DrawString(c.Text, item, ink, new RectangleF((float)Math.Round(c.R.X + 33 * s), c.R.Y, Math.Max(10 * s, labelW), c.R.Height), sf);
-                    sf.Trimming = StringTrimming.None;
-                    if (c.Detail != null)
-                    {
-                        sf.Alignment = StringAlignment.Far;
-                        using (SolidBrush dk = new SolidBrush(Fade(hot ? fg : label2, a)))
-                            g.DrawString(c.Detail, small, dk, new RectangleF(c.R.X, c.R.Y, c.R.Width - 10 * s, c.R.Height), sf);
-                    }
+                    Rectangle dr = new Rectangle((int)c.R.X - ox, (int)c.R.Y - oy, (int)(c.R.Width - 10 * s), (int)c.R.Height);
+                    TextRenderer.DrawText(g, c.Detail, small, dr, Over(hot ? fg : label2, under), Line | TextFormatFlags.Right);
                 }
                 ry += rowH;
             }
-            g.Restore(st);
+        }
+
+        // The system draws text in a solid colour: a translucent one (the secondary labels) is mixed over its background first.
+        static Color Over(Color fg, Color bg)
+        {
+            double k = fg.A / 255.0;
+            return Color.FromArgb(255, (int)Math.Round(bg.R + (fg.R - bg.R) * k), (int)Math.Round(bg.G + (fg.G - bg.G) * k), (int)Math.Round(bg.B + (fg.B - bg.B) * k));
         }
 
         // Choices and the menu are laid out on the whole drawing surface, but the window shown on screen is only the part of
@@ -2014,6 +2196,9 @@ namespace Stackshot
             timer.Dispose();
             if (spotDue > 0) { spotDue = 0; settings.Save(); }
             if (dib != null) dib.Dispose();
+            if (menuCard != null) { menuCard.Dispose(); menuCard = null; }
+            if (bubbleCard != null) { bubbleCard.Dispose(); bubbleCard = null; }
+            if (pillText != null) { pillText.Dispose(); pillText = null; }
         }
     }
 }
