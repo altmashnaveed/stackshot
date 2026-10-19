@@ -351,7 +351,8 @@ namespace Stackshot
                 if (Bg.BgRadius == v) return false;
                 Bg.BgRadius = v;
             }
-            Invalidate();
+            // Only this slider (with room for its knob and shadow): the swatches, some of them pictures, stay as they are.
+            Invalidate(Rectangle.Inflate(it.R, P(16), P(8)));
             Fire(Changed);
             return true;
         }

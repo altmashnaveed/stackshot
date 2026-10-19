@@ -47,12 +47,20 @@ namespace Stackshot
         // Presentation backdrop: with BgOn, the capture is shown (and exported) on Bg's background.
         public Settings Bg;
         public bool BgOn;
-        public bool Live;          // while a backdrop slider is dragged: fast scaling, high quality afterwards
+        // While a backdrop slider is dragged: fast scaling, high quality afterwards.
+        public bool Live
+        {
+            get { return slidingBg; }
+            set { if (slidingBg && !value) SlideDone(); slidingBg = value; }
+        }
+        bool slidingBg;
         bool viewLive;
         Rectangle frameScreen;
         float radiusScreen;
-        Bitmap bgView, roundView;
-        string bgKey, roundKey;
+        Bitmap bgFill, roundView;
+        Backdrop.ShadowPiece[] bgShadow;
+        string fillKey, fillPreset, shadowKey, roundKey;
+        bool fillLive;
 
         // Playback: the newest decoded frame is drawn instead of Img (at the size it was decoded at) until the exact frame
         // replaces Img. Written from the player's thread, drawn from the UI thread.
@@ -266,26 +274,103 @@ namespace Stackshot
             spacePan = false;
         }
 
-        // Background and shadow at screen scale, rebuilt only when something changes. Keyed by size and the capture's
-        // place inside the frame, not by screen position, so panning and scrolling reuse it.
-        Bitmap BgView(Rectangle ir)
+        // Background and shadow at screen scale, as two layers rebuilt only when what they depend on changes: the
+        // background by the frame's size, the shadow by the capture's size and corners (dragging "Esquinas" never
+        // repaints the background). Not keyed by screen position, so panning and scrolling reuse them. While a slider
+        // is dragged (Live) a new one is made the fast way and a sharp one replaces it on release.
+        void DrawBackdrop(Graphics g, Rectangle ir)
         {
-            Rectangle inner = new Rectangle(ir.X - frameScreen.X, ir.Y - frameScreen.Y, ir.Width, ir.Height);
-            string key = Bg.BgPreset + "|" + Backdrop.Name(Bg.BgPreset) + "|" + Bg.BgPadding + "|" + Bg.BgRadius + "|" + Bg.BgShadow + "|" + Bg.BgRatio + "|" + frameScreen.Size + "|" + inner;
-            if (bgView != null && key == bgKey) return bgView;
-            if (bgView != null) bgView.Dispose();
-            bgView = Backdrop.Background(frameScreen.Size, inner, Bg, (int)Math.Round(radiusScreen));
-            bgKey = key;
-            return bgView;
+            string preset = Bg.BgPreset + "|" + Backdrop.Name(Bg.BgPreset), fk = preset + "|" + frameScreen.Size;
+            if (Live && bgFill != null && fillPreset == preset && fk != fillKey)
+            {
+                // "Margen" being dragged: the background already made, stretched to the new frame (a step is a few pixels).
+                InterpolationMode im = g.InterpolationMode;
+                PixelOffsetMode pm = g.PixelOffsetMode;
+                g.InterpolationMode = InterpolationMode.Bilinear;
+                g.PixelOffsetMode = PixelOffsetMode.Half;
+                g.DrawImage(bgFill, frameScreen);
+                g.InterpolationMode = im;
+                g.PixelOffsetMode = pm;
+            }
+            else
+            {
+                if (bgFill == null || fk != fillKey || (fillLive && !Live))
+                {
+                    if (bgFill != null) bgFill.Dispose();
+                    bgFill = Backdrop.Fill(frameScreen.Size, Bg, Live);
+                    fillKey = fk;
+                    fillPreset = preset;
+                    fillLive = Live;
+                }
+                g.DrawImageUnscaled(bgFill, frameScreen.X, frameScreen.Y);
+            }
+            Probe(ref slideFill);
+            if (!Bg.BgShadow) return;
+            int radius = (int)Math.Round(radiusScreen);
+            string sk = ir.Size + "|" + radius;
+            if (bgShadow == null || sk != shadowKey)
+            {
+                DropShadow();
+                bgShadow = Backdrop.ShadowPieces(new Rectangle(Point.Empty, ir.Size), radius);
+                shadowKey = sk;
+            }
+            // Within the frame, as when it was drawn on the background itself; upscaled straight to the screen.
+            GraphicsState st = g.Save();
+            g.SetClip(frameScreen, CombineMode.Intersect);
+            foreach (Backdrop.ShadowPiece p in bgShadow) p.Draw(g, ir.Location, Live);
+            g.Restore(st);
+            Probe(ref slideShadow);
         }
 
-        // Scaled capture with antialiased rounded corners.
-        Bitmap RoundView(Bitmap v)
+        // A backdrop setting changed. While "Esquinas" is dragged the frame keeps its place and size: only inside it
+        // changes, so the floating shadow around it and the rest of the canvas aren't painted again.
+        public void BackdropChanged()
         {
-            string key = v.GetHashCode() + "|" + v.Size + "|" + Math.Round(radiusScreen, 1);
+            Rectangle before = frameScreen;
+            Fit();
+            if (Live && BgOn && Bg != null && before == frameScreen && before.Width > 1) Invalidate(before);
+            else Invalidate();
+        }
+
+        void DropShadow()
+        {
+            if (bgShadow != null) foreach (Backdrop.ShadowPiece p in bgShadow) p.Dispose();
+            bgShadow = null;
+        }
+
+        // While a backdrop slider is dragged, what each repaint costs, written to the log on release: the place to look
+        // if dragging ever feels slow.
+        long slideAt;
+        double slideFill, slideShadow, slideView, slideMarks, slideTotal, slideWorst;
+        int slideFrames;
+
+        void Probe(ref double into)
+        {
+            if (!Live) return;
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            into += (now - slideAt) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            slideAt = now;
+        }
+
+        void SlideDone()
+        {
+            if (slideFrames == 0) return;
+            int n = slideFrames;
+            ShotStack.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "Fondo: {0} repintados al arrastrar, media {1:0.0} ms, peor {2:0.0} ms (relleno {3:0.0}, sombra {4:0.0}, captura {5:0.0}, marcas {6:0.0}) a {7}x{8}",
+                n, slideTotal / n, slideWorst, slideFill / n, slideShadow / n, slideView / n, slideMarks / n, frameScreen.Width, frameScreen.Height));
+            slideFrames = 0;
+            slideFill = slideShadow = slideView = slideMarks = slideTotal = slideWorst = 0;
+        }
+
+        // Scaled capture with antialiased rounded corners; drawn into the same bitmap while the size stays.
+        Bitmap RoundView(Bitmap v, float radius)
+        {
+            string key = v.GetHashCode() + "|" + v.Size + "|" + Math.Round(radius, 1);
             if (roundView != null && key == roundKey) return roundView;
-            if (roundView != null) roundView.Dispose();
-            roundView = Backdrop.Rounded(v, radiusScreen);
+            Bitmap made = Backdrop.Rounded(v, radius, roundView);
+            if (roundView != null && made != roundView) roundView.Dispose();
+            roundView = made;
             roundKey = key;
             return roundView;
         }
@@ -351,6 +436,8 @@ namespace Stackshot
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
+            long paintAt = System.Diagnostics.Stopwatch.GetTimestamp();
+            slideAt = paintAt;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             Fit();
             g.Clear(EdLook.Surround);
@@ -358,19 +445,36 @@ namespace Stackshot
             int vw = Math.Max(1, (int)Math.Round(Crop.Width * k)), vh = Math.Max(1, (int)Math.Round(Crop.Height * k));
             bool direct = !bg && (double)vw * vh > DirectPixels;
             bool playing = LiveOn;
-            Bitmap v = direct || playing ? null : View();
+            // "Margen" being dragged changes the scale a little on every step: the capture already scaled is stretched
+            // meanwhile, and scaled properly from the original on release.
+            bool stale = bg && Live && view != null && viewCrop == Crop;
+            Bitmap v = direct || playing ? null : stale ? view : View();
+            Probe(ref slideView);
             Rectangle ir = new Rectangle((int)off.X, (int)off.Y, vw, vh);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             if (bg)
             {
                 // The shadow lies outside the frame: a repaint inside it (dragging a mark) never reaches it.
                 if (!frameScreen.Contains(e.ClipRectangle)) FloatShadow(g, frameScreen);
-                g.DrawImageUnscaled(BgView(ir), frameScreen.X, frameScreen.Y);
+                Probe(ref slideShadow);
+                DrawBackdrop(g, ir);
                 if (!(playing && DrawLive(g, ir, true)))
                 {
                     if (v == null) v = View();
-                    g.DrawImageUnscaled(radiusScreen >= 0.5f ? RoundView(v) : v, ir.X, ir.Y);
+                    if (v.Width == ir.Width && v.Height == ir.Height) g.DrawImageUnscaled(radiusScreen >= 0.5f ? RoundView(v, radiusScreen) : v, ir.X, ir.Y);
+                    else
+                    {
+                        float r = radiusScreen * v.Width / (float)ir.Width;   // the corners as they will look once stretched
+                        InterpolationMode im = g.InterpolationMode;
+                        PixelOffsetMode pm = g.PixelOffsetMode;
+                        g.InterpolationMode = InterpolationMode.Bilinear;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
+                        g.DrawImage(r >= 0.5f ? RoundView(v, r) : v, ir);
+                        g.InterpolationMode = im;
+                        g.PixelOffsetMode = pm;
+                    }
                 }
+                Probe(ref slideView);
             }
             else
             {
@@ -394,6 +498,14 @@ namespace Stackshot
             g.ScaleTransform(k, k);
             Painter.DrawMarks(g, shapes, cur != null && cur.Kind != Tool.Crop ? cur : null, editing, Img, Crop);
             g.Restore(st);
+            Probe(ref slideMarks);
+            if (Live)
+            {
+                double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - paintAt) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                slideTotal += ms;
+                slideWorst = Math.Max(slideWorst, ms);
+                slideFrames++;
+            }
             if (box != null)
             {
                 // The view moved under the box (a pan, the backdrop toggled or resized): it follows on this paint.
@@ -1615,7 +1727,8 @@ namespace Stackshot
             foreach (Shape s in shapes) s.DropCache();
             if (cur != null) cur.DropCache();
             if (view != null) view.Dispose();
-            if (bgView != null) bgView.Dispose();
+            if (bgFill != null) bgFill.Dispose();
+            DropShadow();
             if (roundView != null) roundView.Dispose();
             lock (liveLock)
             {

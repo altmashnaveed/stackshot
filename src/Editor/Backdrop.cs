@@ -212,7 +212,7 @@ namespace Stackshot
             float w = img.Width * k, h = img.Height * k;
             InterpolationMode im = g.InterpolationMode;
             PixelOffsetMode pm = g.PixelOffsetMode;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.InterpolationMode = quick ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             using (ImageAttributes ia = new ImageAttributes())
             {
@@ -249,7 +249,7 @@ namespace Stackshot
                     float w = wp.Width * k, h = wp.Height * k;
                     InterpolationMode im = g.InterpolationMode;
                     PixelOffsetMode pm = g.PixelOffsetMode;
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.InterpolationMode = quick ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBicubic;
                     g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     using (ImageAttributes ia = new ImageAttributes())
                     {
@@ -302,6 +302,23 @@ namespace Stackshot
             return b;
         }
 
+        // The editor's preview draws the background and the shadow as separate layers, so dragging the corner slider
+        // never repaints the background, and a slider being dragged scales images the fast way (quick).
+        [ThreadStatic] static bool quick;
+
+        public static Bitmap Fill(Size frame, Settings s, bool fast)
+        {
+            Bitmap b = new Bitmap(Math.Max(1, frame.Width), Math.Max(1, frame.Height), PixelFormat.Format32bppPArgb);
+            using (Graphics g = Graphics.FromImage(b))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                quick = fast;
+                try { Paint(g, new Rectangle(0, 0, b.Width, b.Height), Clamp(s.BgPreset), false); }
+                finally { quick = false; }
+            }
+            return b;
+        }
+
         public static Bitmap Compose(Bitmap content, Settings s)
         {
             Size frame;
@@ -317,9 +334,13 @@ namespace Stackshot
 
         // Copy with antialiased rounded corners. Only the corner pixels are touched, which is far faster than filling a
         // path with a texture brush.
-        public static Bitmap Rounded(Bitmap src, float radius)
+        public static Bitmap Rounded(Bitmap src, float radius) { return Rounded(src, radius, null); }
+
+        // reuse: a bitmap of the same size to draw into (the preview while a slider moves), or null for a new one.
+        public static Bitmap Rounded(Bitmap src, float radius, Bitmap reuse)
         {
-            Bitmap b = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppPArgb);
+            Bitmap b = reuse != null && reuse.Size == src.Size && reuse.PixelFormat == PixelFormat.Format32bppPArgb
+                ? reuse : new Bitmap(src.Width, src.Height, PixelFormat.Format32bppPArgb);
             using (Graphics g = Graphics.FromImage(b))
             {
                 g.CompositingMode = CompositingMode.SourceCopy;
@@ -358,35 +379,56 @@ namespace Stackshot
         // Two macOS-style shadows: a wide soft one and a tight one that grounds the window.
         static void Shadow(Graphics g, Rectangle inner, int radius)
         {
-            double u = Unit(inner.Size);
-            float wide = (float)Math.Max(6, u * 0.045), tight = (float)Math.Max(2, u * 0.012);
-            Blurred(g, inner, radius, wide, wide * 0.42f, 0.42f);
-            Blurred(g, inner, radius, tight, tight * 0.5f, 0.30f);
+            foreach (ShadowPiece p in ShadowPieces(inner, radius))
+                using (p) p.Draw(g, Point.Empty);
         }
 
-        // Real blurred shadow: drawn downscaled, box-blurred three times (~gaussian) and upscaled.
-        static void Blurred(Graphics g, Rectangle inner, int radius, float blur, float offY, float alpha)
+        // Two macOS-style shadows, each a small blurred picture and where it goes once upscaled (Area). The editor keeps
+        // them for a capture's size and corners and draws them straight to the screen.
+        public sealed class ShadowPiece : IDisposable
+        {
+            public Bitmap Small;
+            public Rectangle Area;
+
+            public void Draw(Graphics g, Point offset) { Draw(g, offset, false); }
+
+            // fast: plain bilinear, for a slider being dragged (on a blur the difference doesn't show).
+            public void Draw(Graphics g, Point offset, bool fast)
+            {
+                // The bitmap edge is transparent (the margin covers it), so a plain DrawImage is enough.
+                InterpolationMode im = g.InterpolationMode;
+                g.InterpolationMode = fast ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBilinear; // smooth and faster than the default when upscaling in GDI+
+                g.DrawImage(Small, new Rectangle(Area.X + offset.X, Area.Y + offset.Y, Area.Width, Area.Height));
+                g.InterpolationMode = im;
+            }
+
+            public void Dispose() { if (Small != null) Small.Dispose(); Small = null; }
+        }
+
+        public static ShadowPiece[] ShadowPieces(Rectangle inner, int radius)
+        {
+            double u = Unit(inner.Size);
+            float wide = (float)Math.Max(6, u * 0.045), tight = (float)Math.Max(2, u * 0.012);
+            return new ShadowPiece[] { Blurred(inner, radius, wide, wide * 0.42f, 0.42f), Blurred(inner, radius, tight, tight * 0.5f, 0.30f) };
+        }
+
+        // Real blurred shadow: drawn downscaled, box-blurred three times (~gaussian), to be upscaled over Area.
+        static ShadowPiece Blurred(Rectangle inner, int radius, float blur, float offY, float alpha)
         {
             float d = Math.Max(3f, blur / 3.5f);         // blur at reduced size
             int margin = (int)Math.Ceiling(blur * 2.2f);
             Rectangle area = Rectangle.Inflate(inner, margin, margin);
             int sw = Math.Max(4, (int)Math.Ceiling(area.Width / d)), sh = Math.Max(4, (int)Math.Ceiling(area.Height / d));
-            using (Bitmap small = new Bitmap(sw, sh, PixelFormat.Format32bppArgb))
+            Bitmap small = new Bitmap(sw, sh, PixelFormat.Format32bppArgb);
+            using (Graphics sg = Graphics.FromImage(small))
             {
-                using (Graphics sg = Graphics.FromImage(small))
-                {
-                    sg.SmoothingMode = SmoothingMode.AntiAlias;
-                    RectangleF r = new RectangleF(margin / d, margin / d, inner.Width / d, inner.Height / d);
-                    using (GraphicsPath p = Theme.Round(r, radius / d))
-                    using (SolidBrush br = new SolidBrush(Color.Black)) sg.FillPath(br, p);
-                }
-                BlurAlpha(small, Math.Max(1, (int)Math.Round(blur / d * 0.55f)), alpha);
-                // The bitmap edge is transparent (the margin covers it), so a plain DrawImage is enough.
-                InterpolationMode im = g.InterpolationMode;
-                g.InterpolationMode = InterpolationMode.HighQualityBilinear; // smooth and faster than the default when upscaling in GDI+
-                g.DrawImage(small, new Rectangle(area.X, (int)Math.Round(area.Y + offY), area.Width, area.Height));
-                g.InterpolationMode = im;
+                sg.SmoothingMode = SmoothingMode.AntiAlias;
+                RectangleF r = new RectangleF(margin / d, margin / d, inner.Width / d, inner.Height / d);
+                using (GraphicsPath p = Theme.Round(r, radius / d))
+                using (SolidBrush br = new SolidBrush(Color.Black)) sg.FillPath(br, p);
             }
+            BlurAlpha(small, Math.Max(1, (int)Math.Round(blur / d * 0.55f)), alpha);
+            return new ShadowPiece { Small = small, Area = new Rectangle(area.X, (int)Math.Round(area.Y + offY), area.Width, area.Height) };
         }
 
         // Three box-blur passes on the alpha channel, scaled by alpha; color stays black.

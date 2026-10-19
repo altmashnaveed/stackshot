@@ -194,11 +194,13 @@ namespace Stackshot
             bgPanel.Visible = false;
             bgPanel.Changed += delegate
             {
+                bool turned = canvas.BgOn != bgPanel.On;
                 canvas.BgOn = bgPanel.On;
                 canvas.Live = bgPanel.Sliding;
                 dirty = true;
                 bgTouched = true;
-                canvas.Invalidate();
+                if (turned) canvas.Invalidate();
+                else canvas.BackdropChanged();
                 UpdateUi();
             };
             bgPanel.Committed += delegate
@@ -538,7 +540,7 @@ namespace Stackshot
             bgItem.On = canvas.BgOn || bgPanel.Visible;
             if (exportItem != null) exportItem.Tip = ExportTip();
             bar.Sync();
-            if (bgPanel.Visible) bgPanel.Invalidate();
+            if (bgPanel.Visible && !bgPanel.Sliding) bgPanel.Invalidate();   // a slider being dragged repaints only itself
             if (Exporting) return; // the hint strip shows export progress
             Size o = canvas.OutputSize;
             string action = !IsVideo ? "Enter copia y cierra" : ExportsGif ? "Enter crea el GIF" : IsMaster ? "Enter crea un MP4 para compartir" : "Enter exporta";
