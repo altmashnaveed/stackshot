@@ -919,6 +919,77 @@ namespace Stackshot.Tests
                 }
                 finally { w.Close(); }
             });
+
+            Test("perf", "tree-toggle-120k-rows", delegate
+            {
+                StringBuilder sb = new StringBuilder("<r>");
+                for (int i = 0; i < 40000; i++) sb.Append("<p n=\"" + i + "\"><a>" + i + "</a><b>x</b></p>");
+                sb.Append("</r>");
+                XmlModel m; string err; int l, c;
+                Check(XmlDoc.Parse(sb.ToString(), out m, out err, out l, out c), err);
+                XmlTreeView tree = new XmlTreeView(Ds.Brushes);
+                Window w = new Window { Width = 900, Height = 600, WindowStyle = WindowStyle.None, Content = tree };
+                Park(w);
+                try
+                {
+                    tree.Load(m);
+                    tree.ExpandAll();
+                    Idle();
+                    MethodInfo toggle = typeof(XmlTreeView).GetMethod("Toggle", BindingFlags.NonPublic | BindingFlags.Instance);
+                    Stopwatch sw = Stopwatch.StartNew();
+                    for (int k = 0; k < 10; k++) { toggle.Invoke(tree, new object[] { 1 }); Idle(); }
+                    Budget("toggle a node, 10 times", sw.Elapsed.TotalMilliseconds, 3000);
+                    sw = Stopwatch.StartNew();
+                    int rows = 0;
+                    for (int k = 0; k < 10; k++) rows = XmlRows.Walk(m.Top, 0, false, null, null, int.MaxValue).Count;
+                    Add("walk of " + rows.ToString("N0") + " rows, 10 times " + Ms(sw.Elapsed.TotalMilliseconds));
+                }
+                finally { w.Close(); }
+            });
+
+            Test("perf", "tree-toggle-matches-a-full-walk", delegate
+            {
+                StringBuilder sb = new StringBuilder("<?xml version=\"1.0\"?><!-- c --><r>");
+                for (int i = 0; i < 60; i++)
+                {
+                    sb.Append("<g n=\"" + i + "\">");
+                    for (int j = 0; j < i % 5; j++) sb.Append("<h><i>" + j + "</i><e/><j><k>t</k></j></h>");
+                    sb.Append("</g>");
+                }
+                sb.Append("</r>");
+                XmlModel m; string err; int l, c;
+                Check(XmlDoc.Parse(sb.ToString(), out m, out err, out l, out c), err);
+                XmlTreeView tree = new XmlTreeView(Ds.Brushes);
+                Window w = new Window { Width = 900, Height = 600, WindowStyle = WindowStyle.None, Content = tree };
+                Park(w);
+                try
+                {
+                    tree.Load(m);
+                    Idle();
+                    MethodInfo toggle = typeof(XmlTreeView).GetMethod("Toggle", BindingFlags.NonPublic | BindingFlags.Instance);
+                    FieldInfo field = typeof(XmlTreeView).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance);
+                    Random rnd = new Random(7);
+                    int toggled = 0;
+                    for (int k = 0; k < 400; k++)
+                    {
+                        List<XRow> now = (List<XRow>)field.GetValue(tree);
+                        int at = rnd.Next(now.Count);
+                        if (!now[at].Collapsible) continue;
+                        toggle.Invoke(tree, new object[] { at });
+                        toggled++;
+                        now = (List<XRow>)field.GetValue(tree);
+                        List<XRow> walk = XmlRows.Walk(m.Top, 0, false, null, null, int.MaxValue);
+                        Check(now.Count == walk.Count, "after toggling row " + at + ": " + now.Count + " rows, a full walk gives " + walk.Count);
+                        for (int q = 0; q < walk.Count; q++)
+                            Check(now[q].Node == walk[q].Node && now[q].Close == walk[q].Close && now[q].Depth == walk[q].Depth && now[q].Collapsed == walk[q].Collapsed,
+                                  "after toggling row " + at + ", row " + q + " differs from a full walk");
+                        Check(((ListBox)typeof(XmlTreeView).GetField("list", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(tree)).SelectedItem == now[at], "the toggled row is not selected");
+                    }
+                    Idle();
+                    Add(toggled + " random toggles, the rows always match a full walk");
+                }
+                finally { w.Close(); }
+            });
         }
     }
 }

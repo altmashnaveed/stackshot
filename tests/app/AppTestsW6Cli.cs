@@ -429,6 +429,7 @@ namespace Stackshot.Tests
         {
             Settings s = new Settings();
             s.SaveFolder = OwnFolder;
+            s.Profile = 2;   // Completo: the only profile where the desktop mascot can be on (Settings.MascotDesktop)
             s.CheckUpdates = true;
             s.AutoUpdate = true;
             s.MascotOn = true;
@@ -870,7 +871,9 @@ namespace Stackshot.Tests
         static HomeWindow.Row Row(List<HomeWindow.Row> rows, string title)
         {
             foreach (HomeWindow.Row r in rows) if (r.Title == title) return r;
-            throw new InvalidOperationException("no row <" + title + ">");
+            List<string> seen = new List<string>();
+            foreach (HomeWindow.Row r in rows) seen.Add(r.Title);
+            throw new InvalidOperationException("no row <" + title + "> among " + Show(seen));
         }
 
         static HomeWindow.Row Folder(List<HomeWindow.Row> rows)
@@ -1064,7 +1067,7 @@ namespace Stackshot.Tests
             foreach (string o in new string[] { "--capture <modo>", "--open-home", "--last-xml" }) Check(listed.Contains(o), "option not in the guide: " + o);
 
             // Each value the code reads, with its type, and nothing else.
-            string[] names = { "SaveFolder", "CheckUpdates", "AutoUpdate", "Mascot", "SensitiveAuto", "HistorySearch" };
+            string[] names = { "SaveFolder", "CheckUpdates", "AutoUpdate", "Mascot", "SensitiveAuto", "HistorySearch", "XmlWatchFolder" };
             List<string> values = TableKeys(pol);
             Same(string.Join(",", names), string.Join(",", values.ToArray()), "policy values in the guide");
             using (Policies p = new Policies())
@@ -1072,6 +1075,14 @@ namespace Stackshot.Tests
                 foreach (string n in names)
                 {
                     string row = RowOf(pol, n);
+                    if (n == "XmlWatchFolder")
+                    {
+                        Check(row.Contains("REG_SZ") && row.Contains("REG_EXPAND_SZ"), "XmlWatchFolder types: " + row);
+                        p.Set(true, n, @"C:\Guia\Xml", RegistryValueKind.String);
+                        Policy.Refresh();
+                        Check(Policy.XmlFolder != null, "XmlWatchFolder as REG_SZ in HKLM");
+                        continue;
+                    }
                     if (n == "SaveFolder")
                     {
                         Check(row.Contains("REG_SZ") && row.Contains("REG_EXPAND_SZ"), "SaveFolder types: " + row);

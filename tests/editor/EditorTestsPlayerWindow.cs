@@ -812,6 +812,9 @@ namespace Stackshot.Tests
                     w.FrameHook = delegate(PlayerFrame f) { lock (seen) { seen.Index.Add(0); seen.Width.Add(f.Width); seen.Height.Add(f.Height); } };
                     w.BeginPlay();
                     PlWait(delegate { return seen.Count >= 3; }, 8000, "the first file");
+                    // A file not read yet is probed off the UI thread and opened from a posted message, which this test
+                    // doesn't pump: probed first, it switches at once, as it does for any file already read.
+                    MediaInfo.ProbeCached(ffmpeg, mp4);
                     MethodInfo open = typeof(PlayerWindow).GetMethod("OpenAndPlay", BindingFlags.NonPublic | BindingFlags.Instance);
                     open.Invoke(w, new object[] { mp4 });
                     second = w.Engine;

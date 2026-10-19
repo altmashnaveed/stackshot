@@ -22,6 +22,7 @@ Modos de `--capture`:
 | Modo | Acción |
 |---|---|
 | `region` | Capturar un área |
+| `delayed` | Capturar un área con temporizador (3, 5 o 10 segundos, según Ajustes) |
 | `repeat` | Repetir la última área |
 | `screen` | Capturar la pantalla |
 | `window` | Capturar la ventana activa |

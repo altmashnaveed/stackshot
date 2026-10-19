@@ -635,8 +635,9 @@ namespace Stackshot.Tests
             Eq("Repetir la \u00FAltima \u00E1rea", names[Array.IndexOf(Settings.Actions, "repeat")], "name of the action");
             Eq("Capturar un \u00E1rea", names[Array.IndexOf(Settings.Actions, "region")], "the area keeps its name");
             int[] home = (int[])typeof(HomeWindow).GetField("HomeModeIndex", PrivStatic).GetValue(null);
-            Eq(Settings.Actions.Length - 1, home.Length, "Home lists every mode but the repeat");
-            foreach (int i in home) Check(Settings.Actions[i] != "repeat", "Home lists the repeat");
+            // The repeat and the timed area are ways of taking an area (tray and shortcuts), not modes of their own.
+            Eq(Settings.Actions.Length - 2, home.Length, "Home lists every mode but the repeat and the timed area");
+            foreach (int i in home) Check(Settings.Actions[i] != "repeat" && Settings.Actions[i] != "delayed", "Home lists " + Settings.Actions[i]);
         }
 
         // ---- Tray, keys page, Home and the mascot

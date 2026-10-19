@@ -1236,7 +1236,8 @@ namespace Stackshot.Tests
                     {
                         AutomationPeer by = Covered(fe);
                         if (by == null) Problem("clickable but unknown to readers: " + Where(fe) + (click != null ? " (" + click + ")" : ""));
-                        else if (!Reached(fe) && Array.IndexOf(OwnKeys, by.GetClassName()) < 0) Problem("clickable but not reached with Tab: " + Where(fe));
+                        // A disabled control is shown to readers as disabled; like any Windows control, Tab skips it.
+                        else if (fe.IsEnabled && !Reached(fe) && Array.IndexOf(OwnKeys, by.GetClassName()) < 0) Problem("clickable but not reached with Tab: " + Where(fe));
                     }
                 }
                 int n = VisualTreeHelper.GetChildrenCount(o);
