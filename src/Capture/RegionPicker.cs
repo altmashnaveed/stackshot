@@ -748,30 +748,46 @@ namespace Stackshot
                         : mode == Mode.Gif ? "Grabar GIF  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : "Captura con desplazamiento  \u00B7  Arrastra sobre la parte que se mueve, sin la cabecera fija  \u00B7  Esc: cancelar";
             string icon = mode == Mode.Image ? "area" : mode == Mode.Video ? "video" : mode == Mode.Gif ? "gif" : mode == Mode.Text ? "textscan" : "scroll";
-            string[] parts = text.Split(new string[] { "  \u00B7  " }, StringSplitOptions.None);
+            HintPart[] parts = SplitHint(text.Split(new string[] { "  \u00B7  " }, StringSplitOptions.None));
             Rectangle client = new Rectangle(0, 0, bright.Width, bright.Height);
             foreach (Mon mon in mons)
             {
                 float s = mon.Scale;
                 using (Font bold = new Font("Segoe UI Semibold", (float)Math.Round(13 * s), GraphicsUnit.Pixel))
                 using (Font reg = new Font("Segoe UI", (float)Math.Round(13 * s), GraphicsUnit.Pixel))
+                using (Font key = new Font("Segoe UI Semibold", (float)Math.Round(11.5 * s), GraphicsUnit.Pixel))
                 {
-                    int[] widths;
-                    Rectangle pill = HintPill(mon.R, s, parts, bold, reg, out widths);
+                    HintFonts f = new HintFonts { Bold = bold, Reg = reg, Key = key };
+                    Rectangle pill = HintPill(mon.R, s, parts, f);
                     int sh = (int)Math.Ceiling(9 * s) + 2;
                     Rectangle r = Rectangle.Intersect(Rectangle.FromLTRB(pill.Left - sh, pill.Top - sh, pill.Right + sh, pill.Bottom + sh + (int)Math.Ceiling(3 * s)), client);
                     if (r.Width <= 0 || r.Height <= 0) continue;
                     Hint h = new Hint();
                     h.R = r;
                     h.Zone = Rectangle.Inflate(r, (int)Math.Round(24 * s), (int)Math.Round(24 * s));
-                    h.OnBright = HintPatch(bright, r, pill, s, icon, parts, widths, bold, reg);
-                    h.OnDim = HintPatch(dimmed, r, pill, s, icon, parts, widths, bold, reg);
+                    h.OnBright = HintPatch(bright, r, pill, s, icon, parts, f);
+                    h.OnDim = HintPatch(dimmed, r, pill, s, icon, parts, f);
                     hints.Add(h);
                 }
             }
         }
 
-        static Dib HintPatch(Dib under, Rectangle r, Rectangle pill, float s, string icon, string[] parts, int[] widths, Font bold, Font reg)
+        // One piece of the hint: "C: color" is the key C and what it does; the first piece (the action) has no key.
+        class HintPart { public string Key, Label; public int KeyW, LabelW; }
+        class HintFonts { public Font Bold, Reg, Key; }
+
+        static HintPart[] SplitHint(string[] parts)
+        {
+            HintPart[] r = new HintPart[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                int c = i > 0 ? parts[i].IndexOf(": ", StringComparison.Ordinal) : -1;
+                r[i] = c > 0 ? new HintPart { Key = parts[i].Substring(0, c), Label = parts[i].Substring(c + 2) } : new HintPart { Label = parts[i] };
+            }
+            return r;
+        }
+
+        static Dib HintPatch(Dib under, Rectangle r, Rectangle pill, float s, string icon, HintPart[] parts, HintFonts f)
         {
             Dib d = new Dib(r.Width, r.Height);
             Native.BitBlt(d.Dc, 0, 0, r.Width, r.Height, under.Dc, r.X, r.Y, Native.SRCCOPY);
@@ -781,36 +797,70 @@ namespace Stackshot
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.TranslateTransform(-r.X, -r.Y);
-                PaintHint(g, pill, s, icon, parts, widths, bold, reg);
+                PaintHint(g, pill, s, icon, parts);
             }
+            // The overlay is an opaque window and the capsule is solid under the text: the system's ClearType, as sharp
+            // as any other text on screen.
+            using (Graphics g = d.DcGraphics()) HintText(g, new Point(-r.X, -r.Y), pill, s, parts, f);
             Native.GdiFlush();
             return d;
         }
 
-        const TextFormatFlags HintFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextKit.Crisp;
+        const TextFormatFlags HintFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
 
-        static Rectangle HintPill(Rectangle mon, float s, string[] parts, Font bold, Font reg, out int[] widths)
+        // Spacing, in pixels at scale s.
+        static int Hs(double v, float s) { return (int)Math.Round(v * s); }
+
+        static Rectangle HintPill(Rectangle mon, float s, HintPart[] parts, HintFonts f)
         {
-            int gi = (int)Math.Round(16 * s), gap = (int)Math.Round(8 * s), sep = (int)Math.Round(22 * s);
-            widths = new int[parts.Length];
-            int tw = 0;
+            int w = Hs(14, s) + Hs(16, s) + Hs(8, s) + Hs(16, s);
             for (int i = 0; i < parts.Length; i++)
             {
-                widths[i] = TextKit.Measure(parts[i], i == 0 ? bold : reg, Size.Empty, HintFlags).Width;
-                tw += widths[i] + (i > 0 ? sep : 0);
+                HintPart p = parts[i];
+                p.LabelW = TextRenderer.MeasureText(p.Label, i == 0 ? f.Bold : f.Reg, Size.Empty, HintFlags).Width;
+                p.KeyW = p.Key == null ? 0 : TextRenderer.MeasureText(p.Key, f.Key, Size.Empty, HintFlags).Width + 2 * Hs(7, s);
+                if (i > 0) w += i == 1 ? Hs(25, s) : Hs(16, s);
+                if (p.Key != null) w += p.KeyW + Hs(6, s);
+                w += p.LabelW;
             }
-            int padL = (int)Math.Round(14 * s), padR = (int)Math.Round(16 * s), h = (int)Math.Round(36 * s);
-            int w = padL + gi + gap + tw + padR;
-            return new Rectangle(mon.X + (mon.Width - w) / 2, mon.Y + (int)Math.Round(16 * s), w, h);
+            int h = Hs(40, s);
+            return new Rectangle(mon.X + (mon.Width - w) / 2, mon.Y + Hs(16, s), w, h);
         }
 
-        // Dark HUD capsule: icon, the action in white, then the secondary hints dimmed and separated by dots.
-        static void PaintHint(Graphics g, Rectangle pill, float s, string icon, string[] parts, int[] widths, Font bold, Font reg)
+        // Where each key cap and label goes (the same for the capsule and for its text).
+        static void HintLayout(Rectangle pill, float s, HintPart[] parts, out Rectangle[] keys, out Rectangle[] labels, out int divider)
         {
-            int gi = (int)Math.Round(16 * s), gap = (int)Math.Round(8 * s), sep = (int)Math.Round(22 * s);
-            int padL = (int)Math.Round(14 * s), h = pill.Height;
+            keys = new Rectangle[parts.Length];
+            labels = new Rectangle[parts.Length];
+            divider = 0;
+            int x = pill.X + Hs(14, s) + Hs(16, s) + Hs(8, s), cy = pill.Y + pill.Height / 2, kh = Hs(22, s);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                HintPart p = parts[i];
+                if (i == 1) { divider = x + Hs(12, s); x += Hs(25, s); }
+                else if (i > 1) x += Hs(16, s);
+                if (p.Key != null)
+                {
+                    keys[i] = new Rectangle(x, cy - kh / 2, p.KeyW, kh);
+                    x += p.KeyW + Hs(6, s);
+                }
+                labels[i] = new Rectangle(x, pill.Y, p.LabelW + 2, pill.Height);
+                x += p.LabelW;
+            }
+        }
+
+        // Esc cancels: its key is red; the rest are blue.
+        static bool IsCancel(HintPart p) { return p.Key == "Esc"; }
+
+        static Color KeyInk(HintPart p) { return Ds.Gdi(IsCancel(p) ? Palette.HudDanger : Palette.HudAccent); }
+
+        // Dark HUD capsule: icon, then a hairline, then each shortcut as a coloured key cap (its text comes in HintText).
+        static void PaintHint(Graphics g, Rectangle pill, float s, string icon, HintPart[] parts)
+        {
+            int gi = Hs(16, s), h = pill.Height;
             float radius = h / 2f;
-            for (int i = Ds.Brushes.High ? 0 : 8; i >= 1; i--)
+            bool high = Ds.Brushes.High;
+            for (int i = high ? 0 : 8; i >= 1; i--)
             {
                 RectangleF sh = pill;
                 sh.Inflate(i * s, i * s);
@@ -826,23 +876,63 @@ namespace Stackshot
             using (GraphicsPath p = Theme.Round(hl, radius - 0.5f))
             using (Pen line = new Pen(Ds.Gdi(Palette.HudLine), 1f))
                 g.DrawPath(line, p);
-            int x = pill.X + padL, cy = pill.Y + h / 2;
-            g.DrawImage(Ink.GlyphBitmap(icon, gi, Palette.HudLabel, Math.Max(1.4, 1.6 * s)), x, cy - gi / 2, gi, gi);
-            x += gi + gap;
-            Color dim = Ds.Gdi(Palette.HudLabel2);
+            int cy = pill.Y + h / 2;
+            g.DrawImage(Ink.GlyphBitmap(icon, gi, Palette.HudLabel, Math.Max(1.4, 1.6 * s)), pill.X + Hs(14, s), cy - gi / 2, gi, gi);
+            Rectangle[] keys, labels;
+            int divider;
+            HintLayout(pill, s, parts, out keys, out labels, out divider);
+            if (divider > 0)
+            {
+                int dh = Hs(9, s);
+                using (Pen line = new Pen(Ds.Gdi(Palette.HudFaint(Ds.Argb(0.22, 255, 255, 255))), Math.Max(1f, s)))
+                    g.DrawLine(line, divider, cy - dh, divider, cy + dh);
+            }
             for (int i = 0; i < parts.Length; i++)
             {
-                if (i > 0)
-                {
-                    float d = Math.Max(2f, 3f * s);
-                    using (SolidBrush dot = new SolidBrush(Ds.Gdi(Palette.HudFaint(Ds.Argb(0.3, 255, 255, 255)))))
-                        g.FillEllipse(dot, x + (sep - d) / 2f, cy - d / 2f, d, d);
-                    x += sep;
-                }
-                Rectangle tr = new Rectangle(x, pill.Y, widths[i] + 2, h);
-                TextKit.Draw(g, parts[i], i == 0 ? bold : reg, tr, i == 0 ? Ds.Gdi(Palette.HudLabel) : dim, HintFlags | TextFormatFlags.VerticalCenter);
-                x += widths[i];
+                if (parts[i].Key == null) continue;
+                Color ink = KeyInk(parts[i]);
+                RectangleF k = keys[i];
+                float kr = Math.Max(4f, 6f * s);
+                if (!high)
+                    using (GraphicsPath p = Theme.Round(k, kr))
+                    using (SolidBrush fill = new SolidBrush(Color.FromArgb(48, ink))) g.FillPath(fill, p);
+                k.Inflate(-0.5f, -0.5f);
+                using (GraphicsPath p = Theme.Round(k, kr - 0.5f))
+                using (Pen edge = new Pen(Color.FromArgb(high ? 255 : 120, ink), 1f)) g.DrawPath(edge, p);
             }
+        }
+
+        // The words, with GDI (ClearType) straight into the patch: the action in white, keys in their colour, what they
+        // do in a light grey that reads well on the capsule.
+        static void HintText(Graphics g, Point offset, Rectangle pill, float s, HintPart[] parts, HintFonts f)
+        {
+            Rectangle[] keys, labels;
+            int divider;
+            HintLayout(pill, s, parts, out keys, out labels, out divider);
+            Color white = Opaque(Ds.Gdi(Palette.HudLabel)), soft = Opaque(Ds.Gdi(Palette.HudFaint(Ds.Argb(0.8, 255, 255, 255))));
+            for (int i = 0; i < parts.Length; i++)
+            {
+                HintPart p = parts[i];
+                if (p.Key != null)
+                {
+                    Rectangle k = keys[i];
+                    k.Offset(offset);
+                    k.Offset(0, -Math.Max(0, Hs(0.5, s)));
+                    TextRenderer.DrawText(g, p.Key, f.Key, k, Opaque(KeyInk(p)), HintFlags | TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                Rectangle l = labels[i];
+                l.Offset(offset);
+                TextRenderer.DrawText(g, p.Label, i == 0 ? f.Bold : f.Reg, l, i == 0 ? white : soft, HintFlags | TextFormatFlags.VerticalCenter);
+            }
+        }
+
+        // GDI text has no transparency: a translucent colour is mixed with the capsule's dark first.
+        static Color Opaque(Color c)
+        {
+            if (c.A == 255) return c;
+            Color bg = Ds.Gdi(Palette.Hud);
+            double a = c.A / 255.0;
+            return Color.FromArgb((int)Math.Round(c.R * a + bg.R * (1 - a)), (int)Math.Round(c.G * a + bg.G * (1 - a)), (int)Math.Round(c.B * a + bg.B * (1 - a)));
         }
 
         // ---- Input
