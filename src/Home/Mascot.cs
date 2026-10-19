@@ -477,6 +477,16 @@ namespace Stackshot
             if (asked && Talks) SayFor(cmd);
         }
 
+        // A prop that failed to draw is noted (once a minute at most) and left out of that frame.
+        static int propFailedAt = Environment.TickCount - 120000;
+
+        static void PropFailed(Exception ex)
+        {
+            if (unchecked(Environment.TickCount - propFailedAt) < 60000) return;
+            propFailedAt = Environment.TickCount;
+            ShotStack.Log("Mascota: no se pudo dibujar lo que lleva en las manos: " + ex);
+        }
+
         // Whether the mouse going from a to b (owner's coordinates) changes where it looks: far away the gaze is already
         // at its limit, so moving there changes nothing on screen.
         public bool GazeMoves(PointF a, PointF b)
@@ -798,7 +808,11 @@ namespace Stackshot
             {
                 // Turned the way it faces, like its mouth and hands (Snoopy, Shin-chan): what it holds stays on its front.
                 if (flipped) g.ScaleTransform(-1, 1);
-                MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY, MascotParts.MouthY(Look.Kind, geo), Look.Kind);
+                // What it holds is drawn last: if one of its shapes can't be drawn, the mascot itself still shows.
+                GraphicsState ps = g.Save();
+                try { MascotProps.Paint(g, act, D, actTNow, actKNow, c1, c2, geo.FaceY, MascotParts.MouthY(Look.Kind, geo), Look.Kind); }
+                catch (Exception ex) { PropFailed(ex); }
+                g.Restore(ps);
                 if (flipped) g.ScaleTransform(-1, 1);
             }
             else if (mood == Mood.Sleep) MascotProps.PaintSleep(g, sleepVar, D, now, c1, c2, MascotParts.IsToon(Look.Kind) ? MascotParts.MouthY(Look.Kind, geo) + 0.01f : 0.045f);

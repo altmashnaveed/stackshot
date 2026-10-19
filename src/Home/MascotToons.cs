@@ -289,17 +289,26 @@ namespace Stackshot
         // A soft limb from a to b (units of D), bowed a little, in colour inside its outline.
         static void VLimb(Graphics g, int kind, float D, Color c, float w, PointF a, PointF b, float bow)
         {
+            if (!Finite(a) || !Finite(b)) return;
             float dx = b.X - a.X, dy = b.Y - a.Y;
+            // A hand right at the shoulder: a curve with all its points in one place, which GDI+ refuses to draw.
+            if (Math.Abs(dx) + Math.Abs(dy) < 0.002f) return;
             PointF c1 = P((a.X + dx * 0.33f + dy * bow) * D, (a.Y + dy * 0.33f - dx * bow) * D), c2 = P((a.X + dx * 0.66f + dy * bow) * D, (a.Y + dy * 0.66f - dx * bow) * D);
             if (TnFigure(kind)) { SoftLimb(g, kind, D, c, w, P(a.X * D, a.Y * D), c1, c2, P(b.X * D, b.Y * D)); return; }
             using (Pen ink = new Pen(TnInk(kind), w * D + TnW(D, kind) * 2))
             using (Pen fill = new Pen(c, w * D))
             {
                 ink.StartCap = ink.EndCap = fill.StartCap = fill.EndCap = LineCap.Round;
-                g.DrawBezier(ink, a.X * D, a.Y * D, c1.X, c1.Y, c2.X, c2.Y, b.X * D, b.Y * D);
-                g.DrawBezier(fill, a.X * D, a.Y * D, c1.X, c1.Y, c2.X, c2.Y, b.X * D, b.Y * D);
+                try
+                {
+                    g.DrawBezier(ink, a.X * D, a.Y * D, c1.X, c1.Y, c2.X, c2.Y, b.X * D, b.Y * D);
+                    g.DrawBezier(fill, a.X * D, a.Y * D, c1.X, c1.Y, c2.X, c2.Y, b.X * D, b.Y * D);
+                }
+                catch (OutOfMemoryException) { }   // GDI+'s answer to a curve it can't stroke: this frame goes without that limb
             }
         }
+
+        static bool Finite(PointF p) { return !float.IsNaN(p.X) && !float.IsNaN(p.Y) && !float.IsInfinity(p.X) && !float.IsInfinity(p.Y); }
 
         // A line through points (units of D).
         static void TnLine(Graphics g, Color c, float w, float D, params float[] xy)

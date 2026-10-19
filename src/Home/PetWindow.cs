@@ -122,6 +122,10 @@ namespace Stackshot
                 // pauses, drops the menu (what is most likely to fail), and comes back a second later.
                 timer.Stop();
                 SetFast(false);
+                // Failures far apart are glitches, not a broken mascot: only a run of them (a minute apart at most) counts
+                // towards giving up.
+                if (unchecked(Environment.TickCount - lastFailure) > 60000) tickFailures = 0;
+                lastFailure = Environment.TickCount;
                 if (++tickFailures <= 3) ShotStack.Log("Mascota en el escritorio: " + ex);
                 try { CloseMenu(); } catch (Exception) { }
                 if (IsDisposed || tickFailures > 50) return;
@@ -131,7 +135,7 @@ namespace Stackshot
             }
         }
 
-        int tickFailures;
+        int tickFailures, lastFailure;
 
         // Motion runs on the display refresh (DwmFlush) with a 1 ms system timer, only while it moves.
         void SetFast(bool on)
