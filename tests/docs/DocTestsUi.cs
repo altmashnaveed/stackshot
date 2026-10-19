@@ -760,6 +760,10 @@ namespace Stackshot.Tests
                     // The first few edits after opening warm WPF's text formatting up (~40 ms each); then typing on
                     // different lines of the screen.
                     for (int k = 0; k < 5; k++) { ed.Apply(TextEdit.Make(20 + k, 0, "w", 21 + k, 0)); Idle(); }
+                    // What earlier suites left on the heap is collected now, not in the middle of a keystroke.
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
                     foreach (int line in new int[] { 1, 8, 15, 23 })
                         for (int k = 0; k < 8; k++)
                         {
@@ -786,6 +790,9 @@ namespace Stackshot.Tests
                 Pump(100);
                 try
                 {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
                     Stopwatch sw = Stopwatch.StartNew();
                     flow.Set(MarkdownDoc.Parse(t));
                     Idle();
