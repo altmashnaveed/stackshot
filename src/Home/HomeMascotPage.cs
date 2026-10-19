@@ -393,7 +393,7 @@ namespace Stackshot
                                       new BlurEffect { Radius = 14, KernelType = KernelType.Gaussian, RenderingBias = RenderingBias.Quality });
                 spotConeFor = key;
             }
-            g.Children.Add(new Image
+            g.Children.Add(new DecorImage
             {
                 Source = spotCone, Stretch = Stretch.Fill, Width = 340 + 2 * M, Height = Math.Ceiling(h) + 2 * M, Margin = new Thickness(-M, -M, -M, -M),
                 HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false
@@ -694,6 +694,7 @@ namespace Stackshot
             {
                 pill.IsEnabled = false;
                 pill.Opacity = 0.42;
+                pill.Cursor = Cursors.Arrow;   // nothing to press: no hand over it
                 pill.ToolTip = "Solo con el perfil Completo (en General › Perfil)";
                 ToolTipService.SetShowOnDisabled(pill, true);
             }

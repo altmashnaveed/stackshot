@@ -60,7 +60,7 @@ namespace Stackshot
             Width = LW;
             Height = LH;
             WindowStartupLocation = WindowStartupLocation.Manual;
-            try { Icon = Imaging(ShotStack.LoadResourceImage("logo.png")); } catch { }
+            if (AppIcon != null) Icon = AppIcon;
             mascot.Look = MascotLook.From(settings);
             ApplyMascotBehavior();
             Center();
@@ -96,12 +96,6 @@ namespace Stackshot
             PreviewKeyUp += OnKeyUp;
             PreviewMouseDown += OnMouseBack;
             Build();
-        }
-
-        static BitmapSource Imaging(D.Image img)
-        {
-            if (img == null) return null;
-            using (D.Bitmap b = new D.Bitmap(img)) return Ink.FromGdi(b);
         }
 
         void Center()

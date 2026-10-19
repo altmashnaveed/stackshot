@@ -237,14 +237,19 @@ namespace Stackshot
         void SectionPinFollow(bool animate)
         {
             if (sectionPinRow == null || sectionPinChips.Count == 0 || sectionPinClip.ActualWidth < 1) return;
-            double view = sectionPinClip.ActualWidth - 80, total = 0, x0 = 0, x1 = 0;
+            sectionPinRow.UpdateLayout();
+            // Where the row really puts each chip: its laid-out size with the gap, which layout rounding makes 6.4 rather
+            // than 6 at 125 % (added up over the row, the last chip ended a few pixels into the faded edge).
+            double view = sectionPinClip.ActualWidth - 80, total = 0, x0 = 0, x1 = 0, trail = 0;
             for (int i = 0; i < sectionPinChips.Count; i++)
             {
-                double w = sectionPinChips[i].ActualWidth;
+                Border c = sectionPinChips[i];
+                double w = c.ActualWidth, slot = c.DesiredSize.Width;
                 if (i == sectionActive) { x0 = total; x1 = total + w; }
-                total += w + 6;
+                total += slot;
+                trail = slot - w;
             }
-            total -= 6;
+            total -= trail;
             double min = Math.Min(0, view - total), s = sectionPinShift.X;
             if (sectionActive >= 0)
             {

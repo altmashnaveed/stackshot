@@ -38,6 +38,13 @@ namespace Stackshot
 
         // ---- Page building blocks
 
+        // Builds one part of a page; if it fails it is logged and left out, and what follows still shows.
+        void Section(string what, Action build)
+        {
+            try { build(); }
+            catch (Exception ex) { ShotStack.Log("P\u00E1gina " + page + ", " + what + ": " + ex.Message); }
+        }
+
         void Header(string title, string sub)
         {
             TextBlock t = Label(title, Ds.Title, 26, Ds.Brushes.Label, new Thickness(0, 58, 0, 0));
@@ -975,11 +982,12 @@ namespace Stackshot
                 new ToggleRow("Disfraz de temporada", "Sin gorro, se pone la calabaza en Halloween y el de Pap\u00E1 Noel en Navidad.", "sparkle", Mac.Orange, Mac.Red,
                               delegate { return settings.MascotSeasonal; },
                               delegate(bool v) { MascotLook l = MascotLook.From(settings); l.Seasonal = v; LookChanged(l, null); }) { When = shown });
-            BuildMascotBehavior();
-            BuildWellness();
-            BuildFocus();
-            BuildHealth();
-            BuildAssist();
+            // Each part on its own: one that fails is noted and the rest of the page (the desktop switch included) still shows.
+            Section("comportamiento", BuildMascotBehavior);
+            Section("bienestar", BuildWellness);
+            Section("concentraci\u00F3n", BuildFocus);
+            Section("salud", BuildHealth);
+            Section("asistente", BuildAssist);
             Group("En el escritorio",
                 new ToggleRow("Mascota en el escritorio", "Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "screen", Mac.Indigo, Mac.Purple,
                               delegate { return settings.MascotDesktop; }, delegate(bool v) { settings.MascotDesktop = v; owner.MascotChanged(); })

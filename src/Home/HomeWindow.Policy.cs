@@ -55,6 +55,7 @@ namespace Stackshot
             if (!forced) return;
             e.IsEnabled = false;
             e.Opacity = 0.42;
+            if (e.Cursor == System.Windows.Input.Cursors.Hand) e.Cursor = System.Windows.Input.Cursors.Arrow;   // nothing to press
             e.ToolTip = Policy.Managed;
             ToolTipService.SetShowOnDisabled(e, true);
         }
