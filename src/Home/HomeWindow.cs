@@ -332,6 +332,9 @@ namespace Stackshot
             scroller.PanningMode = PanningMode.VerticalOnly;
             scroller.Resources = ScrollStyle();
             scroller.Content = pageHost;
+            // The scrolled page is a layer of its own: ClearType is asked for again inside it (see Sheet.SharpText).
+            RenderOptions.SetClearTypeHint(scroller, ClearTypeHint.Enabled);
+            RenderOptions.SetClearTypeHint(pageHost, ClearTypeHint.Enabled);
             scroller.ScrollChanged += delegate { ToolbarShade(); };
             pane.Children.Add(scroller);
 
@@ -434,6 +437,7 @@ namespace Stackshot
 
         void SetPage(string id, bool animate)
         {
+            Stall.Mark("pesta\u00F1a " + id);
             if ((Array.IndexOf(PageIds, id) < 0 && id != "mascotset") || !PageShown(id)) id = "home";
             CancelListening();
             page = id;
@@ -1060,7 +1064,7 @@ namespace Stackshot
             t.FontSize = size;
             t.Foreground = Ds.Brush(color);
             t.Margin = margin;
-            if (size <= 15) TextOptions.SetTextFormattingMode(t, TextFormattingMode.Display);
+            if (size <= 22) TextOptions.SetTextFormattingMode(t, TextFormattingMode.Display);
             t.VerticalAlignment = VerticalAlignment.Center;
             return t;
         }

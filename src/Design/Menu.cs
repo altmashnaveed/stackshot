@@ -140,7 +140,8 @@ namespace Stackshot
             Grid root = new RoleGrid { Role = Access.Menu, Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
             if (!pal.High) root.Children.Add(new SoftShadow(12, 14, 6, pal.Dark ? 0.5 : 0.18));
             root.Children.Add(card);
-            TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
+            TextOptions.SetTextFormattingMode(root, TextFormattingMode.Display);   // snapped to whole pixels: the sharpest small text
+            RenderOptions.SetClearTypeHint(card, ClearTypeHint.Enabled);   // opaque card on a see-through popup: ClearType still fits
             root.PreviewKeyDown += delegate(object o, KeyEventArgs k) { if (k.Key == Key.Escape) { pop.IsOpen = false; k.Handled = true; } };
             pop.Child = root;
             root.Opacity = 0;
@@ -174,7 +175,8 @@ namespace Stackshot
             Grid root = new RoleGrid { Role = Access.Menu, Margin = new Thickness(14, 4, 14, 18), UseLayoutRounding = true };
             if (!pal.High) root.Children.Add(new SoftShadow(10, 14, 6, pal.Dark ? 0.5 : 0.18));
             root.Children.Add(card);
-            TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
+            TextOptions.SetTextFormattingMode(root, TextFormattingMode.Display);   // snapped to whole pixels: the sharpest small text
+            RenderOptions.SetClearTypeHint(card, ClearTypeHint.Enabled);   // opaque card on a see-through popup: ClearType still fits
 
             Rows rows = new Rows(pop);
             foreach (MenuEntry e in entries)

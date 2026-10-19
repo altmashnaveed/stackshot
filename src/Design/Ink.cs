@@ -40,15 +40,28 @@ namespace Stackshot
             dc.PushTransform(new MatrixTransform(k, 0, 0, k, x, y));
             Brush b = Ds.Brush(color);
             if (name.EndsWith("!")) dc.DrawGeometry(b, null, g);
-            else
+            else dc.DrawGeometry(null, StrokePen(color, b, stroke / k), g);
+            dc.Pop();
+        }
+
+        // Icons are drawn on every frame of the controls that show them: one frozen pen per colour and width.
+        static readonly Dictionary<long, Pen> pens = new Dictionary<long, Pen>();
+
+        static Pen StrokePen(Color color, Brush b, double width)
+        {
+            long key = ((long)(((uint)color.A << 24) | ((uint)color.R << 16) | ((uint)color.G << 8) | color.B) << 32) | (uint)Math.Round(width * 1000);
+            lock (pens)
             {
-                Pen p = new Pen(b, stroke / k);
+                Pen p;
+                if (pens.TryGetValue(key, out p)) return p;
+                if (pens.Count > 512) pens.Clear();
+                p = new Pen(b, width);
                 p.StartLineCap = p.EndLineCap = PenLineCap.Round;
                 p.LineJoin = PenLineJoin.Round;
                 p.Freeze();
-                dc.DrawGeometry(null, p, g);
+                pens[key] = p;
+                return p;
             }
-            dc.Pop();
         }
     }
 
@@ -60,14 +73,14 @@ namespace Stackshot
         public static FormattedText Text(string s, Typeface face, double px, Color color)
         {
             return new FormattedText(s ?? "", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, Math.Max(1, px),
-                                     Ds.Brush(color), null, px <= 15 ? TextFormattingMode.Display : TextFormattingMode.Ideal, PerDip);
+                                     Ds.Brush(color), null, px <= 22 ? TextFormattingMode.Display : TextFormattingMode.Ideal, PerDip);
         }
 
         // Text for per-pixel surfaces: they are rendered 1:1 at 96 dpi in device pixels, so one DIP is one pixel.
         public static FormattedText Px(string s, Typeface face, double px, Color color)
         {
             return new FormattedText(s ?? "", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, Math.Max(1, px),
-                                     Ds.Brush(color), null, px <= 15 ? TextFormattingMode.Display : TextFormattingMode.Ideal, 1.0);
+                                     Ds.Brush(color), null, px <= 22 ? TextFormattingMode.Display : TextFormattingMode.Ideal, 1.0);
         }
 
         // Text centered in a box, nudged to whole pixels so it stays crisp.

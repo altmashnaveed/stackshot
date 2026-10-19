@@ -27,11 +27,14 @@ namespace Stackshot
         IntPtr hwnd;
         bool closing;
 
+        // Text snapped to whole pixels (Display) and ClearType at every scale: the sharpest Windows can draw. ClearType
+        // is asked for explicitly because the Mica backdrop makes the window see-through, and WPF would otherwise fall
+        // back to grey, softer text there.
         void SharpText()
         {
-            double k = 1;
-            try { k = VisualTreeHelper.GetDpi(this).DpiScaleX; } catch { }
-            TextOptions.SetTextFormattingMode(this, k < 1.2 ? TextFormattingMode.Display : TextFormattingMode.Ideal);
+            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(this, TextRenderingMode.ClearType);
+            RenderOptions.SetClearTypeHint(Root, ClearTypeHint.Enabled);
         }
 
         public Sheet()
@@ -42,9 +45,7 @@ namespace Stackshot
             UseLayoutRounding = true;
             FontFamily = Ds.Text;
             FontSize = 13;
-            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Ideal);
-            // At 100 % the ideal layout leaves small text soft between pixels: text there snaps to whole pixels
-            // (Display). From 125 % up the ideal shapes are sharp and closer to macOS. Chosen again on each monitor.
+            SharpText();
             Loaded += delegate { SharpText(); };
             DpiChanged += delegate { SharpText(); };
             WindowChrome chrome = new WindowChrome();

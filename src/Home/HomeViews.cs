@@ -273,9 +273,11 @@ namespace Stackshot
             HomeModeBar bar = new HomeModeBar(this);
             if (!pal.High) barHolder.Children.Add(new SoftShadow(bar.Height / 2, 22, 8, pal.Dark ? 0.45 : 0.10));
             barHolder.Children.Add(bar);
-            // Never clipped: when the window is narrower than the bar, it scales down to fit.
-            Viewbox fit = new Viewbox { Child = barHolder, StretchDirection = StretchDirection.DownOnly, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 28, 0, 0) };
+            // Never clipped: when the window is narrower than the bar, it scales down to fit. It may use the page's side
+            // margins first, so at the usual sizes it stays at its own size: scaled, its text would lose ClearType.
+            ShrinkToFit fit = new ShrinkToFit { Child = barHolder, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(-60, 28, -60, 0) };
             barHolder.Margin = new Thickness(0);
+            RenderOptions.SetClearTypeHint(bar, ClearTypeHint.Enabled);   // drawn on its own opaque capsule
             Add(fit);
             HomeEnter(fit, 150, 0, 14, 0.96);
             homeEnter.Add(delegate { bar.PlayIntro(210); });
@@ -320,6 +322,35 @@ namespace Stackshot
         // The capture modes in one capsule. A blue pill stays on the main mode (or Vídeo while recording); the mode under
         // the mouse or the keyboard gets a soft tint that fades in and out in place, so moving across the bar never sends
         // the blue chasing the pointer. It only draws while a tint, a press or the entrance changes.
+        // Like a Viewbox that only shrinks, but with no transform at all while the child fits: any scale (even 1:1 inside
+        // a Viewbox) turns its text from ClearType to grey.
+        sealed class ShrinkToFit : Decorator
+        {
+            double scale = 1;
+
+            protected override Size MeasureOverride(Size available)
+            {
+                FrameworkElement c = Child as FrameworkElement;
+                if (c == null) return new Size();
+                c.Measure(new Size(double.PositiveInfinity, available.Height));
+                double natural = c.DesiredSize.Width / scale;
+                double k = !double.IsInfinity(available.Width) && natural > available.Width && natural > 0 ? available.Width / natural : 1;
+                if (Math.Abs(k - scale) > 0.001)
+                {
+                    scale = k;
+                    c.LayoutTransform = k < 1 ? new ScaleTransform(k, k) : null;
+                    c.Measure(new Size(double.PositiveInfinity, available.Height));
+                }
+                return c.DesiredSize;
+            }
+
+            protected override Size ArrangeOverride(Size final)
+            {
+                if (Child != null) Child.Arrange(new Rect(new Point((final.Width - Child.DesiredSize.Width) / 2, 0), Child.DesiredSize));
+                return final;
+            }
+        }
+
         sealed class HomeModeBar : Grid
         {
             const double Tall = 50, Pad = 5, Icon = 18, Gap = 6, Inset = 9, IntroMs = 620;
@@ -528,6 +559,9 @@ namespace Stackshot
                     dc.Pop();
                 }
 
+                // At rest every mode is either wholly inside the pill (white) or wholly outside (ink): drawn with no clip,
+                // so the text keeps ClearType. Clipping (which renders through a layer, in grey) only while they overlap.
+                if (show >= 1 && t >= IntroMs && Unclipped(dc, pill)) return;
                 // Ink outside the pill, white inside it (cross-faded while the pill appears).
                 dc.PushClip(new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(all), inside));
                 Items(dc, ink, pal.Label, t);
@@ -536,6 +570,39 @@ namespace Stackshot
                 if (show < 1) { dc.PushOpacity(1 - show); Items(dc, ink, pal.Label, t); dc.Pop(); }
                 if (show > 0) { dc.PushOpacity(show); Items(dc, white, pal.OnAccent, t); dc.Pop(); }
                 dc.Pop();
+            }
+
+            // Where mode i's icon and label are drawn (at rest).
+            Rect Content(int i)
+            {
+                FormattedText ft = ink[i];
+                double cw = Icon + Gap + ft.WidthIncludingTrailingWhitespace;
+                double x = Math.Round(xs[i] + (ws[i] - cw) / 2);
+                return new Rect(x, Math.Round(ActualHeight / 2 - Math.Max(Icon, ft.Height) / 2), cw, Math.Max(Icon, ft.Height));
+            }
+
+            // Draws every mode without a clip when none straddles the pill's edge; false (nothing drawn) otherwise.
+            bool Unclipped(DrawingContext dc, Rect pill)
+            {
+                Palette pal = Ds.Brushes;
+                bool[] inPill = new bool[count];
+                for (int i = 0; i < count; i++)
+                {
+                    Rect c = Content(i);
+                    if (pill.Contains(c)) inPill[i] = true;
+                    else if (pill.IntersectsWith(c)) return false;
+                }
+                double h = ActualHeight;
+                for (int i = 0; i < count; i++)
+                {
+                    FormattedText ft = inPill[i] ? white[i] : ink[i];
+                    Color col = inPill[i] ? pal.OnAccent : pal.Label;
+                    double cw = Icon + Gap + ft.WidthIncludingTrailingWhitespace;
+                    double x = Math.Round(xs[i] + (ws[i] - cw) / 2), cy = h / 2;
+                    Glyph.Draw(dc, icons[i], x, Math.Round(cy - Icon / 2), Icon, col, 1.6);
+                    dc.DrawText(ft, new Point(x + Icon + Gap, Math.Round(cy - ft.Height / 2)));
+                }
+                return true;
             }
 
             void Items(DrawingContext dc, FormattedText[] texts, Color c, double t)
