@@ -491,9 +491,14 @@ namespace Stackshot
 
         void Reflow(bool keepScroll, XRow select)
         {
+            Show(XmlRows.Walk(model.Top, 0, false, keep, look, int.MaxValue), keepScroll, select);
+        }
+
+        void Show(List<XRow> next, bool keepScroll, XRow select)
+        {
             ScrollViewer sv = Scroller();
             double off = keepScroll && sv != null ? sv.VerticalOffset : 0;
-            rows = XmlRows.Walk(model.Top, 0, false, keep, look, int.MaxValue);
+            rows = next;
             list.ItemsSource = rows;
             HookThumb();
             if (select != null)
@@ -674,7 +679,28 @@ namespace Stackshot
             XRow r = rows[i];
             if (!r.Collapsible) return;
             r.Node.Expanded = !r.Node.Expanded;
-            Reflow(true, new XRow { Node = r.Node, Close = false });
+            XRow select = new XRow { Node = r.Node, Close = false };
+            if (keep != null) { Reflow(true, select); return; }
+            // Only this node's lines change: walking the whole of a big document again took most of the time.
+            XRow head = new XRow { Node = r.Node, Depth = r.Depth, Look = look };
+            List<XRow> next = new List<XRow>(rows.Count);
+            next.AddRange(rows.GetRange(0, i));
+            next.Add(head);
+            int after = i + 1;
+            if (r.Node.Expanded)
+            {
+                next.AddRange(XmlRows.Walk(r.Node.Kids, r.Depth + 1, false, null, look, int.MaxValue));
+                next.Add(new XRow { Node = r.Node, Depth = r.Depth, Close = true, Look = look });
+            }
+            else
+            {
+                head.Collapsed = true;
+                while (after < rows.Count && !(rows[after].Close && rows[after].Node == r.Node)) after++;
+                if (after >= rows.Count) { Reflow(true, select); return; }
+                after++;
+            }
+            next.AddRange(rows.GetRange(after, rows.Count - after));
+            Show(next, true, select);
         }
 
         XmlRowView RowAt(MouseEventArgs e, out Point inRow)

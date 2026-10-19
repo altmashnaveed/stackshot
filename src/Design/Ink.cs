@@ -22,12 +22,15 @@ namespace Stackshot
         static Geometry Get(string name)
         {
             Geometry g;
-            if (cache.TryGetValue(name, out g)) return g;
-            string d;
-            if (!data.TryGetValue(name, out d)) return null;
-            g = Geometry.Parse(d);
-            g.Freeze();
-            cache[name] = g;
+            lock (cache)
+            {
+                if (cache.TryGetValue(name, out g)) return g;
+                string d;
+                if (!data.TryGetValue(name, out d)) return null;
+                g = Geometry.Parse(d);
+                g.Freeze();
+                cache[name] = g;
+            }
             return g;
         }
 
@@ -155,10 +158,14 @@ namespace Stackshot
         {
             string key = name + "|" + px + "|" + color + "|" + stroke;
             D.Bitmap b;
-            if (glyphs.TryGetValue(key, out b)) return b;
-            if (glyphs.Count > 300) { foreach (D.Bitmap old in glyphs.Values) old.Dispose(); glyphs.Clear(); }
-            b = ToGdi(Render(px, px, delegate(DrawingContext dc) { Glyph.Draw(dc, name, 0, 0, px, color, stroke); }, null));
-            glyphs[key] = b;
+            lock (glyphs)
+            {
+                if (glyphs.TryGetValue(key, out b)) return b;
+                // Not disposed: a bar or menu may still paint with one; the collector frees them once nothing does.
+                if (glyphs.Count > 300) glyphs.Clear();
+                b = ToGdi(Render(px, px, delegate(DrawingContext dc) { Glyph.Draw(dc, name, 0, 0, px, color, stroke); }, null));
+                glyphs[key] = b;
+            }
             return b;
         }
 
