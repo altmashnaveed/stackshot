@@ -190,7 +190,7 @@ namespace Stackshot
         public static bool KindRetired(int kind) { return kind == KindFallGuy || kind == KindMewtwo || kind == KindMewtwoSd; }
 
         // Bodies drawn again as new ones (the Pokemon figures, the chibi ninjas, pirates and demon slayers, BMO, Snoopy,
-        // Baby Groot): the old body is no longer offered in "Cuerpo" and a look that still wears it shows the new one.
+        // Baby Groot, Chopper's reindeer and Kero's winged lion): the old body is no longer offered in "Cuerpo" and a look that still wears it shows the new one.
         // Both stay in the list, so saved indices keep their meaning. -1: not replaced.
         public static int KindNewer(int kind)
         {
@@ -223,6 +223,8 @@ namespace Stackshot
                 case KindZoro: return KindZoroSd;
                 case KindTanjiro: return KindTanjiroSd;
                 case KindNezuko: return KindNezukoSd;
+                case KindReindeer: return KindChopper;
+                case KindKero: return KindKeroSd;
                 default: return -1;
             }
         }
