@@ -398,7 +398,14 @@ namespace Stackshot
                 {
                     tools.Children.Add(Tool("Expandir todo", "plus", delegate { ExpandXml(true); }, null));
                     tools.Children.Add(Tool("Contraer todo", "minus", delegate { ExpandXml(false); }, null));
-                    if (search == null) { search = new SearchField(Ds.Brushes, "Buscar o filtrar"); search.Text = query; search.Changed += OnSearch; }
+                    if (search == null)
+                    {
+                        search = new SearchField(Ds.Brushes, "Buscar o filtrar");
+                        search.Text = query;
+                        search.Changed += OnSearch;
+                        search.Step += StepSearch;
+                        search.FilterChanged += delegate { searchLater.Stop(); ApplySearch(); };
+                    }
                     tools.Children.Add(search);
                 }
                 tools.Children.Add(copyTextTool = Tool("Copiar XML", "copy", CopyMarkdown, null));
@@ -895,7 +902,7 @@ namespace Stackshot
                 }
                 ShowBanner(banner);
                 tree.Load(model);
-                if (query.Length > 0) tree.Filter(query);
+                ReapplySearch();
             }
             previewHost.Child = tree;
             ShowCompareView();
@@ -946,7 +953,8 @@ namespace Stackshot
             if (n != null) tree.Reveal(n);
         }
 
-        // ---- XML tree search (filtered after a short pause; Enter applies at once)
+        // ---- XML tree search (after a short pause; Enter applies at once). It takes the user to each match in the
+        // whole document (Enter / Shift+Enter, F3); the funnel switches to showing only the matches.
 
         void OnSearch(string q)
         {
@@ -955,11 +963,38 @@ namespace Stackshot
             else searchLater.Restart();
         }
 
+        bool SearchFilters { get { return search != null && search.Filtering; } }
+
         void ApplySearch()
         {
             if (tree == null || model == null) return;
-            tree.Filter(query);
+            if (SearchFilters) tree.Filter(query);
+            else if (tree.Find(query) > 0) tree.GoHit(1);
+            SearchCount();
             Stats();
+        }
+
+        // Applies the query to a freshly loaded tree without moving the view.
+        void ReapplySearch()
+        {
+            if (query.Length == 0 || tree == null) return;
+            if (SearchFilters) tree.Filter(query);
+            else tree.Find(query);
+            SearchCount();
+        }
+
+        void StepSearch(int dir)
+        {
+            if (tree == null || model == null || query.Length == 0 || SearchFilters) return;
+            if (searchLater.Pending) { searchLater.Flush(); return; }   // still typing: this is the first match
+            tree.GoHit(dir);
+            SearchCount();
+        }
+
+        void SearchCount()
+        {
+            if (search == null || tree == null) return;
+            search.SetCount(SearchFilters ? -1 : tree.HitIndex, SearchFilters ? tree.Matches : tree.HitCount);
         }
 
         // ---- Status
@@ -1623,11 +1658,18 @@ namespace Stackshot
                 else Close();
                 return;
             }
+            if (key == Key.F3 && xml && !editing && search != null && query.Length > 0 && !SearchFilters && !ctrl) { e.Handled = true; StepSearch(shift ? -1 : 1); return; }
             if (key == Key.F3 && text != null && !ctrl) { e.Handled = true; FindStep(shift); return; }
             if (key == Key.F8 && xml && editing) { e.Handled = true; GoToError(); return; }
             // Enter, Shift+Enter and Ctrl+Enter belong to the find bar's fields (Ctrl+Enter there is Reemplazar todo, not Listo).
             if (key == Key.Enter && findBar != null && e.OriginalSource is TextBox && findBar.IsAncestorOf((DependencyObject)e.OriginalSource)) return;
-            if (key == Key.Enter && search != null && Keyboard.FocusedElement == search.Box) { e.Handled = true; searchLater.Flush(); return; }
+            if (key == Key.Enter && search != null && Keyboard.FocusedElement == search.Box)
+            {
+                e.Handled = true;
+                if (searchLater.Pending || SearchFilters) searchLater.Flush();
+                else StepSearch(shift ? -1 : 1);
+                return;
+            }
             if (!ctrl || alt) return;
             bool inEditor = editing && editor != null && editor.Box.IsKeyboardFocused;
 

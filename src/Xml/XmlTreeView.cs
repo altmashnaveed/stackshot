@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -317,13 +318,16 @@ namespace Stackshot
     public sealed class SearchField : Border
     {
         public readonly TextBox Box;
-        readonly TextBlock hint;
+        readonly TextBlock hint, count;
+        readonly DocIconButton prev, next, filter;
         public event Action<string> Changed;
+        public event Action<int> Step;          // -1 previous match, 1 next
+        public event Action<bool> FilterChanged;
 
         public SearchField(Palette pal, string placeholder)
         {
             Height = 30;
-            Width = 190;
+            Width = 300;
             CornerRadius = new CornerRadius(8);
             Margin = new Thickness(8, 0, 0, 0);
             Background = Ds.Brush(pal.High ? pal.Window : pal.Dark ? Ds.Argb(0.10, 255, 255, 255) : Ds.Argb(0.06, 0, 0, 0));
@@ -331,20 +335,64 @@ namespace Stackshot
             Grid g = new Grid();
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
+            for (int i = 0; i < 4; i++) g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             GlyphView icon = new GlyphView("search", 15, pal.Label2, 1.6) { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             g.Children.Add(icon);
-            Box = new TextBox { BorderThickness = new Thickness(0), Background = Brushes.Transparent, Foreground = Ds.Brush(pal.Label), CaretBrush = Ds.Brush(pal.Label), FontSize = 13, Padding = new Thickness(6, 0, 8, 0), VerticalContentAlignment = VerticalAlignment.Center, SpellCheck = { IsEnabled = false } };
+            Box = new TextBox { BorderThickness = new Thickness(0), Background = Brushes.Transparent, Foreground = Ds.Brush(pal.Label), CaretBrush = Ds.Brush(pal.Label), FontSize = 13, Padding = new Thickness(6, 0, 4, 0), VerticalContentAlignment = VerticalAlignment.Center, SpellCheck = { IsEnabled = false } };
             Grid.SetColumn(Box, 1);
             hint = new TextBlock { Text = placeholder, FontSize = 13, Foreground = Ds.Brush(pal.Label3), IsHitTestVisible = false, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 0, 0) };
             Grid.SetColumn(hint, 1);
             g.Children.Add(Box);
             g.Children.Add(hint);
+            // "3 de 27", then previous / next match and the filter switch (only the matches and what leads to them).
+            count = new TextBlock { FontSize = 12, Foreground = Ds.Brush(pal.Label2), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0), IsHitTestVisible = false };
+            Grid.SetColumn(count, 2);
+            g.Children.Add(count);
+            prev = new DocIconButton("up", "Anterior (Mayús+Enter)", 24);
+            next = new DocIconButton("down", "Siguiente (Enter)", 24);
+            filter = new DocIconButton("filter", "Mostrar solo lo que coincide", 24) { Margin = new Thickness(2, 0, 3, 0) };
+            prev.Click += delegate { if (Step != null) Step(-1); };
+            next.Click += delegate { if (Step != null) Step(1); };
+            filter.Click += delegate
+            {
+                filter.On = !filter.On;
+                filter.InvalidateVisual();
+                Sync();
+                if (FilterChanged != null) FilterChanged(filter.On);
+            };
+            Grid.SetColumn(prev, 3);
+            Grid.SetColumn(next, 4);
+            Grid.SetColumn(filter, 5);
+            foreach (FrameworkElement b in new FrameworkElement[] { prev, next, filter }) { b.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(b); }
             Child = g;
             Box.TextChanged += delegate
             {
                 hint.Visibility = Box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+                Sync();
                 if (Changed != null) Changed(Box.Text);
             };
+            Sync();
+        }
+
+        public bool Filtering { get { return filter.On; } }
+
+        int at = -1, total;
+
+        // Where the user is among the matches (at -1: none visited yet).
+        public void SetCount(int index, int matches)
+        {
+            at = index;
+            total = matches;
+            Sync();
+        }
+
+        void Sync()
+        {
+            bool typed = Box.Text.Trim().Length > 0;
+            count.Text = !typed ? "" : total == 0 ? "Sin resultados" : filter.On ? total.ToString("N0") : (at >= 0 ? (at + 1).ToString("N0") + " de " : "") + total.ToString("N0");
+            Visibility nav = typed && !filter.On ? Visibility.Visible : Visibility.Collapsed;
+            prev.Visibility = next.Visibility = nav;
+            prev.IsEnabled = next.IsEnabled = total > 0;
         }
 
         public string Text
@@ -407,6 +455,7 @@ namespace Stackshot
             list.PreviewMouseRightButtonDown += OnRightDown;
             list.PreviewMouseRightButtonUp += OnRightUp;
             list.PreviewKeyDown += OnKey;
+            list.Loaded += delegate { HookThumb(); };
         }
 
         public ListBox List { get { return list; } }
@@ -422,6 +471,8 @@ namespace Stackshot
             keep = null;
             look.Query = "";
             matches = 0;
+            hits.Clear();
+            hitAt = -1;
             // Small documents open fully; large ones, two levels deep.
             Stack<XItem> st = new Stack<XItem>();
             Stack<int> depth = new Stack<int>();
@@ -444,6 +495,7 @@ namespace Stackshot
             double off = keepScroll && sv != null ? sv.VerticalOffset : 0;
             rows = XmlRows.Walk(model.Top, 0, false, keep, look, int.MaxValue);
             list.ItemsSource = rows;
+            HookThumb();
             if (select != null)
             {
                 int i = rows.FindIndex(delegate(XRow r) { return r.Node == select.Node && r.Close == select.Close; });
@@ -496,6 +548,8 @@ namespace Stackshot
             if (model == null) return 0;
             q = (q ?? "").Trim();
             look.Query = q;
+            hits.Clear();
+            hitAt = -1;
             if (q.Length == 0) { keep = null; matches = 0; Reflow(false, null); return 0; }
             HashSet<XItem> k = new HashSet<XItem>();
             Stack<XItem> st = new Stack<XItem>();
@@ -517,6 +571,99 @@ namespace Stackshot
             matches = n;
             Reflow(false, null);
             return n;
+        }
+
+        // ---- Find: the whole tree stays, the text is highlighted everywhere and each match can be visited in turn
+
+        readonly List<XItem> hits = new List<XItem>();
+        int hitAt = -1;
+
+        public int HitCount { get { return hits.Count; } }
+        public int HitIndex { get { return hitAt; } }
+
+        // Lists where q appears, in document order, and highlights it. Returns how many.
+        public int Find(string q)
+        {
+            hits.Clear();
+            hitAt = -1;
+            if (model == null) return 0;
+            q = (q ?? "").Trim();
+            bool wasFiltered = keep != null;
+            look.Query = q;
+            keep = null;
+            matches = 0;
+            if (q.Length > 0)
+            {
+                Stack<XItem> st = new Stack<XItem>();
+                for (int i = model.Top.Count - 1; i >= 0; i--) st.Push(model.Top[i]);
+                while (st.Count > 0)
+                {
+                    XItem x = st.Pop();
+                    // The text inside an inline element is shown on its element's row: the element is the match.
+                    bool hidden = x.Parent != null && x.Parent.Inline;
+                    if (!hidden && Hit(x, q)) hits.Add(x);
+                    if (!x.Inline) for (int i = x.Kids.Count - 1; i >= 0; i--) st.Push(x.Kids[i]);
+                }
+            }
+            Reflow(!wasFiltered, null);   // repaints the highlights where the user is
+            return hits.Count;
+        }
+
+        // To the next (dir 1) or previous (-1) match, wrapping around: opened up to it, selected and centred, so what
+        // surrounds it is in view.
+        public void GoHit(int dir)
+        {
+            if (hits.Count == 0) return;
+            hitAt = hitAt < 0 ? (dir < 0 ? hits.Count - 1 : 0) : (hitAt + dir + hits.Count) % hits.Count;
+            Reveal(hits[hitAt]);
+            Center(list.SelectedIndex);
+        }
+
+        void Center(int i)
+        {
+            ScrollViewer sv = Scroller();
+            if (sv == null || i < 0) return;
+            list.UpdateLayout();
+            // Item scrolling (the virtualized list): offsets count rows.
+            if (ScrollViewer.GetCanContentScroll(list)) sv.ScrollToVerticalOffset(Math.Max(0, i - sv.ViewportHeight / 2 + 0.5));
+            else
+            {
+                ListBoxItem c = list.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
+                if (c == null) return;
+                double y = c.TranslatePoint(new Point(0, 0), sv).Y;
+                sv.ScrollToVerticalOffset(Math.Max(0, sv.VerticalOffset + y - (sv.ViewportHeight - c.ActualHeight) / 2));
+            }
+        }
+
+        // ---- Scroll bar: with thousands of rows the thumb would shrink to nothing; it never gets shorter than this,
+        // and dragging it still covers the whole document.
+
+        const double MinThumb = 36;
+        bool thumbHooked;
+
+        void HookThumb()
+        {
+            if (thumbHooked) return;
+            ScrollViewer sv = Scroller();
+            if (sv == null) return;
+            thumbHooked = true;
+            sv.ScrollChanged += delegate(object o, ScrollChangedEventArgs e)
+            {
+                if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) FitThumb(sv);
+            };
+            sv.SizeChanged += delegate { FitThumb(sv); };
+            FitThumb(sv);
+        }
+
+        static void FitThumb(ScrollViewer sv)
+        {
+            ScrollBar bar = sv.Template == null ? null : sv.Template.FindName("PART_VerticalScrollBar", sv) as ScrollBar;
+            Track t = bar == null ? null : bar.Track;
+            if (t == null) return;
+            double len = t.ActualHeight, range = sv.ScrollableHeight, vp = sv.ViewportHeight;
+            // The thumb is len * viewport / (range + viewport) long: a larger "viewport" for the track alone keeps it
+            // at MinThumb, and the track maps its positions over the same range.
+            t.ViewportSize = range <= 0 || len <= MinThumb * 2 ? vp : Math.Max(vp, MinThumb * range / (len - MinThumb));
         }
 
         // ---- Toggling
