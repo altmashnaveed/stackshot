@@ -16,6 +16,10 @@ namespace Stackshot
     {
         static readonly string[] Kinds = { ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mkv" };
         static readonly Dictionary<string, BitmapSource> thumbs = new Dictionary<string, BitmapSource>();
+        // Least recently used first: past the limit only the oldest go, so scrolling back never decodes every tile again.
+        static readonly LinkedList<string> thumbOrder = new LinkedList<string>();
+        static readonly Dictionary<string, LinkedListNode<string>> thumbNodes = new Dictionary<string, LinkedListNode<string>>();
+        const int ThumbLimit = 200;
         static readonly Dictionary<string, List<Action<BitmapSource>>> waiting = new Dictionary<string, List<Action<BitmapSource>>>();
         static readonly HashSet<string> unreadable = new HashSet<string>();   // files that gave no thumbnail (until they change)
         public static string TempFolder = Settings.TempDir;   // tools point it elsewhere
@@ -51,6 +55,28 @@ namespace Stackshot
                 if (ago >= 0 && ago < days) r[days - 1 - ago]++;
             }
             return r;
+        }
+
+        static void Keep(string key, BitmapSource src)
+        {
+            if (thumbs.ContainsKey(key)) { thumbs[key] = src; Touch(key); return; }
+            while (thumbs.Count >= ThumbLimit && thumbOrder.First != null)
+            {
+                string old = thumbOrder.First.Value;
+                thumbOrder.RemoveFirst();
+                thumbNodes.Remove(old);
+                thumbs.Remove(old);
+            }
+            thumbs[key] = src;
+            thumbNodes[key] = thumbOrder.AddLast(key);
+        }
+
+        static void Touch(string key)
+        {
+            LinkedListNode<string> n;
+            if (!thumbNodes.TryGetValue(key, out n)) return;
+            thumbOrder.Remove(n);
+            thumbOrder.AddLast(n);
         }
 
         // The next listing reads the disk again (a capture was just written).
@@ -188,7 +214,7 @@ namespace Stackshot
         {
             string key = path + "|" + ticks + "|" + px;
             BitmapSource b;
-            if (thumbs.TryGetValue(key, out b)) { ready(b); return; }
+            if (thumbs.TryGetValue(key, out b)) { Touch(key); ready(b); return; }
             if (unreadable.Contains(key)) return;
             List<Action<BitmapSource>> list;
             if (waiting.TryGetValue(key, out list)) { list.Add(ready); return; }
@@ -209,12 +235,12 @@ namespace Stackshot
                     else if (!busy) { D.Size orig; bmp = ShotStack.LoadPreview(path, px, out orig); }
                 }
                 catch (Exception ex) { ShotStack.Log("Miniatura: " + ex.Message); }
+                // Converted here (frozen, so the UI thread can use it): the UI thread only files it.
+                BitmapSource src = null;
+                if (bmp != null) { try { src = Ink.FromGdi(bmp); } catch { } bmp.Dispose(); }
                 ui.BeginInvoke((Action)delegate
                 {
-                    BitmapSource src = null;
-                    if (bmp != null) { try { src = Ink.FromGdi(bmp); } catch { } bmp.Dispose(); }
-                    if (thumbs.Count > 200) thumbs.Clear();
-                    if (src != null) thumbs[key] = src;
+                    if (src != null) Keep(key, src);
                     else if (!busy)
                     {
                         // Don't decode a broken file on every rebuild; a new version of it gets a new key.
