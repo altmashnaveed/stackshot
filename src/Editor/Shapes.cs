@@ -352,10 +352,19 @@ namespace Stackshot
         public static void DrawMarks(Graphics g, IList<Shape> shapes, Shape extra, Shape skip, Bitmap img, RectangleF area)
         {
             DrawSpotlights(g, shapes, extra, area);
+            // A partial repaint (dragging one mark) skips the marks that can't reach it, shadow and stroke included.
+            RectangleF clip = g.ClipBounds;
             for (int i = 0; i <= shapes.Count; i++)
             {
                 Shape s = i < shapes.Count ? shapes[i] : extra;
                 if (s == null || s == skip) continue;
+                if (s.Kind != Tool.Text && s.Kind != Tool.Spotlight)
+                {
+                    RectangleF b = Bounds(s);
+                    float m = s.Width * 3 + 8 + (s.Kind == Tool.Counter ? CounterRadius(s) * 0.2f : 0);
+                    b.Inflate(m, m);
+                    if (!b.IntersectsWith(clip)) continue;
+                }
                 Draw(g, s, img);
                 if (s.Kind != Tool.Pixelate) continue;
                 GraphicsState state = g.Save();

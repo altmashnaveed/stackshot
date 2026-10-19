@@ -127,10 +127,13 @@ namespace Stackshot
                 Region keep = g.Clip;
                 g.SetClip(gp, CombineMode.Intersect);
                 g.SmoothingMode = SmoothingMode.None;
-                for (int j = 0; j < LoupeCells; j++)
-                    for (int i = 0; i < LoupeCells; i++)
-                        using (SolidBrush pb = new SolidBrush(PixelAt(cur.X + i - half, cur.Y + j - half)))
+                using (SolidBrush pb = new SolidBrush(Color.Black))
+                    for (int j = 0; j < LoupeCells; j++)
+                        for (int i = 0; i < LoupeCells; i++)
+                        {
+                            pb.Color = PixelAt(cur.X + i - half, cur.Y + j - half);
                             g.FillRectangle(pb, grid.X + i * cell, grid.Y + j * cell, cell, cell);
+                        }
                 using (Pen line = new Pen(Color.FromArgb(46, 0, 0, 0), 1))
                     for (int i = 1; i < LoupeCells; i++)
                     {

@@ -1091,7 +1091,8 @@ namespace Stackshot
         void InvalidateMark(Shape s)
         {
             if (s == null) return;
-            if (s.Kind == Tool.Spotlight) { Invalidate(); return; } // the dimming around it covers the whole capture
+            // A spotlight too: the dimming is the same everywhere but in its hole, so only where the hole was and is changes
+            // (callers invalidate before and after the change).
             Rectangle r = OutlineRect(s);
             int m = Pu(10) + (int)Math.Ceiling(Math.Max(1f, s.Width * 0.45f) * k) + 2;
             r.Inflate(m, m);
