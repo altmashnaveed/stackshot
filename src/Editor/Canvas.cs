@@ -1199,12 +1199,28 @@ namespace Stackshot
             Invalidate(r);
         }
 
+        // Whether any spotlight dims the capture now (the same test as Painter.DrawSpotlights), and what the last repaint
+        // knew about it.
+        bool spotLit;
+
+        bool SpotlightsLit()
+        {
+            foreach (Shape x in shapes) if (x.Kind == Tool.Spotlight && x.Box.Width >= 1 && x.Box.Height >= 1) return true;
+            return cur != null && cur.Kind == Tool.Spotlight && cur.Box.Width >= 1 && cur.Box.Height >= 1;
+        }
+
         // The mark with its outline, handles and drop shadow: dragging repaints only what moved.
         void InvalidateMark(Shape s)
         {
             if (s == null) return;
             // A spotlight too: the dimming is the same everywhere but in its hole, so only where the hole was and is changes
-            // (callers invalidate before and after the change).
+            // (callers invalidate before and after the change). Except when the dimming itself comes or goes (the first
+            // spotlight drawn, the last one shrunk to nothing): then it covers, or leaves, the whole capture.
+            if (s.Kind == Tool.Spotlight)
+            {
+                bool lit = SpotlightsLit();
+                if (lit != spotLit) { spotLit = lit; Invalidate(); return; }
+            }
             Rectangle r = OutlineRect(s);
             int m = Pu(10) + (int)Math.Ceiling(Math.Max(1f, s.Width * 0.45f) * k) + 2;
             r.Inflate(m, m);
