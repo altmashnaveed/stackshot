@@ -25,6 +25,9 @@ namespace Stackshot
         public int Number;
         public Bitmap Cache;        // pixelation cache: only the live shape owns it, never undo snapshots
         public RectangleF CacheBox;
+        public string MeasuredText; // text marks: the size of Text at MeasuredPx, so hover and outlines don't measure again
+        public float MeasuredPx;
+        public SizeF MeasuredSize;
 
         public RectangleF Box
         {
@@ -113,13 +116,38 @@ namespace Stackshot
         // Text box with its background, in image coordinates.
         public static RectangleF TextBounds(Shape s)
         {
-            using (Font f = new Font("Segoe UI Semibold", s.FontPx, GraphicsUnit.Pixel))
-            using (StringFormat sf = TextFormat())
+            // Asked on every mouse move (hover, outline): measured once per text and size.
+            string text = s.Text ?? "";
+            if (s.MeasuredText != text || s.MeasuredPx != s.FontPx)
             {
-                SizeF sz = measure.MeasureString(s.Text ?? "", f, PointF.Empty, sf);
-                float pad = s.FontPx * 0.35f;
-                return new RectangleF(s.A.X, s.A.Y, sz.Width + pad * 2, sz.Height + pad * 2);
+                s.MeasuredSize = measure.MeasureString(text, TextFont(s.FontPx), PointF.Empty, TextFmt);
+                s.MeasuredText = text;
+                s.MeasuredPx = s.FontPx;
             }
+            SizeF sz = s.MeasuredSize;
+            float pad = s.FontPx * 0.35f;
+            return new RectangleF(s.A.X, s.A.Y, sz.Width + pad * 2, sz.Height + pad * 2);
+        }
+
+        // Fonts and the text format, made once (they were made on every paint and every mouse move): the shared font
+        // cache, and one format per thread (GDI+ objects aren't shared across threads while in use).
+        static Font TextFont(float px) { return Fonts.Get("Segoe UI Semibold", px); }
+
+        [ThreadStatic] static StringFormat textFmt;
+        static StringFormat TextFmt { get { return textFmt ?? (textFmt = TextFormat()); } }
+
+        [ThreadStatic] static Dictionary<int, Font> counterFonts;
+        static Font CounterFont(float px)
+        {
+            if (counterFonts == null) counterFonts = new Dictionary<int, Font>();
+            int key = (int)Math.Round(px * 100);
+            Font f;
+            if (!counterFonts.TryGetValue(key, out f))
+            {
+                if (counterFonts.Count > 64) { foreach (Font old in counterFonts.Values) old.Dispose(); counterFonts.Clear(); }
+                counterFonts[key] = f = new Font("Segoe UI", px, FontStyle.Bold, GraphicsUnit.Pixel);
+            }
+            return f;
         }
 
         public static float CounterRadius(Shape s) { return s.FontPx * 0.8f; }
@@ -306,9 +334,9 @@ namespace Stackshot
                     }
                     break;
                 case Tool.Text:
-                    using (Font f = new Font("Segoe UI Semibold", s.FontPx, GraphicsUnit.Pixel))
-                    using (StringFormat sf = TextFormat())
                     {
+                        Font f = TextFont(s.FontPx);
+                        StringFormat sf = TextFmt;
                         SizeF sz = g.MeasureString(s.Text, f, PointF.Empty, sf);
                         float pad = s.FontPx * 0.35f;
                         RectangleF box = new RectangleF(s.A.X, s.A.Y, sz.Width + pad * 2, sz.Height + pad * 2);
@@ -330,10 +358,10 @@ namespace Stackshot
                     Color ink = Contrast(s.Color);
                     using (Pen ring = new Pen(Color.FromArgb(220, ink == Color.White ? Color.White : Color.FromArgb(40, 40, 50)), Math.Max(1.5f, rad * 0.12f)))
                         g.DrawEllipse(ring, c.X, c.Y, c.Width, c.Height);
-                    using (Font f = new Font("Segoe UI", rad * (s.Number >= 10 ? 0.8f : 1.05f), FontStyle.Bold, GraphicsUnit.Pixel))
                     using (StringFormat sf = new StringFormat())
                     using (SolidBrush t = new SolidBrush(ink))
                     {
+                        Font f = CounterFont(rad * (s.Number >= 10 ? 0.8f : 1.05f));
                         sf.Alignment = StringAlignment.Center;
                         sf.LineAlignment = StringAlignment.Center;
                         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;

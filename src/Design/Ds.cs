@@ -75,11 +75,23 @@ namespace Stackshot
         public static M.Color Argb(double a, byte r, byte g, byte b) { return M.Color.FromArgb((byte)Math.Round(a * 255), r, g, b); }
         public static M.Color WithAlpha(M.Color c, double a) { return M.Color.FromArgb((byte)Math.Round(c.A * Math.Max(0, Math.Min(1, a))), c.R, c.G, c.B); }
 
+        // Frozen brushes can't change and are safe on any thread: one per colour serves every caller (they are asked for
+        // on every frame of every drawn control). The set is small (the palette and its tints); past a cap it starts over.
+        static readonly System.Collections.Generic.Dictionary<uint, M.SolidColorBrush> brushes = new System.Collections.Generic.Dictionary<uint, M.SolidColorBrush>();
+
         public static M.SolidColorBrush Brush(M.Color c)
         {
-            M.SolidColorBrush b = new M.SolidColorBrush(c);
-            b.Freeze();
-            return b;
+            uint key = ((uint)c.A << 24) | ((uint)c.R << 16) | ((uint)c.G << 8) | c.B;
+            lock (brushes)
+            {
+                M.SolidColorBrush b;
+                if (brushes.TryGetValue(key, out b)) return b;
+                if (brushes.Count > 1024) brushes.Clear();
+                b = new M.SolidColorBrush(c);
+                b.Freeze();
+                brushes[key] = b;
+                return b;
+            }
         }
 
         public static System.Drawing.Color Gdi(M.Color c) { return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B); }

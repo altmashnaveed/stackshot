@@ -39,7 +39,8 @@ namespace Stackshot
         public static List<FileInfo> Latest(Settings s, int n)
         {
             List<FileInfo> all = Files(s);
-            all.Sort(delegate(FileInfo a, FileInfo b) { return b.LastWriteTime.CompareTo(a.LastWriteTime); });
+            // UTC: the same order without converting to local time on every comparison.
+            all.Sort(delegate(FileInfo a, FileInfo b) { return b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc); });
             if (all.Count > n) all.RemoveRange(n, all.Count - n);
             return all;
         }
