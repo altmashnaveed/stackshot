@@ -119,7 +119,7 @@ namespace Stackshot.Tests
             v["MicDevice"] = "{0.0.1.00000000}.{ab-cd}"; v["SystemAudioDevice"] = "{0.0.0.00000000}.{xy}";
             v["Webcam"] = 2; v["WebcamSize"] = 2; v["WebcamDevice"] = "C\u00E1mara HD"; v["Ffmpeg"] = "C:\\Tools\\ffmpeg.exe";
             v["BgAuto"] = true; v["BgPreset"] = 3; v["BgPadding"] = 20; v["BgRadius"] = 7; v["BgShadow"] = false; v["BgRatio"] = "4:3";
-            v["Appearance"] = 2; v["AllInOne"] = true; v["ShowRecent"] = false; v["TempKeep"] = 4; v["HomeStyle"] = 2;
+            v["Appearance"] = 2; v["AllInOne"] = true; v["AdjustFirst"] = true; v["ShowRecent"] = false; v["TempKeep"] = 4; v["HomeStyle"] = 2;
             v["CloseToTray"] = false; v["Profile"] = 0; v["ShowIntro"] = false; v["MascotOn"] = false; v["MascotName"] = "\u00D1u";
             v["MascotColor"] = 5; v["MascotTalks"] = false; v["MascotKind"] = 2; v["MascotHat"] = 3; v["MascotOutfit"] = 4;
             v["MascotFace"] = 1; v["MascotEyes"] = 2; v["MascotPersonality"] = 1; v["MascotSeasonal"] = false; v["MascotDesktop"] = true;

@@ -60,6 +60,7 @@ namespace Stackshot
         // Main window and mascot.
         public int Appearance = 0;          // 0 follow Windows, 1 light, 2 dark
         public bool AllInOne = false;       // area capture: adjust the area and choose image, video, GIF or scrolling before capturing
+        public bool AdjustFirst = false;    // area capture: the area stays adjustable, with a live preview, until Enter or Capturar
         public int CaptureDelay = 3;        // seconds the timed capture counts down: 3, 5 or 10
         public bool ShowRecent = true;      // Home shows the recent captures (off: no strip and no thumbnails are loaded)
         public int TempKeep = 0;            // how long temporary captures stay: 0 an hour, 1 until Stackshot closes, 2 a day, 3 a week, 4 a month
@@ -251,6 +252,7 @@ namespace Stackshot
                         case "scroll": s.HotScroll = v; break;
                         case "appearance": s.Appearance = Int(v, s.Appearance, 0, 2); break;
                         case "allinone": s.AllInOne = Bool(v, s.AllInOne); break;
+                        case "adjustfirst": s.AdjustFirst = Bool(v, s.AdjustFirst); break;
                         case "capturedelay": { int cd = Int(v, s.CaptureDelay, 0, 60); s.CaptureDelay = cd == 3 || cd == 5 || cd == 10 ? cd : s.CaptureDelay; break; }
                         case "showrecent": s.ShowRecent = Bool(v, s.ShowRecent); break;
                         case "tempkeep": s.TempKeep = Int(v, s.TempKeep, 0, 4); break;
@@ -406,19 +408,68 @@ namespace Stackshot
         static string badFile;  // a settings file that was unreadable when loaded (its backup was used instead)
         internal Policy.Kept PolicyKept; // the user's own values of what IT policies force (see Policy)
 
+        // The text is taken at once (these values as they are now); the disk write happens a moment later on a worker
+        // thread, one for several saves in a row, so a toggle or a capture never waits for the disk (antivirus and sync
+        // tools can make a write take hundreds of ms). Outside the app's message loop (tools, tests) it writes at once.
         public void Save()
         {
             if (ReadOnly) return;
+            string text;
+            try { text = Policy.ForFile(this).Text(); }
+            catch (Exception ex) { ShotStack.Log("Guardar ajustes: " + ex.Message); return; }
+            bool later = System.Windows.Forms.Application.MessageLoop;
+            lock (pendingLock)
+            {
+                pendingText = text;
+                pendingPath = FilePath;
+                pendingSeq++;
+                if (later && queued) return;
+                queued = later;
+            }
+            if (!later) { Flush(); return; }
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate { System.Threading.Thread.Sleep(250); Flush(); });
+        }
+
+        static readonly object pendingLock = new object();
+        static string pendingText, pendingPath;
+        static long pendingSeq, writtenSeq;
+        static bool queued;
+
+        // Writes what is waiting, now (also at exit, so the next copy of the app reads the latest).
+        public static void Flush()
+        {
+            string text, path;
+            long seq;
+            lock (pendingLock)
+            {
+                text = pendingText;
+                path = pendingPath;
+                seq = pendingSeq;
+                pendingText = null;
+                queued = false;
+            }
+            // Nothing waiting, but a write may be under way on a worker thread: at exit it must finish first.
+            if (text == null) { lock (saveLock) { } return; }
             try
             {
-                lock (saveLock) Policy.ForFile(this).Write(FilePath);
+                lock (saveLock)
+                {
+                    if (seq <= writtenSeq) return;   // a newer one is already on disk
+                    WriteText(path, text);
+                    writtenSeq = seq;
+                }
             }
             catch (Exception ex) { ShotStack.Log("Guardar ajustes: " + ex.Message); }
         }
 
+        // These values to that file, now (tools and tests write settings files of their own).
         void Write(string path)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            lock (saveLock) WriteText(path, Text());
+        }
+
+        string Text()
+        {
             StringBuilder b = new StringBuilder();
             b.AppendLine("# Ajustes de Stackshot. Se pueden cambiar desde el icono de la bandeja > Ajustes.");
             b.AppendLine("SaveFolder = " + OneLine(SaveFolder));
@@ -461,6 +512,7 @@ namespace Stackshot
             b.AppendLine("# Tema: 0 como Windows, 1 claro, 2 oscuro");
             b.AppendLine("Appearance = " + Appearance);
             b.AppendLine("AllInOne = " + (AllInOne ? "1" : "0"));
+            b.AppendLine("AdjustFirst = " + (AdjustFirst ? "1" : "0"));
             b.AppendLine("CaptureDelay = " + CaptureDelay);
             b.AppendLine("ShowRecent = " + (ShowRecent ? "1" : "0"));
             b.AppendLine("# Capturas temporales: 0 una hora, 1 hasta cerrar, 2 un d\u00EDa, 3 una semana, 4 un mes");
@@ -562,10 +614,16 @@ namespace Stackshot
             b.AppendLine("UpdateNotified = " + OneLine(UpdateNotified));
             b.AppendLine("NewsSeen = " + OneLine(NewsSeen));
             b.AppendLine("ScrollGuides = " + ScrollGuides);
+            return b.ToString();
+        }
+
+        static void WriteText(string path, string text)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
             // Write to a temp file and swap it in, so a crash mid-write never leaves an empty file; the file it
             // replaces becomes the backup.
             string tmp = path + ".tmp", bak = path + ".bak";
-            File.WriteAllText(tmp, b.ToString(), new UTF8Encoding(false));
+            File.WriteAllText(tmp, text, new UTF8Encoding(false));
             // A file known to be broken is replaced without becoming the backup, so the good backup stays.
             bool broken = string.Equals(path, badFile, StringComparison.OrdinalIgnoreCase);
             if (!File.Exists(path)) File.Move(tmp, path);

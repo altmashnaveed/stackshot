@@ -52,7 +52,7 @@ namespace Stackshot.Tests
             v["Webcam"] = 2; v["WebcamSize"] = 2; v["WebcamDevice"] = "C\u00E1mara HD, USB";
             v["Ffmpeg"] = @"C:\Herramientas\ffmpeg\bin\ffmpeg.exe";
             v["BgAuto"] = true; v["BgPreset"] = 7; v["BgPadding"] = 33; v["BgRadius"] = 12; v["BgShadow"] = false; v["BgRatio"] = "4:3";
-            v["Appearance"] = 2; v["AllInOne"] = true; v["ShowRecent"] = false; v["TempKeep"] = 4; v["HomeStyle"] = 2;
+            v["Appearance"] = 2; v["AllInOne"] = true; v["AdjustFirst"] = true; v["ShowRecent"] = false; v["TempKeep"] = 4; v["HomeStyle"] = 2;
             v["CloseToTray"] = false; v["Profile"] = 0; v["ShowIntro"] = false;
             v["MascotOn"] = false; v["MascotName"] = "\u00D1u Pixel"; v["MascotColor"] = 5; v["MascotTalks"] = false;
             v["MascotKind"] = 3; v["MascotHat"] = 4; v["MascotOutfit"] = 2; v["MascotFace"] = 1; v["MascotEyes"] = 1;

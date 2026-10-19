@@ -19,6 +19,10 @@ namespace Stackshot
             req.UserAgent = "Stackshot/" + Installer.MyVersion.ToString(3);
             req.Timeout = timeoutMs;
             req.ReadWriteTimeout = readWriteMs;
+            // JSON answers come compressed (smaller, faster); a POST goes in one round trip instead of asking first
+            // (some company proxies refuse that question with 417).
+            req.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+            req.ServicePoint.Expect100Continue = false;
             if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials;
             return req;
         }

@@ -967,6 +967,7 @@ namespace Stackshot
 
         void ApplySearch()
         {
+            Stall.Mark("buscar en el XML");
             if (tree == null || model == null) return;
             if (SearchFilters) tree.Filter(query);
             else if (tree.Find(query) > 0) tree.GoHit(1);

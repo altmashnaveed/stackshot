@@ -43,7 +43,7 @@ namespace Stackshot
         Size origSize = new Size(16, 9);
         float nextScale = 1f;
         Rectangle home;
-        bool hover, pressed, gestureDecided, swiping, dragging, migrating, parked, fadeByPos, closeAfterDrag;
+        bool hover, pressed, gestureDecided, swiping, dragging, migrating, parked, fadeByPos, closeAfterDrag, dragWaiting;
         int hot = -1, prevHot = -1, pressBtn = -1, pressShown = -1, swipeStartX;
         Point pressPt;
         double swipeV, swipeLastX, swipeLastT;
@@ -1096,7 +1096,28 @@ namespace Stackshot
         void StartDrag()
         {
             if (StillChecking()) return;
-            ShotStack.WaitWritten(FilePath);
+            if (ShotStack.IsWriting(FilePath))
+            {
+                // Dragged the moment it appeared: the PNG is waited for off the interface thread and the drag starts
+                // then, if the button is still held.
+                if (dragWaiting) return;
+                dragWaiting = true;
+                string p = FilePath;
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    ShotStack.WaitWritten(p);
+                    try
+                    {
+                        BeginInvoke((Action)delegate
+                        {
+                            dragWaiting = false;
+                            if (!IsDisposed && !Leaving && (Control.MouseButtons & MouseButtons.Left) != 0) StartDrag();
+                        });
+                    }
+                    catch (InvalidOperationException) { }   // closed meanwhile
+                });
+                return;
+            }
             if (!File.Exists(FilePath)) return;
             dragging = true;
             SetHot(-1);

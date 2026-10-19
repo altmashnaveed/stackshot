@@ -720,10 +720,16 @@ namespace Stackshot
         // Writes annotations, crop and backdrop to the temp capture, and refreshes the saved copy if there is one.
         bool Apply()
         {
+            Stall.Mark("guardar en el editor");
             canvas.CommitText();
             try
             {
-                using (Bitmap b = canvas.Render()) Write(b, path);
+                using (Bitmap b = canvas.Render())
+                {
+                    // Newer than anything still waiting to be written in the background, which then skips its write.
+                    lock (backgroundLock) { long l; newest.TryGetValue(path, out l); newest[path] = l + 1; }
+                    lock (writeLock) Write(b, path);
+                }
                 Applied();
                 return true;
             }
@@ -743,6 +749,115 @@ namespace Stackshot
                 WriteImage(b, ms, FormatFor(file));
                 AtomicFile.Write(file, delegate(Stream s) { ms.WriteTo(s); });
             }
+        }
+
+        // Like Apply, without making the user wait for the disk: the picture is made here (it needs the marks), the
+        // encoding and the write run on a worker thread. Until it is written the file counts as being written
+        // (ShotStack.WaitWritten), so a copy made right away still gives the new picture and the thumbnail, saving and
+        // dragging wait for it on their own threads. then runs once it is on disk. The standalone editor keeps Apply.
+        bool ApplyInBackground(Action then)
+        {
+            Stall.Mark("guardar en el editor");
+            if (owner == null)
+            {
+                if (!Apply()) return false;
+                if (then != null) then();
+                return true;
+            }
+            canvas.CommitText();
+            Bitmap b;
+            try { b = canvas.Render(); }
+            catch (Exception ex)
+            {
+                ShotStack.Log("Guardar: " + ex.Message);
+                Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            string file = path;
+            ShotStack stack = owner;
+            if (canvas.BgOn) withBackdrop.Add(file);
+            else if (!openedWithBackdrop) withBackdrop.Remove(file);
+            written = true;
+            dirty = false;
+            UpdateUi();
+            long seq;
+            lock (backgroundLock)
+            {
+                backgroundWrites++;
+                int n;
+                inFlight.TryGetValue(file, out n);
+                inFlight[file] = n + 1;
+                if (n == 0) ShotStack.MarkWriting(file);
+                long last;
+                newest.TryGetValue(file, out last);
+                seq = newest[file] = last + 1;
+            }
+            Editor ed = this;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                Exception error = null;
+                bool wrote = false;
+                try
+                {
+                    // One at a time, and only the newest of the picture of a file: a quick second save never loses
+                    // to the first one finishing later (which skips its write and leaves the rest to the newer one).
+                    lock (writeLock)
+                    {
+                        long latest;
+                        lock (backgroundLock) newest.TryGetValue(file, out latest);
+                        if (latest == seq) { Write(b, file); wrote = true; }
+                    }
+                }
+                catch (Exception ex) { error = ex; }
+                finally
+                {
+                    b.Dispose();
+                    lock (backgroundLock)
+                    {
+                        int n = inFlight[file] - 1;
+                        if (n > 0) inFlight[file] = n;
+                        else { inFlight.Remove(file); ShotStack.DoneWriting(file); }
+                    }
+                }
+                Action after = delegate
+                {
+                    if (error != null)
+                    {
+                        ShotStack.Log("Guardar: " + error.Message);
+                        // Still open: it has those changes again, to try once more.
+                        if (!ed.IsDisposed) { ed.dirty = true; ed.written = false; ed.UpdateUi(); }
+                        stack.Notify("No se pudo guardar la edici\u00F3n", error.Message);
+                        return;
+                    }
+                    if (!wrote) return;
+                    try { if (stack.IsKept(file)) stack.Keep(file); }
+                    catch (Exception ex) { ShotStack.Log("Guardar (editor): " + ex.Message); }
+                    if (then != null) then();
+                };
+                // Quitting: the interface thread is waiting for this write (WaitBackgroundWrites), so what follows it
+                // runs here and is done before the app goes.
+                if (stack.Exiting) { try { after(); } catch (Exception ex) { ShotStack.Log("Guardar (editor): " + ex.Message); } }
+                else stack.Ui(after);
+                lock (backgroundLock)
+                {
+                    backgroundWrites--;
+                    System.Threading.Monitor.PulseAll(backgroundLock);
+                }
+            });
+            return true;
+        }
+
+        static readonly object backgroundLock = new object(), writeLock = new object();
+        static int backgroundWrites;
+        static readonly Dictionary<string, int> inFlight = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        static readonly Dictionary<string, long> newest = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+
+        // At exit: edits still being written in the background finish first (at most a few seconds).
+        public static void WaitBackgroundWrites()
+        {
+            DateTime end = DateTime.UtcNow.AddSeconds(10);
+            lock (backgroundLock)
+                while (backgroundWrites > 0 && DateTime.UtcNow < end) System.Threading.Monitor.Wait(backgroundLock, 250);
         }
 
         // The file now holds what the canvas shows.
@@ -878,12 +993,16 @@ namespace Stackshot
         }
 
         // With nothing pending, the file on disk is exactly this image: the clipboard PNG is read from it, not encoded again.
-        void CopyOut()
+        void CopyOut() { CopyOut(true); }
+
+        // fileOk false: the file may not hold this picture (still being written, and the write could fail), so the
+        // clipboard's PNG is made from the picture itself instead of read back from the file.
+        void CopyOut(bool fileOk)
         {
             canvas.CommitText();
             try
             {
-                if (owner != null) owner.CopyTracked(path, canvas.Render(), false, !Pending);
+                if (owner != null) owner.CopyTracked(path, canvas.Render(), false, fileOk && !Pending);
                 else using (Bitmap b = canvas.Render()) ShotStack.CopyImage(b);
                 Feedback(copyItem);
             }
@@ -926,29 +1045,35 @@ namespace Stackshot
         void KeepCopy()
         {
             canvas.CommitText();
-            if ((Pending || InTemp) && !Apply()) return;
-            try
+            Action keep = delegate
             {
-                if (InTemp) owner.Keep(path);
-                Feedback(saveItem);
-            }
-            catch (Exception ex)
-            {
-                ShotStack.Log("Guardar (editor): " + ex.Message);
-                Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+                try
+                {
+                    if (InTemp) owner.Keep(path);
+                    if (!IsDisposed) Feedback(saveItem);
+                }
+                catch (Exception ex)
+                {
+                    ShotStack.Log("Guardar (editor): " + ex.Message);
+                    if (!IsDisposed) Dialogs.Show(this, "No se pudo guardar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else if (owner != null) owner.Notify("No se pudo guardar", ex.Message);
+                }
+            };
+            if (Pending || InTemp) ApplyInBackground(keep);
+            else keep();
         }
 
         // Enter: apply, copy and close, ready to paste or drag the thumbnail.
         // For videos: export with annotations and backdrop and add the result to the stack.
-        // Written before closing (not in the background), so a paste right after Enter never gets the previous clipboard.
-        // The PNG is encoded once: the clipboard reads it back from the file.
+        // The clipboard is filled before closing, so a paste right after Enter never gets the previous one; the file is
+        // written in the background, and the clipboard's PNG is made from the picture itself (not from that file).
         void Done()
         {
             if (IsVideo) { ExportVideo(); return; }
             canvas.CommitText(); // a text still being typed counts as a change to write
-            if (Pending && !Apply()) return;
-            CopyOut();
+            bool writing = Pending;
+            if (writing && !ApplyInBackground(null)) return;
+            CopyOut(!writing);
             closeWithoutAsking = true;
             Close();
         }

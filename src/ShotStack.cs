@@ -40,6 +40,7 @@ namespace Stackshot
         readonly System.Threading.EventWaitHandle quitEvent;
         TrackedData clip;
         bool exiting, picking;
+        public bool Exiting { get { return exiting; } }
         readonly List<Card> cards = new List<Card>();
         readonly Dictionary<string, Editor> editors = new Dictionary<string, Editor>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, DateTime> refresh = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
@@ -64,6 +65,7 @@ namespace Stackshot
             Running = this;
             sync.CreateControl();
             IntPtr forceHandle = sync.Handle;
+            if (!Test) Stall.Start(sync);
             Directory.CreateDirectory(folder);
             upChip = new Chip(this, -1);
             downChip = new Chip(this, 1);
@@ -182,13 +184,18 @@ namespace Stackshot
             else if (justInstalled) After(2500, delegate { ShowHome("home", true); });
             else
             {
-                // Build the main window quietly a little after startup, so the first time it opens it is instant.
+                // Build the main window quietly a little after startup, so the first time it opens it is instant. It
+                // takes the interface about a second, so it waits for a moment the user isn't typing or moving the
+                // mouse (2 minutes at most).
                 Timer warm = new Timer();
                 warm.Interval = 6000;
+                DateTime warmBy = DateTime.UtcNow.AddMinutes(2);
                 warm.Tick += delegate
                 {
+                    if (!exiting && home == null && Native.IdleMs() < 3000 && DateTime.UtcNow < warmBy) { warm.Interval = 1000; return; }
                     warm.Dispose();
                     if (exiting || home != null) return;
+                    Stall.Mark("preparar la ventana principal");
                     try
                     {
                         HomeWindow warming = new HomeWindow(this, settings);
@@ -513,6 +520,7 @@ namespace Stackshot
         // Opens (or brings to front) the main window on that section. intro: play the launch animation.
         public void ShowHome(string page, bool intro)
         {
+            Stall.Mark("abrir la ventana principal");
             if (home == null || home.IsDisposed)
             {
                 home = new HomeWindow(this, settings);
@@ -719,7 +727,7 @@ namespace Stackshot
             Rectangle vs;
             IntPtr window;
             RegionPicker.Mode chosen;
-            Rectangle r = RegionPicker.Pick(RegionPicker.Mode.Image, settings.AllInOne, out frozen, out vs, out window, out chosen);
+            Rectangle r = RegionPicker.Pick(RegionPicker.Mode.Image, settings.AllInOne, settings.AdjustFirst && !settings.AllInOne, out frozen, out vs, out window, out chosen);
             using (frozen)
             {
                 if (r.IsEmpty) return;
@@ -809,7 +817,7 @@ namespace Stackshot
             DataObject d = new DataObject();
             d.SetText(text.Replace("\n", Environment.NewLine), TextDataFormat.UnicodeText);
             KeepOffCloud(d);
-            Clipboard.SetDataObject(d, true, 10, 100);
+            Clipboard.SetDataObject(d, true, ClipTries, ClipWaitMs);
         }
 
         void CaptureScreen()
@@ -974,6 +982,27 @@ namespace Stackshot
         }
 
         // Waits (up to 10 s) until a fresh capture's PNG is on disk.
+        internal static bool IsWriting(string path)
+        {
+            if (path == null) return false;
+            lock (writing) return writing.Contains(path);
+        }
+
+        // Another writer (the editor saving in the background) announces a file the same way BeginWrite does.
+        internal static void MarkWriting(string path)
+        {
+            lock (writing) writing.Add(path);
+        }
+
+        internal static void DoneWriting(string path)
+        {
+            lock (writing)
+            {
+                writing.Remove(path);
+                System.Threading.Monitor.PulseAll(writing);
+            }
+        }
+
         public static void WaitWritten(string path)
         {
             if (path == null) return;
@@ -1362,16 +1391,18 @@ namespace Stackshot
             if (sweepAll) limit = DateTime.MaxValue;
             else if (settings.TempKeep == 1) limit = started;
             bool held = false;  // something old enough that can't go yet (on screen, open, locked)
-            string[] files;
-            try { files = Directory.GetFiles(folder); }
+            // One listing that already carries each file's date, instead of asking the disk again for every file.
+            FileInfo[] files;
+            try { files = new DirectoryInfo(folder).GetFiles(); }
             catch (Exception ex)
             {
                 if (Directory.Exists(folder)) Log("Limpieza: " + ex.Message);
                 return;
             }
             int n = 0;
-            foreach (string f in files)
+            foreach (FileInfo fi in files)
             {
+                string f = fi.FullName;
                 string ext = Path.GetExtension(f).ToLowerInvariant();
                 // Also ".png.part" files left by an interrupted write. Work files of a recording are never deleted here:
                 // one that outlives its recording is moved to recuperado at the next start.
@@ -1379,7 +1410,7 @@ namespace Stackshot
                 if (Array.IndexOf(ImageExts, ext) < 0 && Array.IndexOf(MediaExts, ext) < 0 && ext != ".part" && ext != ".md") continue;
                 try
                 {
-                    DateTime written = File.GetLastWriteTime(f);
+                    DateTime written = fi.LastWriteTime;
                     if (written > limit)
                     {
                         if (written + TempLife < next) next = written + TempLife;
@@ -1399,9 +1430,17 @@ namespace Stackshot
                 catch (Exception ex) { held = true; Log("Limpieza de " + f + ": " + ex.Message); }
             }
             if (n > 0) Log("Limpieza: " + n + " capturas temporales borradas");
-            PrunePosters();
-            PruneOriginals();
-            XmlAttachment.Prune(sweepAll ? -1 : settings.TempKeep);
+            // Only files from here on (posters, covered originals, XML attachments; the save folders may be on a
+            // network): on a worker thread, except the cleanup at exit, which must finish before the app goes.
+            int keepXml = sweepAll ? -1 : settings.TempKeep;
+            Action prune = delegate
+            {
+                PrunePosters();
+                PruneOriginals();
+                XmlAttachment.Prune(keepXml);
+            };
+            if (exiting || sweepAll) prune();
+            else System.Threading.ThreadPool.QueueUserWorkItem(delegate { try { prune(); } catch (Exception ex) { Log("Limpieza: " + ex.Message); } });
             sweepTimer.Stop();
             sweepDue = DateTime.MaxValue;
             TimeSpan wait = next != DateTime.MaxValue ? next - now + TimeSpan.FromSeconds(5) : TimeSpan.MaxValue;
@@ -1794,12 +1833,16 @@ namespace Stackshot
             });
         }
 
+        // Another app holding the clipboard (Win+V history reading a copy, a clipboard tool) keeps it for milliseconds:
+        // a few short tries, never a second of frozen interface.
+        const int ClipTries = 6, ClipWaitMs = 40;
+
         // Tracked copy: when another app pastes it, its card counts as used and is removed.
         // sameAsFile: the image is exactly the PNG file, so the clipboard PNG is read from disk without re-encoding.
         public void CopyTracked(string path, Bitmap image, bool fromCapture, bool sameAsFile)
         {
             TrackedData td = new TrackedData(path, image, fromCapture, sameAsFile && path.EndsWith(".png", StringComparison.OrdinalIgnoreCase), OnPasted);
-            try { Clipboard.SetDataObject(td, false, 10, 100); }
+            try { Clipboard.SetDataObject(td, false, ClipTries, ClipWaitMs); }
             catch { td.Release(); throw; }
             TrackedData old = clip;
             clip = td;
@@ -1827,6 +1870,7 @@ namespace Stackshot
         // False when there was nothing to open (the file could not be read).
         public bool OpenEditor(string path)
         {
+            Stall.Mark("abrir el editor");
             Editor ed;
             if (editors.TryGetValue(path, out ed) && !ed.IsDisposed) { ed.BringUp(); return true; }
             if (IsMediaFile(path) || IsVideoFile(path))
@@ -2128,6 +2172,7 @@ namespace Stackshot
             if (!PrepareQuit(QuitKind.OtherCopy)) return;
             // The tracked clipboard object lives in this process: flush it to the clipboard before exiting.
             exiting = true;
+            Editor.WaitBackgroundWrites();   // edits still being written land before the temp files are swept
             if (settings.TempKeep == 1) { exiting = false; sweepAll = true; try { Sweep(); } catch { } exiting = true; }
             Recorder.Stop();
             ScrollCapture.Stop();
@@ -2212,7 +2257,7 @@ namespace Stackshot
             d.SetData(DataFormats.Bitmap, true, bmp);
             d.SetData("PNG", false, png);
             KeepOffCloud(d);
-            Clipboard.SetDataObject(d, true, 10, 100);
+            Clipboard.SetDataObject(d, true, ClipTries, ClipWaitMs);
         }
 
         // Files to the clipboard (videos, GIFs), kept out of the cloud clipboard like every other copy.
@@ -2223,7 +2268,7 @@ namespace Stackshot
             DataObject d = new DataObject();
             d.SetFileDropList(sc);
             KeepOffCloud(d);
-            Clipboard.SetDataObject(d, true, 10, 100);
+            Clipboard.SetDataObject(d, true, ClipTries, ClipWaitMs);
         }
 
         // Screenshots often hold private data: never synced to other devices through Windows' cloud clipboard.
@@ -2389,6 +2434,55 @@ namespace Stackshot
             string path = LogPath;
             if (path == null) return;
             string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + msg + Environment.NewLine;
+            // The interface thread never waits for the disk: its lines go to a writer thread (FlushLog at exit and on a
+            // crash). Other threads write as before.
+            if (Application.MessageLoop)
+            {
+                lock (logQueue)
+                {
+                    logQueue.Add(line);
+                    if (logWriter == null)
+                    {
+                        logWriter = new System.Threading.Thread(LogWriter) { IsBackground = true, Name = "Stackshot log", Priority = System.Threading.ThreadPriority.BelowNormal };
+                        logWriter.Start();
+                    }
+                }
+                logWake.Set();
+                return;
+            }
+            FlushLog();   // keeps the order: what the interface thread queued comes first
+            WriteLog(path, line);
+        }
+
+        static readonly List<string> logQueue = new List<string>();
+        static readonly System.Threading.AutoResetEvent logWake = new System.Threading.AutoResetEvent(false);
+        static System.Threading.Thread logWriter;
+
+        static void LogWriter()
+        {
+            while (true)
+            {
+                logWake.WaitOne();
+                FlushLog();
+            }
+        }
+
+        // Writes the lines still queued, now.
+        public static void FlushLog()
+        {
+            string text;
+            lock (logQueue)
+            {
+                if (logQueue.Count == 0) return;
+                text = string.Concat(logQueue.ToArray());
+                logQueue.Clear();
+            }
+            string path = LogPath;
+            if (path != null) WriteLog(path, text);
+        }
+
+        static void WriteLog(string path, string line)
+        {
             lock (logLock)
             {
                 try

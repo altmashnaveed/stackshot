@@ -212,6 +212,13 @@ namespace Stackshot
         public void ReadWatch(Action<string> done, bool quiet)
         {
             if (watchReading) return;
+            // Asked again from the mascot's menu right after a reading: that one is fresh enough, no three new requests.
+            GoogleHealth.Today last = Watch;
+            if (quiet && done != null && last != null && !last.Empty && (DateTime.Now - last.ReadAt).TotalMinutes < 2)
+            {
+                Ui(delegate { done(null); });
+                return;
+            }
             watchReading = true;
             nextWatchRead = Anim.Now + WatchEveryMs;
             System.Threading.ThreadPool.QueueUserWorkItem(delegate

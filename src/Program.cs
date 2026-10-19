@@ -77,7 +77,10 @@ namespace Stackshot
             try { Application.SetCompatibleTextRenderingDefault(false); } catch { }
             try { Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException); } catch { }
             Application.ThreadException += delegate(object o, System.Threading.ThreadExceptionEventArgs e) { ShotStack.Log("Error: " + e.Exception); };
-            AppDomain.CurrentDomain.UnhandledException += delegate(object o, UnhandledExceptionEventArgs e) { ShotStack.Log("Error grave: " + e.ExceptionObject); };
+            // Background collections instead of long blocking ones while the app runs: fewer hitches on the interface.
+            try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { }
+            AppDomain.CurrentDomain.ProcessExit += delegate { Settings.Flush(); ShotStack.FlushLog(); };
+            AppDomain.CurrentDomain.UnhandledException += delegate(object o, UnhandledExceptionEventArgs e) { ShotStack.Log("Error grave: " + e.ExceptionObject); ShotStack.FlushLog(); };
             // The WPF windows' own loop (timers, animations) has its own error path: a bug there must not take the tray,
             // the hotkeys and the stack down with it. Logged (the first ones in full, then now and then) and survived.
             System.Windows.Threading.Dispatcher.CurrentDispatcher.UnhandledException += delegate(object o, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
@@ -277,6 +280,9 @@ namespace Stackshot
             catch (Exception ex) { ShotStack.Log("ERROR " + ex); }
             finally
             {
+                Editor.WaitBackgroundWrites();
+                Settings.Flush();   // before the lock goes: the copy that takes over reads the latest
+                ShotStack.FlushLog();
                 if (mine) { try { mutex.ReleaseMutex(); } catch { } }
             }
             return 0;

@@ -77,17 +77,21 @@ namespace Stackshot
             double askedAfter = (DateTime.Now - since).TotalMilliseconds;
             // Asked before waiting: the app reading must still have the clipboard open.
             bool front = !used && askedAfter <= 1000 && format != null && !format.StartsWith("Can", StringComparison.Ordinal) && ReaderInFront();
-            if (format == "PNG") lock (pngLock) { while (!pngReady) System.Threading.Monitor.Wait(pngLock, 10000); }
+            // This runs on the interface thread (the clipboard asks the app that copied): it waits for the PNG at most
+            // a moment; if it is not ready the reader gets no PNG and takes the bitmap instead.
+            if (format == "PNG")
+                lock (pngLock)
+                {
+                    DateTime until = DateTime.UtcNow.AddMilliseconds(PngWaitMs);
+                    while (!pngReady)
+                    {
+                        int left = (int)(until - DateTime.UtcNow).TotalMilliseconds;
+                        if (left <= 0) return null;
+                        System.Threading.Monitor.Wait(pngLock, left);
+                    }
+                }
             object o = base.GetData(format, autoConvert);
-            bool counts = !used && o != null && CountsAsPaste(format, askedAfter, front);
-            if (asks < 16)
-            {
-                // Who reads a copy and when: what to look at if a paste isn't noticed.
-                asks++;
-                ShotStack.Log("Portapapeles: " + Reader() + " pide " + format + " a los " + (int)askedAfter + " ms" +
-                              (used ? "" : front ? ", delante" : ", no delante") + (counts ? ", cuenta como pegada" : ""));
-            }
-            if (counts)
+            if (!used && o != null && CountsAsPaste(format, askedAfter, front))
             {
                 used = true;
                 if (onUsed != null) onUsed(this);
@@ -95,18 +99,7 @@ namespace Stackshot
             return o;
         }
 
-        int asks;
-
-        static string Reader()
-        {
-            try
-            {
-                uint pid;
-                Native.GetWindowPid(Native.GetOpenClipboardWindow(), out pid);
-                return pid == 0 ? "?" : System.Diagnostics.Process.GetProcessById((int)pid).ProcessName;
-            }
-            catch { return "?"; }
-        }
+        const int PngWaitMs = 3000;
 
         // Reads in the first second are the system and clipboard tools looking at a new copy; the Can* flags are
         // Windows asking about history and cloud sync.
