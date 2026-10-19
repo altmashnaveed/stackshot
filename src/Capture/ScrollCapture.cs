@@ -239,6 +239,9 @@ namespace Stackshot
 
         // Fallback when no shift matches exactly: compares per-row brightness profiles for every shift and takes the
         // one that is clearly and uniquely best (a repeating pattern is refused). 0 nothing scrolled, -1 not found.
+        // Smooth scrolling and display scaling move the page by fractions of a row, blending neighbouring rows: each
+        // shift is also tried a fifth, two fifths... of a row further (the previous frame interpolated), and the result
+        // is the nearest whole row.
         int Tolerant(int[] px, bool[] flat, int from, int to)
         {
             int n = to - from;
@@ -247,22 +250,46 @@ namespace Stackshot
             curFeat = Features(px);
             curFeatOf = px;
             int maxD = n - Math.Max(24, n / 8), step = n > 600 ? 2 : 1; // tall areas: every other row is enough
-            double[] err = new double[maxD + 1];
-            for (int d = 0; d <= maxD; d++)
+            // Either frame may be the blended one: the fraction is tried on the previous frame (a shift of d + f) and on
+            // this one (d - f). Whole rows first for every shift; fractions only around the three best of them.
+            const int Subs = 5;
+            float[] cf = curFeat, pf = prevFeat;
+            Func<int, int, double> errAt = delegate(int d, int s)
             {
-                double sum = 0;
+                bool onPrev = s < Subs;
+                double f = (onPrev ? s : s - Subs + 1) / (double)Subs, sum = 0;
                 int considered = 0;
                 for (int i = from; i < to - d; i += step)
                 {
                     if (flat[i] && prevFlat[i + d]) continue;
-                    int a = i * bins, b = (i + d) * bins;
+                    int a0 = i * bins, a1 = Math.Min(h - 1, i + 1) * bins, b0 = (i + d) * bins, b1 = Math.Min(h - 1, i + d + 1) * bins;
                     double e = 0;
-                    for (int k = 0; k < bins; k++) e += Math.Abs(curFeat[a + k] - prevFeat[b + k]);
+                    if (f == 0) for (int k = 0; k < bins; k++) e += Math.Abs(cf[a0 + k] - pf[b0 + k]);
+                    else if (onPrev) for (int k = 0; k < bins; k++) e += Math.Abs(cf[a0 + k] - (pf[b0 + k] * (1 - f) + pf[b1 + k] * f));
+                    else for (int k = 0; k < bins; k++) e += Math.Abs(cf[a0 + k] * (1 - f) + cf[a1 + k] * f - pf[b0 + k]);
                     sum += e / bins;
                     considered++;
                 }
-                err[d] = considered >= 16 ? sum / considered : double.MaxValue;
+                return considered >= 16 ? sum / considered : double.MaxValue;
+            };
+            double[] err = new double[maxD + 1], shift = new double[maxD + 1];
+            for (int d = 0; d <= maxD; d++) { err[d] = errAt(d, 0); shift[d] = d; }
+            List<int> near = new List<int>();
+            for (int pick = 0; pick < 3; pick++)
+            {
+                int c = -1;
+                for (int d = 0; d <= maxD; d++)
+                    if (err[d] != double.MaxValue && !near.Contains(d) && (c < 0 || err[d] < err[c])) c = d;
+                if (c < 0) break;
+                near.Add(c);
             }
+            foreach (int c in near.ToArray())
+                for (int d = Math.Max(0, c - 1); d <= Math.Min(maxD, c + 1); d++)
+                    for (int s = 1; s < 2 * Subs - 1; s++)
+                    {
+                        double es = errAt(d, s);
+                        if (es < err[d]) { err[d] = es; shift[d] = s < Subs ? d + s / (double)Subs : d - (s - Subs + 1) / (double)Subs; }
+                    }
             int best = -1, counted = 0;
             double bestErr = double.MaxValue, total = 0;
             for (int d = 0; d <= maxD; d++)
@@ -276,7 +303,7 @@ namespace Stackshot
             if (bestErr > 20 || bestErr > total / counted * 0.3) return -1;
             for (int d = 0; d <= maxD; d++)
                 if (Math.Abs(d - best) > 2 && err[d] < bestErr * 1.5 + 1) return -1;
-            return best;
+            return Math.Max(0, (int)Math.Round(shift[best], MidpointRounding.AwayFromZero));   // the nearest whole row
         }
 
         // Per row, the average brightness of each of the bins bands across the compared width.
