@@ -830,23 +830,18 @@ namespace Stackshot.Tests
                     if (tool == 3) bar.Pose(i, 1, 0);
                     tool++;
                 }
-                // The backdrop strip (shown with the Fondo button) goes under the window, at its own height.
-                bg.Size = new D.Size(size.Width, bg.HeightFor(size.Width));
-                D.Bitmap pic = new D.Bitmap(size.Width, size.Height + bg.Height);
+                // The backdrop sidebar (shown with the Fondo button) on the left, with the backdrop on.
+                typeof(Editor).GetMethod("ToggleBgPanel", NP).Invoke(ed, null);
+                ed.PerformLayout();
+                D.Bitmap pic = new D.Bitmap(size.Width, size.Height);
                 using (D.Graphics g = D.Graphics.FromImage(pic))
                 {
                     g.Clear(D.Color.Magenta);
                     MethodInfo onPaint = typeof(System.Windows.Forms.Control).GetMethod("OnPaint", NP);
-                    using (D.Bitmap strip = new D.Bitmap(bg.Width, bg.Height))
-                    {
-                        using (D.Graphics sg = D.Graphics.FromImage(strip))
-                            onPaint.Invoke(bg, new object[] { new System.Windows.Forms.PaintEventArgs(sg, new D.Rectangle(0, 0, bg.Width, bg.Height)) });
-                        g.DrawImage(strip, 0, size.Height);
-                    }
                     foreach (System.Windows.Forms.Control c in ed.Controls)
                     {
                         // Visible reads false while the form is hidden: every docked child with a size is drawn.
-                        if (c == bg || c.Width <= 0 || c.Height <= 0) continue;
+                        if (c.Width <= 0 || c.Height <= 0) continue;
                         using (D.Bitmap part = new D.Bitmap(c.Width, c.Height))
                         {
                             using (D.Graphics pg = D.Graphics.FromImage(part))

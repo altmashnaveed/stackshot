@@ -88,7 +88,8 @@ namespace Stackshot
         bool DefaultStyle()
         {
             Settings d = new Settings();
-            return settings.BgPadding == d.BgPadding && settings.BgRadius == d.BgRadius && settings.BgShadow == d.BgShadow && settings.BgRatio == d.BgRatio;
+            return settings.BgPadding == d.BgPadding && settings.BgRadius == d.BgRadius && settings.BgShadow == d.BgShadow && settings.BgRatio == d.BgRatio &&
+                   settings.BgShadowSize == d.BgShadowSize && settings.BgInset == d.BgInset && settings.BgBalance == d.BgBalance && settings.BgAlign == d.BgAlign;
         }
 
         // The note under the style, with a reset link while anything differs from the defaults.
@@ -96,7 +97,7 @@ namespace Stackshot
         {
             if (styleNote == null) return;
             styleNote.Inlines.Clear();
-            styleNote.Inlines.Add(new System.Windows.Documents.Run("En el editor puedes afinar el margen y las esquinas con deslizadores; lo \u00FAltimo que uses se queda guardado aqu\u00ED."));
+            styleNote.Inlines.Add(new System.Windows.Documents.Run("En el editor tienes m\u00E1s: colores lisos, la captura desenfocada, inserci\u00F3n, alineaci\u00F3n y deslizadores para el margen, la sombra y las esquinas; lo \u00FAltimo que uses se queda guardado aqu\u00ED."));
             if (DefaultStyle()) return;
             styleNote.Inlines.Add(new System.Windows.Documents.Run(" "));
             styleNote.Inlines.Add(InlineLink("Restablecer el estilo", delegate
@@ -106,6 +107,10 @@ namespace Stackshot
                 settings.BgRadius = d.BgRadius;
                 settings.BgShadow = d.BgShadow;
                 settings.BgRatio = d.BgRatio;
+                settings.BgShadowSize = d.BgShadowSize;
+                settings.BgInset = d.BgInset;
+                settings.BgBalance = d.BgBalance;
+                settings.BgAlign = d.BgAlign;
                 Changed();
                 RefreshPreview();
                 SyncRows(); // the controls slide back and this note loses its link
@@ -142,6 +147,7 @@ namespace Stackshot
                 }
                 swatches.Clear();
                 composed.Clear();
+                settings.BgKind = 0;
                 settings.BgPreset = i;
                 settings.Save();
                 Rebuild();
@@ -163,7 +169,8 @@ namespace Stackshot
 
         static string ComposedKey(Settings st)
         {
-            return st.BgPreset + "|" + Backdrop.Name(st.BgPreset) + "|" + st.BgPadding + "|" + st.BgRadius + "|" + st.BgShadow + "|" + st.BgRatio;
+            return st.BgPreset + "|" + Backdrop.Name(st.BgPreset) + "|" + st.BgPadding + "|" + st.BgRadius + "|" + st.BgShadow + "|" + st.BgRatio + "|" + st.BgKind + "|" +
+                   st.BgColor + "|" + st.BgBlur + "|" + st.BgShadowSize + "|" + st.BgInset + "|" + st.BgBalance + "|" + st.BgAlign;
         }
 
         // Each preview is about 1.4 MB and the cache lives as long as the app: a few are kept, always the chosen one.
@@ -203,8 +210,9 @@ namespace Stackshot
                     tryTimer.Stop();
                     if (page != "editor" || previewImage == null) return;
                     int p = tryPreset;
-                    if (p < 0 || p >= Backdrop.Count || p == settings.BgPreset || Backdrop.IsCustom(p)) { RefreshPreview(); return; }
+                    if (p < 0 || p >= Backdrop.Count || (p == settings.BgPreset && settings.BgKind == 0) || Backdrop.IsCustom(p)) { RefreshPreview(); return; }
                     Settings t = settings.Clone();
+                    t.BgKind = 0;
                     t.BgPreset = p;
                     previewImage.Source = Composed(t);
                 };
@@ -285,7 +293,7 @@ namespace Stackshot
             public override void Build()
             {
                 RowDefinitions.Clear();
-                Sub = Backdrop.Name(Selected);
+                Sub = Chosen(-1);
                 base.Build();
                 MinHeight = 0;
                 RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
@@ -299,7 +307,23 @@ namespace Stackshot
                 Paint();
             }
 
-            int Selected { get { return Math.Max(0, Math.Min(Backdrop.Count - 1, W == null ? 0 : W.settings.BgPreset)); } }
+            // None while the editor's plain colour or blurred capture is the backdrop.
+            int Selected
+            {
+                get
+                {
+                    if (W != null && W.settings.BgKind != 0) return -1;
+                    return Math.Max(0, Math.Min(Backdrop.Count - 1, W == null ? 0 : W.settings.BgPreset));
+                }
+            }
+
+            // What the row says: the swatch pointed at, else the backdrop in use.
+            string Chosen(int hovered)
+            {
+                if (hovered >= 0) return Backdrop.Name(hovered);
+                if (Selected >= 0) return Backdrop.Name(Selected);
+                return W.settings.BgKind == 1 ? "Color liso" : "La captura desenfocada";
+            }
 
             FrameworkElement Cell(int i)
             {
@@ -342,12 +366,13 @@ namespace Stackshot
                 int sel = Selected;
                 for (int i = 0; i < rings.Length; i++)
                     rings[i].BorderBrush = i == sel ? Ds.Brush(pal.Accent) : i == hover ? Ds.Brush(pal.Label3) : Brushes.Transparent;
-                if (SubText != null) SubText.Text = Backdrop.Name(hover >= 0 ? hover : sel);
+                if (SubText != null) SubText.Text = Chosen(hover);
             }
 
             void Pick(int i)
             {
                 bool wasCustom = Backdrop.IsCustom(W.settings.BgPreset);
+                W.settings.BgKind = 0;
                 W.settings.BgPreset = i;
                 W.Changed();
                 Paint();

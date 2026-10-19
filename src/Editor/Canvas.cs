@@ -56,7 +56,11 @@ namespace Stackshot
         bool slidingBg;
         bool viewLive;
         Rectangle frameScreen;
-        float radiusScreen;
+        float radiusScreen, innerRadiusScreen;
+        Padding insetPx;                // around the capture, in its own pixels (an inset in its edge colour)
+        Backdrop.ShotInfo info;         // what the backdrop takes from the capture (never for a video)
+        // A video: its frames change, so the backdrop takes nothing from them (no inset, no blurred backdrop).
+        public bool Video;
         Bitmap bgFill, roundView;
         Backdrop.ShadowPiece[] bgShadow;
         string fillKey, fillPreset, shadowKey, roundKey;
@@ -100,10 +104,29 @@ namespace Stackshot
             {
                 if (!BgOn || Bg == null) return OutputSizeRaw;
                 Size frame;
-                Rectangle inner;
-                Backdrop.Measure(OutputSizeRaw, Bg, false, out frame, out inner);
+                Rectangle card, inner;
+                Backdrop.ShotInfo i = Info();
+                Backdrop.Measure(OutputSizeRaw, Bg, false, i != null ? i.Inset : Padding.Empty, out frame, out card, out inner);
                 return frame;
             }
+        }
+
+        // The capture shrunk and blurred, for the swatches of the blurred backdrop: the same one the backdrop uses, made
+        // once per crop.
+        public Bitmap BlurThumb()
+        {
+            Backdrop.ShotInfo i = Info();
+            return i == null ? null : Backdrop.BlurOf(i, Img, Rectangle.Round(Crop));
+        }
+
+        // Read again only when the crop or what is asked of it changes; the preview and the saved image share it.
+        Backdrop.ShotInfo Info()
+        {
+            if (Video || Bg == null) return null;
+            Backdrop.ShotInfo n = Backdrop.Study(Img, Rectangle.Round(Crop), Bg, info);
+            if (info != null && n != info) info.Dispose();
+            info = n;
+            return info;
         }
 
         Size OutputSizeRaw { get { return new Size(Math.Max(1, (int)Math.Round(Crop.Width)), Math.Max(1, (int)Math.Round(Crop.Height))); } }
@@ -130,8 +153,14 @@ namespace Stackshot
             float aw = Math.Max(1f, Width - 2 * pad), ah = Math.Max(1f, Height - pad - padB);
             bool bg = BgOn && Bg != null;
             Size cs = OutputSizeRaw, frame = cs;
-            Rectangle inner = new Rectangle(Point.Empty, cs);
-            if (bg) Backdrop.Measure(cs, Bg, false, out frame, out inner); // the whole frame fits; the capture sits inside it
+            Rectangle inner = new Rectangle(Point.Empty, cs), card = inner;
+            insetPx = Padding.Empty;
+            if (bg)
+            {
+                Backdrop.ShotInfo i = Info();
+                if (i != null) insetPx = i.Inset;
+                Backdrop.Measure(cs, Bg, false, insetPx, out frame, out card, out inner); // the whole frame fits; the capture sits inside it
+            }
             float fit = Math.Min(ShotStack.MaxZoom(cs), Math.Min(aw / frame.Width, ah / frame.Height));
             if (!zoomReady && Width > 1 && Height > 1 && IsHandleCreated)
             {
@@ -150,8 +179,18 @@ namespace Stackshot
             if (bg)
             {
                 frameScreen = new Rectangle((int)fx, (int)fy, Math.Max(1, (int)Math.Round(cw)), Math.Max(1, (int)Math.Round(ch)));
-                radiusScreen = Backdrop.RadiusFor(cs, Bg) * k;
+                int radius = Backdrop.RadiusFor(card.Size, Bg);
+                radiusScreen = radius * k;
+                innerRadiusScreen = Backdrop.InnerRadius(radius, insetPx, cs) * k;
             }
+        }
+
+        // The card around the capture on screen: the capture itself without an inset.
+        Rectangle CardScreen(Rectangle ir)
+        {
+            if (insetPx == Padding.Empty) return ir;
+            return Rectangle.FromLTRB(ir.X - (int)Math.Round(insetPx.Left * k), ir.Y - (int)Math.Round(insetPx.Top * k),
+                                      ir.Right + (int)Math.Round(insetPx.Right * k), ir.Bottom + (int)Math.Round(insetPx.Bottom * k));
         }
 
         // The window moved to a monitor with another scale (Ui changed).
@@ -280,7 +319,7 @@ namespace Stackshot
         // is dragged (Live) a new one is made the fast way and a sharp one replaces it on release.
         void DrawBackdrop(Graphics g, Rectangle ir)
         {
-            string preset = Bg.BgPreset + "|" + Backdrop.Name(Bg.BgPreset), fk = preset + "|" + frameScreen.Size;
+            string preset = Backdrop.FillKey(Bg, info), fk = preset + "|" + frameScreen.Size;
             if (Live && bgFill != null && fillPreset == preset && fk != fillKey)
             {
                 // "Margen" being dragged: the background already made, stretched to the new frame (a step is a few pixels).
@@ -297,7 +336,7 @@ namespace Stackshot
                 if (bgFill == null || fk != fillKey || (fillLive && !Live))
                 {
                     if (bgFill != null) bgFill.Dispose();
-                    bgFill = Backdrop.Fill(frameScreen.Size, Bg, Live);
+                    bgFill = Backdrop.Fill(frameScreen.Size, Bg, Live, info);
                     fillKey = fk;
                     fillPreset = preset;
                     fillLive = Live;
@@ -305,19 +344,21 @@ namespace Stackshot
                 g.DrawImageUnscaled(bgFill, frameScreen.X, frameScreen.Y);
             }
             Probe(ref slideFill);
-            if (!Bg.BgShadow) return;
+            int level = Backdrop.ShadowLevel(Bg);
+            if (level == 0) return;
             int radius = (int)Math.Round(radiusScreen);
-            string sk = ir.Size + "|" + radius;
+            Rectangle card = CardScreen(ir);
+            string sk = card.Size + "|" + radius + "|" + level;
             if (bgShadow == null || sk != shadowKey)
             {
                 DropShadow();
-                bgShadow = Backdrop.ShadowPieces(new Rectangle(Point.Empty, ir.Size), radius);
+                bgShadow = Backdrop.ShadowPieces(new Rectangle(Point.Empty, card.Size), radius, level);
                 shadowKey = sk;
             }
             // Within the frame, as when it was drawn on the background itself; upscaled straight to the screen.
             GraphicsState st = g.Save();
             g.SetClip(frameScreen, CombineMode.Intersect);
-            foreach (Backdrop.ShadowPiece p in bgShadow) p.Draw(g, ir.Location, Live);
+            foreach (Backdrop.ShadowPiece p in bgShadow) p.Draw(g, card.Location, Live);
             g.Restore(st);
             Probe(ref slideShadow);
         }
@@ -458,13 +499,21 @@ namespace Stackshot
                 if (!frameScreen.Contains(e.ClipRectangle)) FloatShadow(g, frameScreen);
                 Probe(ref slideShadow);
                 DrawBackdrop(g, ir);
+                if (insetPx != Padding.Empty && info != null)
+                {
+                    // Inside the frame: rounding each side of the inset on its own can reach a pixel past it.
+                    GraphicsState cs = g.Save();
+                    g.SetClip(frameScreen, CombineMode.Intersect);
+                    Backdrop.FillCard(g, CardScreen(ir), radiusScreen, info.Edge);
+                    g.Restore(cs);
+                }
                 if (!(playing && DrawLive(g, ir, true)))
                 {
                     if (v == null) v = View();
-                    if (v.Width == ir.Width && v.Height == ir.Height) g.DrawImageUnscaled(radiusScreen >= 0.5f ? RoundView(v, radiusScreen) : v, ir.X, ir.Y);
+                    if (v.Width == ir.Width && v.Height == ir.Height) g.DrawImageUnscaled(innerRadiusScreen >= 0.5f ? RoundView(v, innerRadiusScreen) : v, ir.X, ir.Y);
                     else
                     {
-                        float r = radiusScreen * v.Width / (float)ir.Width;   // the corners as they will look once stretched
+                        float r = innerRadiusScreen * v.Width / (float)ir.Width;   // the corners as they will look once stretched
                         InterpolationMode im = g.InterpolationMode;
                         PixelOffsetMode pm = g.PixelOffsetMode;
                         g.InterpolationMode = InterpolationMode.Bilinear;
@@ -489,9 +538,9 @@ namespace Stackshot
             }
 
             GraphicsState st = g.Save();
-            if (bg && radiusScreen >= 0.5f)
+            if (bg && innerRadiusScreen >= 0.5f)
             {
-                using (GraphicsPath clip = Theme.Round(ir, radiusScreen)) g.SetClip(clip);
+                using (GraphicsPath clip = Theme.Round(ir, innerRadiusScreen)) g.SetClip(clip);
             }
             else g.SetClip(ir);
             g.TranslateTransform(off.X - Crop.X * k, off.Y - Crop.Y * k);
@@ -530,8 +579,8 @@ namespace Stackshot
                 if (!liveOn || live == null) return false;
                 float sx = live.Width / (float)Img.Width, sy = live.Height / (float)Img.Height;
                 GraphicsState st = g.Save();
-                if (rounded && radiusScreen >= 0.5f)
-                    using (GraphicsPath clip = Theme.Round(ir, radiusScreen)) g.SetClip(clip, CombineMode.Intersect);
+                if (rounded && innerRadiusScreen >= 0.5f)
+                    using (GraphicsPath clip = Theme.Round(ir, innerRadiusScreen)) g.SetClip(clip, CombineMode.Intersect);
                 g.InterpolationMode = k == 1f ? InterpolationMode.NearestNeighbor : InterpolationMode.Bilinear;
                 g.PixelOffsetMode = PixelOffsetMode.Half;
                 using (ImageAttributes ia = new ImageAttributes())
@@ -1699,7 +1748,7 @@ namespace Stackshot
                 Painter.DrawMarks(g, shapes, null, null, Img, Crop);
             }
             if (!BgOn || Bg == null) return b;
-            using (b) return Backdrop.Compose(b, Bg);
+            using (b) return Backdrop.Compose(b, Bg, Info());
         }
 
         // The capture (or the cropped part) copied row by row: the same pixels as DrawImage, several times faster.
@@ -1745,6 +1794,7 @@ namespace Stackshot
             if (view != null) view.Dispose();
             if (bgFill != null) bgFill.Dispose();
             DropShadow();
+            if (info != null) info.Dispose();
             if (roundView != null) roundView.Dispose();
             lock (liveLock)
             {

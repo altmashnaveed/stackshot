@@ -9,6 +9,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Windows.Forms;
 
 namespace Stackshot
 {
@@ -83,8 +84,17 @@ namespace Stackshot
         // Canvas size and image placement. even: even dimensions (required by H.264).
         public static void Measure(Size content, Settings s, bool even, out Size frame, out Rectangle inner)
         {
-            int pad = PaddingFor(content, s);
-            int w = content.Width + 2 * pad, h = content.Height + 2 * pad;
+            Rectangle card;
+            Measure(content, s, even, Padding.Empty, out frame, out card, out inner);
+        }
+
+        // With an inset: the card (capture plus its border in the edge colour) carries the corners and the shadow, and
+        // the capture sits inside it. Alignment other than centred puts the card against those edges of the frame.
+        public static void Measure(Size content, Settings s, bool even, Padding inset, out Size frame, out Rectangle card, out Rectangle inner)
+        {
+            Size cs = new Size(content.Width + inset.Horizontal, content.Height + inset.Vertical);
+            int pad = PaddingFor(cs, s);
+            int w = cs.Width + 2 * pad, h = cs.Height + 2 * pad;
             double ratio = 0;
             switch (s.BgRatio)
             {
@@ -99,9 +109,180 @@ namespace Stackshot
             }
             if (even) { w += w & 1; h += h & 1; }
             frame = new Size(w, h);
-            int x = (w - content.Width) / 2, y = (h - content.Height) / 2;
+            int col = AlignOf(s) % 3, row = AlignOf(s) / 3;
+            int x = col == 0 ? 0 : col == 2 ? w - cs.Width : (w - cs.Width) / 2;
+            int y = row == 0 ? 0 : row == 2 ? h - cs.Height : (h - cs.Height) / 2;
             if (even) { x &= ~1; y &= ~1; }
-            inner = new Rectangle(x, y, content.Width, content.Height);
+            card = new Rectangle(x, y, cs.Width, cs.Height);
+            inner = new Rectangle(x + inset.Left, y + inset.Top, content.Width, content.Height);
+        }
+
+        static int AlignOf(Settings s) { return s.BgAlign >= 0 && s.BgAlign <= 8 ? s.BgAlign : 4; }
+
+        // The shadow's strength, 0 when it is off.
+        public static int ShadowLevel(Settings s) { return s.BgShadow ? Math.Max(0, Math.Min(100, s.BgShadowSize)) : 0; }
+
+        // ---- What a backdrop takes from the capture itself: the inset around it (in its edge colour) and, for the
+        // blurred backdrop, a small blurred copy. Made once per capture and crop; the editor's preview and the saved
+        // image use the same one, so they look the same.
+        public sealed class ShotInfo : IDisposable
+        {
+            public Padding Inset;
+            public Color Edge = Color.White;
+            public Bitmap Blur;      // small, already blurred; null unless the blurred backdrop is chosen
+            public string Key = "";  // what it was made from, for the caches that depend on it
+            internal string Base;    // the capture and the part of it read
+            internal int[] Margins;  // its own margins in the edge colour, read once
+
+            public void Dispose() { if (Blur != null) Blur.Dispose(); Blur = null; }
+        }
+
+        public static int InsetFor(Size content, Settings s)
+        {
+            return (int)Math.Round(Math.Max(0, Math.Min(100, s.BgInset)) / 100.0 * Math.Max(0.08 * Unit(content), 32));
+        }
+
+        // area: the part of img that is the capture (the crop). Never null.
+        public static ShotInfo Study(Bitmap img, Rectangle area, Settings s) { return Study(img, area, s, null); }
+
+        // last: the one made before; for the same capture and part it is updated and returned (what was read from the
+        // pixels is kept), otherwise a new one is made and last is left to the caller.
+        public static ShotInfo Study(Bitmap img, Rectangle area, Settings s, ShotInfo last)
+        {
+            area.Intersect(new Rectangle(0, 0, img.Width, img.Height));
+            string from = img.GetHashCode() + "|" + area;
+            ShotInfo l = last != null && last.Base == from ? last : new ShotInfo { Base = from };
+            if (area.Width < 1 || area.Height < 1) return l;
+            if ((s.BgInset > 0 || s.BgBalance) && l.Margins == null)
+            {
+                int[] read = new int[4];
+                l.Edge = EdgeOf(img, area, read);
+                l.Margins = read;
+            }
+            int[] m = s.BgBalance && l.Margins != null ? l.Margins : new int[4];
+            int u = InsetFor(area.Size, s), most = Math.Max(Math.Max(m[0], m[1]), Math.Max(m[2], m[3]));
+            // Balanced: each side gets what it lacks to match the widest of the capture's own margins.
+            l.Inset = new Padding(u + most - m[0], u + most - m[1], u + most - m[2], u + most - m[3]);
+            if (s.BgKind == 2) BlurOf(l, img, area);
+            l.Key = from + "|" + l.Inset + "|" + l.Edge.ToArgb();
+            return l;
+        }
+
+        // The small blurred copy of the part read, made the first time it is asked for (the sidebar's swatches or the
+        // blurred backdrop itself).
+        public static Bitmap BlurOf(ShotInfo info, Bitmap img, Rectangle area)
+        {
+            if (info.Blur != null) return info.Blur;
+            area.Intersect(new Rectangle(0, 0, img.Width, img.Height));
+            if (area.Width < 1 || area.Height < 1) return null;
+            info.Blur = BlurSmall(img, area);
+            return info.Blur;
+        }
+
+        // The most common colour along the capture's border, and (margins: left, top, right, bottom) how many lines
+        // from each edge are of that colour alone, at most a quarter of the side.
+        static Color EdgeOf(Bitmap img, Rectangle a, int[] margins)
+        {
+            BitmapData bd = img.LockBits(a, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int w = a.Width, h = a.Height;
+                long scan = bd.Scan0.ToInt64(), stride = bd.Stride;
+                Func<int, int, int> at = delegate(int x, int y) { return Marshal.ReadInt32(new IntPtr(scan + y * stride + x * 4L)); };
+                Dictionary<int, int[]> buckets = new Dictionary<int, int[]>();
+                int step = Math.Max(1, (2 * (w + h)) / 1600);
+                Action<int> add = delegate(int c)
+                {
+                    int key = ((c >> 20) & 0xF) << 8 | ((c >> 12) & 0xF) << 4 | ((c >> 4) & 0xF);
+                    int[] b;
+                    if (!buckets.TryGetValue(key, out b)) buckets[key] = b = new int[4];
+                    b[0]++; b[1] += (c >> 16) & 255; b[2] += (c >> 8) & 255; b[3] += c & 255;
+                };
+                for (int x = 0; x < w; x += step) { add(at(x, 0)); add(at(x, h - 1)); }
+                for (int y = 0; y < h; y += step) { add(at(0, y)); add(at(w - 1, y)); }
+                int[] best = null;
+                foreach (int[] b in buckets.Values) if (best == null || b[0] > best[0]) best = b;
+                Color edge = Color.FromArgb(best[1] / best[0], best[2] / best[0], best[3] / best[0]);
+                if (margins == null) return edge;
+                int er = edge.R, eg = edge.G, eb = edge.B;
+                Func<int, bool> near = delegate(int c)
+                {
+                    return Math.Abs(((c >> 16) & 255) - er) <= 12 && Math.Abs(((c >> 8) & 255) - eg) <= 12 && Math.Abs((c & 255) - eb) <= 12;
+                };
+                // A line counts while nearly all of it (sampled) is the edge colour: antialiasing or one stray pixel
+                // doesn't end it.
+                Func<bool, int, bool> plain = delegate(bool column, int i)
+                {
+                    int n = column ? h : w, s = Math.Max(1, n / 400), all = 0, bad = 0;
+                    for (int j = 0; j < n; j += s) { all++; if (!near(column ? at(i, j) : at(j, i))) bad++; }
+                    return bad * 100 <= all;
+                };
+                int mw = w / 4, mh = h / 4;
+                while (margins[0] < mw && plain(true, margins[0])) margins[0]++;
+                while (margins[2] < mw && plain(true, w - 1 - margins[2])) margins[2]++;
+                while (margins[1] < mh && plain(false, margins[1])) margins[1]++;
+                while (margins[3] < mh && plain(false, h - 1 - margins[3])) margins[3]++;
+                return edge;
+            }
+            finally { img.UnlockBits(bd); }
+        }
+
+        // The capture shrunk to a few dozen pixels and softened: upscaled to cover the frame it reads as frosted glass.
+        // Each small pixel is the mean of its block, read from at most about a million samples and a band of rows at a
+        // time, so a very tall capture costs no more than an ordinary one.
+        public static Bitmap BlurSmall(Bitmap img, Rectangle a)
+        {
+            double k = 48.0 / Math.Max(a.Width, a.Height);
+            int w = Math.Max(2, (int)Math.Round(a.Width * k)), h = Math.Max(2, (int)Math.Round(a.Height * k));
+            int step = Math.Max(1, (int)Math.Sqrt((double)a.Width * a.Height / 1000000.0));
+            double[] sum = new double[w * h * 3];
+            int[] count = new int[w * h];
+            int[] row = new int[a.Width];
+            const int Band = 256;
+            for (int y0 = 0; y0 < a.Height; y0 += Band)
+            {
+                int bh = Math.Min(Band, a.Height - y0);
+                BitmapData src = img.LockBits(new Rectangle(a.X, a.Y + y0, a.Width, bh), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                try
+                {
+                    long scan = src.Scan0.ToInt64();
+                    for (int y = y0 + (step - y0 % step) % step; y < y0 + bh; y += step)
+                    {
+                        Marshal.Copy(new IntPtr(scan + (long)(y - y0) * src.Stride), row, 0, a.Width);
+                        int oy = Math.Min(h - 1, (int)((long)y * h / a.Height));
+                        for (int x = 0; x < a.Width; x += step)
+                        {
+                            int c = row[x], i = oy * w + Math.Min(w - 1, (int)((long)x * w / a.Width));
+                            sum[i * 3] += (c >> 16) & 255;
+                            sum[i * 3 + 1] += (c >> 8) & 255;
+                            sum[i * 3 + 2] += c & 255;
+                            count[i]++;
+                        }
+                    }
+                }
+                finally { img.UnlockBits(src); }
+            }
+            Bitmap b = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+            BitmapData bd = b.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            try
+            {
+                int[] px = new int[w * h];
+                float[][] ch = { new float[px.Length], new float[px.Length], new float[px.Length] };
+                float[] t = new float[px.Length];
+                double[] all = new double[3];
+                long seen = 0;
+                for (int i = 0; i < px.Length; i++) { all[0] += sum[i * 3]; all[1] += sum[i * 3 + 1]; all[2] += sum[i * 3 + 2]; seen += count[i]; }
+                for (int i = 0; i < px.Length; i++)
+                    for (int c = 0; c < 3; c++)
+                        ch[c][i] = (float)(count[i] > 0 ? sum[i * 3 + c] / count[i] : all[c] / Math.Max(1, seen));   // a block no sample fell in: the mean
+                foreach (float[] c in ch)
+                    for (int pass = 0; pass < 2; pass++) { Box(c, t, w, h, 2, true); Box(t, c, w, h, 2, false); }
+                for (int i = 0; i < px.Length; i++)
+                    px[i] = (255 << 24) | ((int)Math.Min(255, ch[0][i] + 0.5f) << 16) | ((int)Math.Min(255, ch[1][i] + 0.5f) << 8) | (int)Math.Min(255, ch[2][i] + 0.5f);
+                Marshal.Copy(px, 0, bd.Scan0, px.Length);
+            }
+            finally { b.UnlockBits(bd); }
+            return b;
         }
 
         // ---- The user's own backgrounds: copies in %LOCALAPPDATA%\Stackshot\Fondos, at most 3840 px on the long side.
@@ -127,6 +308,8 @@ namespace Stackshot
         public static int CustomCount { get { int n = 0; foreach (Preset p in presets) if (p.File != null) n++; return n; } }
 
         public static bool IsCustom(int i) { return i >= 0 && i < presets.Length && presets[i].File != null; }
+        public static bool IsWallpaper(int i) { return i >= 0 && i < presets.Length && presets[i].Wallpaper; }
+        public static bool IsGradient(int i) { return i >= 0 && i < presets.Length && !presets[i].Wallpaper && presets[i].File == null; }
 
         // Copies an image in as a new background and returns its index (or -1 if it is not a readable image).
         public static int AddCustom(string source)
@@ -290,14 +473,19 @@ namespace Stackshot
         }
 
         // Background and shadow without the image (editor preview and videos).
-        public static Bitmap Background(Size frame, Rectangle inner, Settings s, int radius)
+        public static Bitmap Background(Size frame, Rectangle inner, Settings s, int radius) { return Background(frame, inner, s, radius, null); }
+
+        // card: what carries the shadow. info: what the capture gives (null for a video: a blurred backdrop is drawn
+        // as the gradient chosen).
+        public static Bitmap Background(Size frame, Rectangle card, Settings s, int radius, ShotInfo info)
         {
             Bitmap b = new Bitmap(Math.Max(1, frame.Width), Math.Max(1, frame.Height), PixelFormat.Format32bppPArgb);
             using (Graphics g = Graphics.FromImage(b))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                Paint(g, new Rectangle(0, 0, b.Width, b.Height), Clamp(s.BgPreset), false);
-                if (s.BgShadow) Shadow(g, inner, radius);
+                PaintFor(g, new Rectangle(0, 0, b.Width, b.Height), s, info);
+                int level = ShadowLevel(s);
+                if (level > 0) Shadow(g, card, radius, level);
             }
             return b;
         }
@@ -306,30 +494,98 @@ namespace Stackshot
         // never repaints the background, and a slider being dragged scales images the fast way (quick).
         [ThreadStatic] static bool quick;
 
-        public static Bitmap Fill(Size frame, Settings s, bool fast)
+        public static Bitmap Fill(Size frame, Settings s, bool fast) { return Fill(frame, s, fast, null); }
+
+        public static Bitmap Fill(Size frame, Settings s, bool fast, ShotInfo info)
         {
             Bitmap b = new Bitmap(Math.Max(1, frame.Width), Math.Max(1, frame.Height), PixelFormat.Format32bppPArgb);
             using (Graphics g = Graphics.FromImage(b))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 quick = fast;
-                try { Paint(g, new Rectangle(0, 0, b.Width, b.Height), Clamp(s.BgPreset), false); }
+                try { PaintFor(g, new Rectangle(0, 0, b.Width, b.Height), s, info); }
                 finally { quick = false; }
             }
             return b;
         }
 
+        // The backdrop the settings choose: a plain colour, the capture blurred (when there is one), or a gradient or
+        // a picture.
+        static void PaintFor(Graphics g, Rectangle r, Settings s, ShotInfo info)
+        {
+            if (s.BgKind == 1)
+            {
+                using (SolidBrush b = new SolidBrush(PlainColor(s))) g.FillRectangle(b, r);
+                return;
+            }
+            if (s.BgKind == 2 && info != null && info.Blur != null) { PaintBlur(g, r, info.Blur, s.BgBlur); return; }
+            Paint(g, r, Clamp(s.BgPreset), false);
+        }
+
+        // What PaintFor draws, as the key of a cache of it.
+        public static string FillKey(Settings s, ShotInfo info)
+        {
+            if (s.BgKind == 1) return "c" + (s.BgColor & 0xFFFFFF);
+            if (s.BgKind == 2 && info != null && info.Blur != null) return "b" + s.BgBlur + "|" + info.Base;
+            return s.BgPreset + "|" + Name(s.BgPreset);
+        }
+
+        public static Color PlainColor(Settings s)
+        {
+            int c = s.BgColor & 0xFFFFFF;
+            return Color.FromArgb(255, (c >> 16) & 255, (c >> 8) & 255, c & 255);
+        }
+
+        // The blurred capture over r; variant 1 darker, 2 lighter.
+        public static void PaintBlur(Graphics g, Rectangle r, Bitmap small, int variant)
+        {
+            Cover(g, r, small);
+            if (variant == 1) using (SolidBrush b = new SolidBrush(Color.FromArgb(96, 0, 0, 0))) g.FillRectangle(b, r);
+            else if (variant == 2) using (SolidBrush b = new SolidBrush(Color.FromArgb(128, 255, 255, 255))) g.FillRectangle(b, r);
+        }
+
         public static Bitmap Compose(Bitmap content, Settings s)
         {
+            using (ShotInfo info = Study(content, new Rectangle(Point.Empty, content.Size), s)) return Compose(content, s, info);
+        }
+
+        // info: from Study (the editor passes the one it made from the capture without the marks, as its preview uses).
+        public static Bitmap Compose(Bitmap content, Settings s, ShotInfo info)
+        {
+            Padding inset = info != null ? info.Inset : Padding.Empty;
             Size frame;
-            Rectangle inner;
-            Measure(content.Size, s, false, out frame, out inner);
-            int radius = RadiusFor(content.Size, s);
-            Bitmap b = Background(frame, inner, s, radius);
-            using (Bitmap round = Rounded(content, radius))
+            Rectangle card, inner;
+            Measure(content.Size, s, false, inset, out frame, out card, out inner);
+            int radius = RadiusFor(card.Size, s);
+            Bitmap b = Background(frame, card, s, radius, info);
             using (Graphics g = Graphics.FromImage(b))
-                g.DrawImage(round, inner.X, inner.Y, round.Width, round.Height);
+            {
+                if (inset != Padding.Empty) FillCard(g, card, radius, info.Edge);
+                using (Bitmap round = Rounded(content, InnerRadius(radius, inset, content.Size)))
+                    g.DrawImage(round, inner.X, inner.Y, round.Width, round.Height);
+            }
             return b;
+        }
+
+        // The border of an inset: the card in the capture's edge colour, under the capture.
+        public static void FillCard(Graphics g, RectangleF card, float radius, Color edge)
+        {
+            SmoothingMode sm = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (SolidBrush b = new SolidBrush(edge))
+            {
+                if (radius < 0.5f) g.FillRectangle(b, card);
+                else using (GraphicsPath p = Theme.Round(card, radius)) g.FillPath(b, p);
+            }
+            g.SmoothingMode = sm;
+        }
+
+        // The capture's own corners inside a card: the card's, less the narrowest side of the inset, never more than
+        // half the capture's shorter side.
+        public static float InnerRadius(float radius, Padding inset, Size content)
+        {
+            float r = Math.Max(0, radius - Math.Min(Math.Min(inset.Left, inset.Right), Math.Min(inset.Top, inset.Bottom)));
+            return Math.Min(r, Math.Min(content.Width, content.Height) / 2);
         }
 
         // Copy with antialiased rounded corners. Only the corner pixels are touched, which is far faster than filling a
@@ -377,9 +633,9 @@ namespace Stackshot
         }
 
         // Two macOS-style shadows: a wide soft one and a tight one that grounds the window.
-        static void Shadow(Graphics g, Rectangle inner, int radius)
+        static void Shadow(Graphics g, Rectangle inner, int radius, int level)
         {
-            foreach (ShadowPiece p in ShadowPieces(inner, radius))
+            foreach (ShadowPiece p in ShadowPieces(inner, radius, level))
                 using (p) p.Draw(g, Point.Empty);
         }
 
@@ -405,11 +661,15 @@ namespace Stackshot
             public void Dispose() { if (Small != null) Small.Dispose(); Small = null; }
         }
 
-        public static ShadowPiece[] ShadowPieces(Rectangle inner, int radius)
+        public static ShadowPiece[] ShadowPieces(Rectangle inner, int radius) { return ShadowPieces(inner, radius, 50); }
+
+        // level 1-100: 50 is the shadow as it always was; less is closer and lighter, more wider and darker.
+        public static ShadowPiece[] ShadowPieces(Rectangle inner, int radius, int level)
         {
-            double u = Unit(inner.Size);
-            float wide = (float)Math.Max(6, u * 0.045), tight = (float)Math.Max(2, u * 0.012);
-            return new ShadowPiece[] { Blurred(inner, radius, wide, wide * 0.42f, 0.42f), Blurred(inner, radius, tight, tight * 0.5f, 0.30f) };
+            double u = Unit(inner.Size), f = 0.5 + level / 100.0, a = 0.25 + 1.5 * level / 100.0;
+            float wide = (float)Math.Max(6, u * 0.045 * f), tight = (float)Math.Max(2, u * 0.012 * f);
+            return new ShadowPiece[] { Blurred(inner, radius, wide, wide * 0.42f, (float)Math.Min(0.9, 0.42 * a)),
+                                       Blurred(inner, radius, tight, tight * 0.5f, (float)Math.Min(0.75, 0.30 * a)) };
         }
 
         // Real blurred shadow: drawn downscaled, box-blurred three times (~gaussian), to be upscaled over Area.

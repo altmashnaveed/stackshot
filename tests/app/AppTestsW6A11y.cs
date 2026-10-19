@@ -905,7 +905,7 @@ namespace Stackshot.Tests
                 Check(tools == 1, tools + " tools checked at once");
 
                 BgPanel bg = (BgPanel)typeof(Editor).GetField("bgPanel", NP).GetValue(ed);
-                bg.Size = new System.Drawing.Size(1200, 58);
+                bg.Size = new System.Drawing.Size(252, 900);
                 List<AccessibleObject> strip = Parts(bg.AccessibilityObject);
                 Check(PartNamed(strip, "Sin fondo").Role == System.Windows.Forms.AccessibleRole.RadioButton, "no backdrop option");
                 AccessibleObject margin = PartNamed(strip, "Margen");
@@ -917,7 +917,15 @@ namespace Stackshot.Tests
                 PartNamed(strip, "Proporci\u00F3n 16:9").DoDefaultAction();
                 System.Windows.Forms.Application.DoEvents();
                 Check(bg.Bg.BgRatio == "16:9", "choosing a proportion from a reader: " + bg.Bg.BgRatio);
-                Check(PartNamed(Parts(bg.AccessibilityObject), "Sombra").Role == System.Windows.Forms.AccessibleRole.CheckButton, "shadow is not a check button");
+                List<AccessibleObject> now2 = Parts(bg.AccessibilityObject);
+                Check(PartNamed(now2, "Sombra").Role == System.Windows.Forms.AccessibleRole.Slider, "shadow is not a slider");
+                Check(PartNamed(now2, "Auto-equilibrar").Role == System.Windows.Forms.AccessibleRole.CheckButton, "auto-balance is not a check button");
+                PartNamed(now2, "Color negro").DoDefaultAction();
+                System.Windows.Forms.Application.DoEvents();
+                Check(bg.Bg.BgKind == 1 && bg.Bg.BgColor == 0, "choosing a plain colour from a reader: kind " + bg.Bg.BgKind + " colour " + bg.Bg.BgColor);
+                PartNamed(now2, "Alineaci\u00F3n: abajo").DoDefaultAction();
+                System.Windows.Forms.Application.DoEvents();
+                Check(bg.Bg.BgAlign == 7, "choosing an alignment from a reader: " + bg.Bg.BgAlign);
             }
             finally { ed.Dispose(); img.Dispose(); }
         }

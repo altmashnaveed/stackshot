@@ -625,18 +625,47 @@ namespace Stackshot
         }
     }
 
-    // Bottom strip: context help for the current tool or selection, and the output size.
+    // Bottom strip: context help for the current tool or selection, the output size and, for images, a handle in the
+    // middle to drag the capture out to another app.
     public class Hint : Control
     {
         public string LeftText = "", RightText = "";
         public double Progress = -1;   // 0-1: progress bar on top (video export); -1 = hidden
         public float S = 1f;
+        public const string HandleText = "Arr\u00E1strame";
+        // The drag handle: shown when something listens; fired once the mouse has moved far enough while pressed on it.
+        public event Action DragOut;
+        // Where the handle is centred (in this strip's coordinates); the middle of the strip if not set.
+        public Func<int> HandleCenter;
+        bool handleHot, handleDown;
+        Point downAt;
 
         public Hint()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint |
                      ControlStyles.ResizeRedraw, true);
             BackColor = EdLook.C(Ds.Brushes.Window);
+        }
+
+        Font Text12 { get { return Fonts.Get(EdLook.Text, 12 * S); } }
+
+        // Where the handle sits (empty without one, or with no room for it).
+        public Rectangle HandleRect
+        {
+            get
+            {
+                if (DragOut == null || Progress >= 0) return Rectangle.Empty;
+                Size ts = TextKit.Measure(HandleText, Text12, Size.Empty, TextFormatFlags.NoPadding);
+                int w = ts.Width + (int)Math.Round(58 * S), h = Math.Min(Height - (int)Math.Round(8 * S), (int)Math.Round(26 * S));
+                if (Width < w * 3) return Rectangle.Empty;
+                int cx = HandleCenter != null ? HandleCenter() : Width / 2;
+                int x = Math.Max(w, Math.Min(Width - 2 * w, cx - w / 2));
+                // A long size line keeps its room: then there is no handle (neither drawn nor to grab).
+                int m = (int)Math.Round(14 * S);
+                Size rs = TextKit.Measure(RightText, Text12, Size.Empty, TextFormatFlags.NoPadding);
+                if (Width - rs.Width - m < x + w + m) return Rectangle.Empty;
+                return new Rectangle(x, (Height - h) / 2 + 1, w, h);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -652,14 +681,99 @@ namespace Stackshot
                 using (SolidBrush b = new SolidBrush(EdLook.C(pal.Accent))) g.FillRectangle(b, 0, 0, (float)(Width * Math.Min(1, Progress)), ph);
             }
             int m = (int)Math.Round(14 * S);
-            Font f = Fonts.Get(EdLook.Text, 12 * S);
+            Font f = Text12;
             Color fg = EdLook.C(pal.Label2);
             Size rs = TextKit.Measure(RightText, f, Size.Empty, TextFormatFlags.NoPadding);
             Rectangle rr = new Rectangle(Width - rs.Width - m, 1, rs.Width + 1, Height - 1);
+            Rectangle hr = HandleRect;
             TextKit.Draw(g, RightText, f, rr, fg, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
-            Rectangle lr = new Rectangle(m, 1, Math.Max(0, rr.X - 2 * m), Height - 1);
+            Rectangle lr = new Rectangle(m, 1, Math.Max(0, (hr.IsEmpty ? rr.X : hr.X) - 2 * m), Height - 1);
             TextKit.Draw(g, LeftText, f, lr, fg, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
                                                   TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            if (!hr.IsEmpty) PaintHandle(g, pal, hr, f);
+        }
+
+        // A pill with grip lines on both sides of its label, as a thing to pick up.
+        void PaintHandle(Graphics g, Palette pal, Rectangle r, Font f)
+        {
+            SmoothingMode sm = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            Color ink = EdLook.C(handleHot ? pal.Label : pal.Label2);
+            if (pal.High) ink = EdHc.Segment(g, r, r.Height / 2f, handleDown, handleHot, true);
+            else
+            {
+                EdLook.Fill(g, r, r.Height / 2f, EdLook.C(handleDown ? pal.ControlHover : handleHot ? pal.ControlHover : pal.Control));
+                EdLook.Hairline(g, r, r.Height / 2f, EdLook.C(Ds.Dark ? Ds.Argb(0.08, 255, 255, 255) : Ds.Argb(0.08, 0, 0, 0)));
+            }
+            TextKit.Draw(g, HandleText, f, r, ink, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+            float cy = r.Y + r.Height / 2f, gw = 8 * S, gap = 2.6f * S;
+            using (Pen p = new Pen(EdLook.C(pal.Label3), Math.Max(1f, 1.2f * S)))
+            {
+                p.StartCap = p.EndCap = LineCap.Round;
+                foreach (float x in new float[] { r.X + 12 * S, r.Right - 12 * S - gw })
+                    for (int i = -1; i <= 1; i++) g.DrawLine(p, x, cy + i * gap, x + gw, cy + i * gap);
+            }
+            g.SmoothingMode = sm;
+        }
+
+        void SetHot(bool on)
+        {
+            if (on == handleHot) return;
+            handleHot = on;
+            Cursor = on ? Cursors.Hand : Cursors.Default;
+            Rectangle r = HandleRect;
+            if (on) EdTip.Schedule(this, r, "Arr\u00E1strala al chat, a un correo o a otra aplicaci\u00F3n", true);
+            else EdTip.Cancel();
+            Invalidate(Rectangle.Inflate(r, 2, 2));
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (handleDown)
+            {
+                Size d = SystemInformation.DragSize;
+                if (Math.Abs(e.X - downAt.X) > d.Width || Math.Abs(e.Y - downAt.Y) > d.Height)
+                {
+                    handleDown = false;
+                    SetHot(false);
+                    Invalidate();
+                    Action a = DragOut;
+                    if (a != null) a();
+                }
+                return;
+            }
+            SetHot(HandleRect.Contains(e.Location));
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left || !HandleRect.Contains(e.Location)) return;
+            EdTip.Cancel();
+            handleDown = true;
+            downAt = e.Location;
+            Invalidate(Rectangle.Inflate(HandleRect, 2, 2));
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            if (!handleDown) return;
+            handleDown = false;
+            Invalidate(Rectangle.Inflate(HandleRect, 2, 2));
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (!handleDown) SetHot(false);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            if (!Capture && handleDown) { handleDown = false; Invalidate(); }
         }
     }
 

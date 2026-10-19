@@ -99,6 +99,7 @@ namespace Stackshot
             canvas.Ui = s;
             canvas.Dock = DockStyle.Fill;
             canvas.Bg = bgs;
+            canvas.Video = IsVideo;
             openedWithBackdrop = withBackdrop.Contains(path);
             canvas.BgOn = bgs.BgAuto && !openedWithBackdrop;
             bgAtOpen = canvas.BgOn;
@@ -146,7 +147,7 @@ namespace Stackshot
             undoItem = Button(null, "undo", "Deshacer  (Ctrl+Z)", delegate { canvas.Undo(); }, false);
             redoItem = Button(null, "redo", "Rehacer  (Ctrl+Y)", delegate { canvas.Redo(); }, false);
             bar.Add(Bar.Kind.Gap);
-            bgItem = Button("Fondo", "backdrop", "Fondo de presentaci\u00F3n: degradado, margen, esquinas y sombra  (B)", ToggleBgPanel, false);
+            bgItem = Button("Fondo", "backdrop", "Fondo de presentaci\u00F3n: degradados, im\u00E1genes, desenfocado o color liso, con margen, sombra y esquinas  (B)", ToggleBgPanel, false);
 
             if (IsVideo)
             {
@@ -190,7 +191,10 @@ namespace Stackshot
             bgPanel.S = s;
             bgPanel.Bg = bgs;
             bgPanel.On = canvas.BgOn;
-            bgPanel.Dock = DockStyle.Top;
+            bgPanel.Video = IsVideo;
+            bgPanel.BlurThumb = canvas.BlurThumb;
+            bgPanel.Dock = DockStyle.Left;
+            bgPanel.Width = P(BgPanel.Wide);
             bgPanel.Visible = false;
             bgPanel.Changed += delegate
             {
@@ -213,7 +217,14 @@ namespace Stackshot
             hint = new Hint();
             hint.S = s;
             hint.Dock = DockStyle.Bottom;
-            hint.Height = P(28);
+            hint.Height = P(34);
+            if (!IsVideo)
+            {
+                hint.DragOut += StartDragOut;
+                // Under the middle of the capture's area, beside the sidebar when it is open.
+                hint.HandleCenter = delegate { return canvas.Left + canvas.Width / 2 - hint.Left; };
+                canvas.SizeChanged += delegate { hint.Invalidate(); };
+            }
 
             if (IsVideo && duration > 0)
             {
@@ -245,12 +256,12 @@ namespace Stackshot
                 timeline.ClipMove += MoveClip;
             }
 
-            // Docking order matters: toolbar at the very top, backdrop strip right below it; at the bottom, the hint
-            // strip and the timeline above it.
+            // Docking order matters (the last added docks first): toolbar at the very top; at the bottom, the hint strip
+            // and the timeline above it, both the whole width; the backdrop sidebar on the left between them.
             Controls.Add(canvas);
+            Controls.Add(bgPanel);
             if (timeline != null) Controls.Add(timeline);
             Controls.Add(hint);
-            Controls.Add(bgPanel);
             Controls.Add(bar);
             // Video files dropped on the editor (on the form or on what covers it) are added after the first one.
             if (timeline != null)
@@ -265,7 +276,7 @@ namespace Stackshot
             int minW = bar.LayoutItems(), fullW = bar.FullWidth;
             Rectangle wa = scr.WorkingArea;
             float pad = 28 * s;
-            int chrome = P(52) + P(28) + P(Canvas.PillRoom - 28) + (timeline != null ? timeline.Height : 0); // bars, and the room kept for the zoom control
+            int chrome = P(52) + P(34) + P(Canvas.PillRoom - 28) + (timeline != null ? timeline.Height : 0); // bars, and the room kept for the zoom control
             float maxW = wa.Width * 0.88f - 2 * pad, maxH = wa.Height * 0.88f - chrome - 2 * pad;
             float kk = Math.Min(ShotStack.MaxZoom(img.Size), Math.Min(maxW / img.Width, maxH / img.Height));
             // Tall captures (scrolling ones) get a window as wide as they read best and as tall as the screen allows.
@@ -398,11 +409,12 @@ namespace Stackshot
             MinimumSize = Size.Empty;
             SuspendLayout();
             bar.Height = P(52);
-            hint.Height = P(28);
+            hint.Height = P(34);
             if (timeline != null) timeline.Height = P(110);
+            bgPanel.Width = P(BgPanel.Wide);
             Bounds = suggested;
-            if (bgPanel.Visible) bgPanel.Height = bgPanel.HeightFor(ClientSize.Width);
             ResumeLayout(true);
+            bgPanel.Relayout();
             MinimumSize = new Size(Math.Min(Screen.FromRectangle(suggested).WorkingArea.Width, bar.LayoutItems()), P(380));
             canvas.Rescaled();
             Invalidate(true);
@@ -481,13 +493,22 @@ namespace Stackshot
         void SetColor(int i) { canvas.SetColor(Theme.Palette[i]); }
         void SetWeight(int i) { canvas.SetWeight(i); }
 
-        // Opening the backdrop strip with no backdrop applies the last one used.
+        // Opening the backdrop sidebar with no backdrop applies the last one used.
         void ToggleBgPanel()
         {
             bool show = !bgPanel.Visible;
             if (show)
             {
-                bgPanel.Height = bgPanel.HeightFor(ClientSize.Width);
+                bgPanel.Relayout();   // the user's pictures may have changed since
+                // Room for the capture beside the sidebar: a narrow window grows (within the screen) rather than squeeze it.
+                int need = bgPanel.Width + P(420) - ClientSize.Width;
+                if (need > 0 && WindowState == FormWindowState.Normal && IsHandleCreated && Visible)
+                {
+                    Rectangle wa = Screen.FromControl(this).WorkingArea;
+                    int w = Math.Min(wa.Width, Width + need);
+                    int x = Math.Max(wa.Left, Math.Min(Left - (w - Width) / 2, wa.Right - w));
+                    Bounds = new Rectangle(x, Top, w, Height);
+                }
                 if (!canvas.BgOn)
                 {
                     canvas.BgOn = true;
@@ -499,16 +520,6 @@ namespace Stackshot
             bgPanel.Visible = show;
             canvas.Invalidate();
             UpdateUi();
-        }
-
-        protected override void OnResize(EventArgs e)
-        {
-            base.OnResize(e);
-            if (bgPanel != null && bgPanel.Visible)
-            {
-                int h = bgPanel.HeightFor(ClientSize.Width);
-                if (h != bgPanel.Height) bgPanel.Height = h;
-            }
         }
 
         // Which options a kind of mark actually uses (the drawing code ignores the rest).

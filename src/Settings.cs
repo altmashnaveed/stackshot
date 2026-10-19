@@ -57,6 +57,13 @@ namespace Stackshot
         public int BgRadius = 40;
         public bool BgShadow = true;
         public string BgRatio = "auto"; // auto, 16:9, 4:3 or 1:1
+        public int BgKind = 0;          // 0 gradient or picture (BgPreset), 1 plain colour (BgColor), 2 the capture blurred (BgBlur)
+        public int BgColor = 0xFFFFFF;  // RGB
+        public int BgBlur = 0;          // 0 as it is, 1 darker, 2 lighter
+        public int BgShadowSize = 50;   // 0-100, while BgShadow is on
+        public int BgInset = 0;         // 0-100: a border in the capture's own edge colour
+        public bool BgBalance = false;  // the inset evens out the capture's own margins
+        public int BgAlign = 4;         // 0-8, rows of three from the top left; 4 centred
         // Main window and mascot.
         public int Appearance = 0;          // 0 follow Windows, 1 light, 2 dark
         public bool AllInOne = false;       // area capture: adjust the area and choose image, video, GIF or scrolling before capturing
@@ -346,6 +353,13 @@ namespace Stackshot
                         case "bgradius": s.BgRadius = Int(v, s.BgRadius, 0, 100); break;
                         case "bgshadow": s.BgShadow = Bool(v, s.BgShadow); break;
                         case "bgratio": if (v == "auto" || v == "16:9" || v == "4:3" || v == "1:1") s.BgRatio = v; break;
+                        case "bgkind": s.BgKind = Int(v, s.BgKind, 0, 2); break;
+                        case "bgcolor": s.BgColor = Rgb(v, s.BgColor); break;
+                        case "bgblur": s.BgBlur = Int(v, s.BgBlur, 0, 2); break;
+                        case "bgshadowsize": s.BgShadowSize = Int(v, s.BgShadowSize, 0, 100); break;
+                        case "bginset": s.BgInset = Int(v, s.BgInset, 0, 100); break;
+                        case "bgbalance": s.BgBalance = Bool(v, s.BgBalance); break;
+                        case "bgalign": s.BgAlign = Int(v, s.BgAlign, 0, 8); break;
                         // Recording package.
                         case "cinefps": s.CineFps = Int(v, s.CineFps, 1, 1000) >= 45 ? 60 : 30; break;
                         case "cinepeakmemory": s.CinePeakMemory = Int(v, s.CinePeakMemory, 0, 1); break;
@@ -509,6 +523,15 @@ namespace Stackshot
             b.AppendLine("BgRadius = " + BgRadius);
             b.AppendLine("BgShadow = " + (BgShadow ? "1" : "0"));
             b.AppendLine("BgRatio = " + OneLine(BgRatio));
+            b.AppendLine("# Tipo de fondo: 0 degradado o imagen, 1 color liso (BgColor, #RRGGBB), 2 la captura desenfocada (BgBlur: 0 tal cual, 1 oscura, 2 clara)");
+            b.AppendLine("BgKind = " + BgKind);
+            b.AppendLine("BgColor = #" + (BgColor & 0xFFFFFF).ToString("X6", System.Globalization.CultureInfo.InvariantCulture));
+            b.AppendLine("BgBlur = " + BgBlur);
+            b.AppendLine("# Sombra, inserci\u00F3n de 0 a 100; alineaci\u00F3n de 0 a 8 por filas desde arriba a la izquierda (4 centrada)");
+            b.AppendLine("BgShadowSize = " + BgShadowSize);
+            b.AppendLine("BgInset = " + BgInset);
+            b.AppendLine("BgBalance = " + (BgBalance ? "1" : "0"));
+            b.AppendLine("BgAlign = " + BgAlign);
             b.AppendLine("# Tema: 0 como Windows, 1 claro, 2 oscuro");
             b.AppendLine("Appearance = " + Appearance);
             b.AppendLine("AllInOne = " + (AllInOne ? "1" : "0"));
@@ -709,6 +732,15 @@ namespace Stackshot
             if (v == "1" || v == "true" || v == "si" || v == "yes") return true;
             if (v == "0" || v == "false" || v == "no") return false;
             return def;
+        }
+
+        // "#RRGGBB" (or six hex digits without the #); anything else keeps the default.
+        static int Rgb(string v, int def)
+        {
+            string h = v.Trim().TrimStart('#');
+            int n;
+            if (h.Length != 6 || !int.TryParse(h, System.Globalization.NumberStyles.AllowHexSpecifier, System.Globalization.CultureInfo.InvariantCulture, out n)) return def;
+            return n & 0xFFFFFF;
         }
 
         // One of the intervals the settings page offers; anything else keeps the default.
