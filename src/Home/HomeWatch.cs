@@ -151,6 +151,18 @@ namespace Stackshot
             });
         }
 
+        // Why connecting the watch is worth it: what the mascot does with its numbers, in plain words.
+        public class WatchBenefitsRow : Row
+        {
+            public WatchBenefitsRow() : base("Qu\u00E9 ganas conect\u00E1ndolo",
+                "La mascota usa tus datos para cuidarte: te avisa si llevas una hora sin moverte y te propone levantarte, " +
+                "te anima por la ma\u00F1ana y despu\u00E9s de comer si apenas has caminado, celebra tus paseos, tus minutos activos y tu objetivo de pasos, " +
+                "te dice cu\u00E1nto te falta por la tarde, adelanta las pausas si has dormido poco (y por la noche te recuerda acostarte antes) " +
+                "y no te pide moverte justo despu\u00E9s de caminar. Tambi\u00E9n suma tus pasos al resumen del d\u00EDa.", "info", Mac.Blue, Mac.Teal) { }
+
+            protected override FrameworkElement Control() { return null; }
+        }
+
         // What is coming: more watches and bands, with a "Pronto" tag in the website's gradient.
         public class SoonRow : Row
         {

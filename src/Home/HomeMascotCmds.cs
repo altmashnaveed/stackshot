@@ -221,6 +221,7 @@ namespace Stackshot
             if (GoogleHealth.Available)
             {
                 bool on = GoogleHealth.Connected;
+                rows.Add(new WatchBenefitsRow());
                 rows.Add(new ButtonRow("Pixel Watch o Fitbit",
                                        GoogleHealth.Connecting ? "Conectando\u2026 Termina de iniciar sesi\u00F3n en la pesta\u00F1a que se ha abierto en tu navegador y vuelve aqu\u00ED."
                                        : on ? "Conectado con tu cuenta de Google."
@@ -241,7 +242,7 @@ namespace Stackshot
                                         delegate { int i = Array.IndexOf(steps, settings.StepsGoal); return i < 0 ? 2 : i; },
                                         delegate(int i) { settings.StepsGoal = steps[Math.Max(0, Math.Min(steps.Length - 1, i))]; }));
                 }
-                rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Te avisa si llevas una hora quieto, celebra tus paseos, la mitad y el objetivo de pasos, te dice cu\u00E1nto te falta por la tarde y c\u00F3mo has dormido. Cada cosa, pocas veces al d\u00EDa.", "sparkle", Mac.Orange, Mac.Pink,
+                rows.Add(new ToggleRow("Comentarios sobre tu actividad", "Te propone levantarte si llevas una hora quieto o una ma\u00F1ana floja, un paseo despu\u00E9s de comer, celebra tus paseos, minutos activos y objetivo de pasos, te dice c\u00F3mo vas y cu\u00E1nto te falta, y c\u00F3mo has dormido. Cada cosa, pocas veces al d\u00EDa.", "sparkle", Mac.Orange, Mac.Pink,
                                        delegate { return settings.HealthTalk; }, delegate(bool v) { settings.HealthTalk = v; }) { When = delegate { return GoogleHealth.Connected; } });
                 rows.Add(new SoonRow());
             }

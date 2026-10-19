@@ -369,12 +369,47 @@ namespace Stackshot
                 pet.HealthAskMove("En " + (ago >= 90 ? "la \u00FAltima hora y media" : "la \u00FAltima hora") + " solo has dado " + still + " pasos. \u00BFEstiramos las piernas un par de minutos?");
                 return;
             }
+            // A slow morning: before lunch, up for a glass of water and a short round.
+            if (now.Hour >= 11 && now.Hour < 13 && w.Steps < goal / 5 && Said("manana"))
+            {
+                if (settings.WellOn) WellLater(WellKind.Move, 40 * 60 * 1000);
+                pet.HealthAskMove("Esta ma\u00F1ana llevas " + w.Steps.ToString("N0", Es) + " pasos. \u00BFTe levantas a por un vaso de agua y das una vuelta corta?");
+                return;
+            }
+            // After lunch, hardly a step yet: a few minutes walking clear the head.
+            int sinceLunch = StepsSince(60, out ago);
+            if (now.Hour >= 14 && now.Hour < 16 && sinceLunch >= 0 && sinceLunch < 300 && ago <= 120 && Said("comida"))
+            {
+                pet.HealthAskWalk("Despu\u00E9s de comer sienta muy bien caminar: un paseo de diez minutos y vuelves con la cabeza despejada.");
+                return;
+            }
+            // Active minutes: half an hour, then a whole one.
+            if (w.ActiveMinutes >= 60 && Said("activo60"))
+            {
+                pet.FocusSay("\u00A1Una hora activa hoy! Tu cuerpo te lo agradece.");
+                return;
+            }
+            if (w.ActiveMinutes >= 30 && w.ActiveMinutes < 60 && Said("activo30"))
+            {
+                pet.FocusSay("Ya llevas " + w.ActiveMinutes + " minutos activos hoy. \u00A1As\u00ED se hace!");
+                return;
+            }
             // Late in the day and close to the goal: how far it is, and a walk to get there.
             if (now.Hour >= 16 && now.Hour < 20 && w.Steps >= goal * 6 / 10 && w.Steps < goal && Said("falta"))
             {
                 int left = goal - w.Steps;
                 pet.HealthAskWalk("Te faltan " + left.ToString("N0", Es) + " pasos para tu objetivo: un paseo de unos " + WalkMinutes(left) + " minutos y lo tienes.");
+                return;
             }
+            // After a short night: early to bed tonight.
+            if (settings.ShortSleepDay == Today && now.Hour >= 21 && Said("acostarse"))
+            {
+                pet.FocusSay("Anoche dormiste poco: hoy intenta acostarte un poco antes. \u00A1Ma\u00F1ana lo notar\u00E1s!");
+                return;
+            }
+            // How it is going, now and then through the working day.
+            if (now.Hour >= 10 && now.Hour < 19 && w.Steps > 0 && w.Steps < goal && Said("dato" + now.Hour / 3))
+                pet.FocusSay("Llevas " + w.Steps.ToString("N0", Es) + " pasos, el " + (w.Steps * 100 / Math.Max(1, goal)) + " % de tu objetivo de hoy.");
         }
 
         // True the first time this is said today (and remembered); false if it was already said.
