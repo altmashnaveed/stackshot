@@ -79,12 +79,33 @@ namespace Stackshot
             bool front = !used && askedAfter <= 1000 && format != null && !format.StartsWith("Can", StringComparison.Ordinal) && ReaderInFront();
             if (format == "PNG") lock (pngLock) { while (!pngReady) System.Threading.Monitor.Wait(pngLock, 10000); }
             object o = base.GetData(format, autoConvert);
-            if (!used && o != null && CountsAsPaste(format, askedAfter, front))
+            bool counts = !used && o != null && CountsAsPaste(format, askedAfter, front);
+            if (asks < 16)
+            {
+                // Who reads a copy and when: what to look at if a paste isn't noticed.
+                asks++;
+                ShotStack.Log("Portapapeles: " + Reader() + " pide " + format + " a los " + (int)askedAfter + " ms" +
+                              (used ? "" : front ? ", delante" : ", no delante") + (counts ? ", cuenta como pegada" : ""));
+            }
+            if (counts)
             {
                 used = true;
                 if (onUsed != null) onUsed(this);
             }
             return o;
+        }
+
+        int asks;
+
+        static string Reader()
+        {
+            try
+            {
+                uint pid;
+                Native.GetWindowPid(Native.GetOpenClipboardWindow(), out pid);
+                return pid == 0 ? "?" : System.Diagnostics.Process.GetProcessById((int)pid).ProcessName;
+            }
+            catch { return "?"; }
         }
 
         // Reads in the first second are the system and clipboard tools looking at a new copy; the Can* flags are
@@ -110,7 +131,11 @@ namespace Stackshot
             try
             {
                 IntPtr reader = Native.GetOpenClipboardWindow(), front = Native.GetForegroundWindow();
-                if (reader == IntPtr.Zero || front == IntPtr.Zero) return false;
+                if (front == IntPtr.Zero) return false;
+                // Browsers (Brave, Chrome, Edge) open the clipboard without a window, so who reads is unknown: it is the
+                // app in front if the paste keys are down right now (Ctrl+V, Shift+Insert). Clipboard history and other
+                // tools read on their own, not while the user presses them.
+                if (reader == IntPtr.Zero) return PasteKeysDown() && !Shell(front) && !Own(front);
                 uint a, b;
                 Native.GetWindowPid(reader, out a);
                 Native.GetWindowPid(front, out b);
@@ -127,6 +152,31 @@ namespace Stackshot
 
         uint askedReader, askedFront;
         bool askedAnswer;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+
+        static bool Down(int key) { return (GetAsyncKeyState(key) & 0x8000) != 0; }
+
+        static bool PasteKeysDown()
+        {
+            // VK_CONTROL without VK_MENU (AltGr is Ctrl+Alt on Spanish keyboards), or VK_SHIFT + VK_INSERT.
+            return (Down(0x11) && !Down(0x12)) || (Down(0x10) && Down(0x2D));
+        }
+
+        static bool Shell(IntPtr front)
+        {
+            System.Text.StringBuilder cls = new System.Text.StringBuilder(32);
+            Native.GetClassName(front, cls, 32);
+            string c = cls.ToString();
+            return c == "Progman" || c == "WorkerW" || c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd" || c == "CabinetWClass";
+        }
+
+        static bool Own(IntPtr front)
+        {
+            uint pid;
+            Native.GetWindowPid(front, out pid);
+            return pid == 0 || pid == OwnPid;
+        }
 
         static bool Related(IntPtr front, uint a, uint b)
         {

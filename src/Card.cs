@@ -297,6 +297,13 @@ namespace Stackshot
                     break;
             }
             Anim.Wake(this);
+            // Whatever happens to the animation meanwhile, a card on its way out never stays on screen.
+            Later((int)delay + 700, delegate
+            {
+                if (dragging) return;
+                ShotStack.Log("Miniatura: no terminó de irse sola, se cierra (" + System.IO.Path.GetFileName(FilePath) + ")");
+                Close();
+            });
         }
 
         void Finish()
@@ -305,15 +312,31 @@ namespace Stackshot
             Close();
         }
 
+        // Runs once after ms on the UI thread, unless the card has closed by then.
+        void Later(int ms, Action act)
+        {
+            System.Windows.Forms.Timer t = new System.Windows.Forms.Timer { Interval = Math.Max(1, ms) };
+            t.Tick += delegate { t.Dispose(); if (!IsDisposed) act(); };
+            t.Start();
+        }
+
         // Pasted: show a brief label, then leave.
         public void Used(string text, Action then)
         {
             if (Leaving) return;
             if (parked) { then(); return; }
+            bool done = false;
+            Action once = delegate { if (done) return; done = true; then(); };
             Flash(text, true);
             wait.Set(0);
-            wait.Go(1, 560, 0, Ease.Linear, then);
+            wait.Go(1, 560, 0, Ease.Linear, once);
             Anim.Wake(this);
+            Later(900, delegate
+            {
+                if (done || Leaving) return;
+                ShotStack.Log("Miniatura: tras pegarla no empezó a irse, se quita (" + System.IO.Path.GetFileName(FilePath) + ")");
+                once();
+            });
         }
 
         protected override bool StepExtra(double now)

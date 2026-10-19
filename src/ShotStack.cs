@@ -1814,6 +1814,7 @@ namespace Stackshot
                 Log("Pegada: " + Path.GetFileName(td.FilePath));
                 Card c = Find(td.FilePath);
                 if (c != null) c.Used("Pegada", delegate { Remove(c); });
+                else Log("Pegada sin miniatura en la pila (" + cards.Count + " miniaturas)");
             });
         }
 
