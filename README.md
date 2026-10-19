@@ -165,7 +165,7 @@ An area, the whole screen, a window, a long page, a video, a GIF or a Markdown d
 <summary>How it works</summary>
 <br>
 
-- **Presentation backdrop.** Put a capture on a gradient, your blurred wallpaper or an image of your own, with padding, rounded corners, shadow and a fixed aspect ratio. Recordings get the same options.
+- **Presentation backdrop.** A sidebar like CleanShot X's puts a capture on a gradient, your blurred wallpaper, an image of your own, the capture itself blurred or a plain colour, with padding, an inset in the capture's own edge colour (auto-balanced if you like), shadow, rounded corners, alignment and a fixed aspect ratio. Recordings get the gradients, pictures and colours.
 </details>
 
 ## Hide it before you share it.

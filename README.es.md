@@ -165,7 +165,7 @@ Un área, la pantalla entera, una ventana, una página larga, un vídeo, un GIF 
 <summary>Cómo funciona</summary>
 <br>
 
-- **Fondo de presentación.** Coloca la captura sobre un degradado, tu fondo de escritorio desenfocado o una imagen tuya, con margen, esquinas redondeadas, sombra y proporción fija. Las grabaciones tienen las mismas opciones.
+- **Fondo de presentación.** Un panel lateral como el de CleanShot X coloca la captura sobre un degradado, tu fondo de escritorio desenfocado, una imagen tuya, la propia captura desenfocada o un color liso, con margen, inserción del color del borde de la captura (con auto-equilibrado si quieres), sombra, esquinas redondeadas, alineación y proporción fija. Las grabaciones tienen los degradados, las imágenes y los colores.
 </details>
 
 ## Tápalo antes de compartir.

@@ -7,6 +7,12 @@ Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad
 
 ## 2.2.0
 
+- **Fondos como en CleanShot X.** En el editor, el botón Fondo abre un panel lateral: degradados, tu fondo de escritorio y tus imágenes, la propia captura desenfocada, colores lisos y cualquier otro color, y deslizadores para margen, inserción (con auto-equilibrado), sombra y esquinas, además de alineación y proporción.
+- **Arrástrame.** En la barra de abajo del editor hay un asa para llevar la captura arrastrando al chat, a un correo o a otra app.
+- **Ajustar antes de capturar.** Una opción (apagada de serie) para mover y ajustar el área con una vista previa antes de capturar.
+- **Textos más nítidos.** En todas las ventanas, los menús y el aviso del selector de área, que ahora pinta cada tecla de un color.
+- **Buscar en un XML te lleva a cada resultado.** Intro, Mayús+Intro y F3 saltan por todas las coincidencias; filtrar es opcional y la barra de desplazamiento ya no desaparece en archivos enormes.
+- **Sin parones.** La app ya no se queda pillada un instante al guardar ajustes, cerrar el editor o copiar.
 - **Miniaturas que se apartan.** Si no las usas, se esconden en el borde y solo asoma un trocito, con una pestaña que dice cuántas hay; pasa el ratón por el borde y van saliendo una a una, como un dock. Se ajusta en General > Al capturar.
 - **Cuentagotas y regla.** Al elegir un área, pulsa C para ver los píxeles con lupa y copiar su color, o arrastra con Mayús para medir.
 - **Captura con temporizador.** Eliges el área, cuenta atrás 3, 5 o 10 segundos y captura con el menú o el aviso ya abiertos.
