@@ -216,6 +216,9 @@ namespace Stackshot
         public struct BITMAP { public int bmType, bmWidth, bmHeight, bmWidthBytes; public short bmPlanes, bmBitsPixel; public IntPtr bmBits; }
         [DllImport("gdi32.dll")] public static extern int GetObject(IntPtr obj, int size, out BITMAP bm);
         [DllImport("msimg32.dll")] public static extern bool AlphaBlend(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int sw, int sh, int blend);
+        [DllImport("gdi32.dll")] public static extern bool StretchBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int sw, int sh, int rop);
+        [DllImport("gdi32.dll")] public static extern int SetStretchBltMode(IntPtr dc, int mode);
+        [DllImport("gdi32.dll")] public static extern bool SetBrushOrgEx(IntPtr dc, int x, int y, IntPtr old);
         [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")] public static extern void CopyMemory(IntPtr dst, IntPtr src, UIntPtr count);
         [DllImport("kernel32.dll")] public static extern bool SetDefaultDllDirectories(uint flags);
 

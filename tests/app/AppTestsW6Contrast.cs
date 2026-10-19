@@ -876,14 +876,7 @@ namespace Stackshot.Tests
                 {
                     int x0 = side * 380;
                     using (D.Bitmap tip = EdTip.Preview("Flecha  (A)", 1f)) g.DrawImage(tip, x0 + 10, 10);
-                    using (D.Font bold = new D.Font("Segoe UI Semibold", 13, D.GraphicsUnit.Pixel))
-                    using (D.Font reg = new D.Font("Segoe UI", 13, D.GraphicsUnit.Pixel))
-                    {
-                        string[] parts = { "Arrastra para elegir", "Esc para salir" };
-                        int[] widths = { 140, 100 };
-                        MethodInfo hint = typeof(RegionPicker).GetMethod("PaintHint", NS);
-                        hint.Invoke(null, new object[] { g, new D.Rectangle(x0 + 10, 70, 340, 36), 1f, "area", parts, widths, bold, reg });
-                    }
+                    RegionPicker.PaintHintPreview(g, new D.Point(x0 + 10, 70), 1f, "area", "Arrastra para elegir  ·  Esc: salir");
                 }
                 Type cd = typeof(RegionPicker).Assembly.GetType("Stackshot.CountdownWindow");
                 using (System.Windows.Forms.Form f = (System.Windows.Forms.Form)Activator.CreateInstance(cd, NP | BindingFlags.Public, null, new object[] { new D.Rectangle(-32000, -32000, 300, 300), 3 }, null))

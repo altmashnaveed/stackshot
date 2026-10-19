@@ -791,8 +791,10 @@ namespace Stackshot
                 new ButtonRow("Borrar recientes", "Quita las capturas temporales; las de tu carpeta no se tocan.", "trash", Mac.Red, Mac.Orange, "Borrar", ClearRecent),
                 recovered);
             Group("Al capturar",
-                new SegRow("Despu\u00E9s de seleccionar un \u00E1rea", "Directo la env\u00EDa a la pila; con opciones puedes ajustarla y elegir captura, v\u00EDdeo, GIF o desplazamiento.", "area", Mac.Blue, Mac.Indigo, new string[] { "Directo a la pila", "Mostrar opciones" },
-                           delegate { return settings.AllInOne ? 1 : 0; }, delegate(int i) { settings.AllInOne = i == 1; }),
+                new SegRow("Despu\u00E9s de seleccionar un \u00E1rea", "Directo la env\u00EDa a la pila; Ajustar antes te deja moverla y redimensionarla viendo c\u00F3mo quedar\u00E1, y la capturas con Enter; con opciones adem\u00E1s eliges captura, v\u00EDdeo, GIF o desplazamiento.", "area", Mac.Blue, Mac.Indigo,
+                           new string[] { "Directo a la pila", "Ajustar antes", "Mostrar opciones" },
+                           delegate { return settings.AllInOne ? 2 : settings.AdjustFirst ? 1 : 0; },
+                           delegate(int i) { settings.AllInOne = i == 2; settings.AdjustFirst = i == 1; }),
                 new ToggleRow("Sonido de c\u00E1mara", "Un clic suave cada vez que capturas.", "sound", Mac.Pink, Mac.Red,
                               delegate { return settings.Sound; }, delegate(bool v) { settings.Sound = v; if (v) Shutter.Play(); }),
                 new ToggleRow("Copiar cada captura", "Lista para pegar con Ctrl+V nada m\u00E1s hacerla; los v\u00EDdeos y GIF, como archivo.", "copy", Mac.Teal, Mac.Blue,

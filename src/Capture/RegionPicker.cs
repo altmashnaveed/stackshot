@@ -32,6 +32,7 @@ namespace Stackshot
         readonly List<Grabber.Win> wins;
         readonly Mode mode;
         readonly bool allInOne;
+        readonly bool adjustFirst;   // "Ajustar antes": the area stays adjustable, with a live preview, until it is captured
         List<Mon> mons;
         readonly List<Hint> hints = new List<Hint>();
         Point cur = new Point(-10000, -10000), start;
@@ -62,14 +63,15 @@ namespace Stackshot
 
         class BarItem { public Rectangle R; public string Icon, Label; public Mode Mode; public bool Primary, Close; public int TextW; }
 
-        RegionPicker(Dib grab, Rectangle vs, List<Grabber.Win> wins, Mode mode) : this(grab, vs, wins, mode, false) { }
+        RegionPicker(Dib grab, Rectangle vs, List<Grabber.Win> wins, Mode mode) : this(grab, vs, wins, mode, false, false) { }
 
-        RegionPicker(Dib grab, Rectangle vs, List<Grabber.Win> wins, Mode mode, bool allInOne)
+        RegionPicker(Dib grab, Rectangle vs, List<Grabber.Win> wins, Mode mode, bool allInOne, bool adjustFirst)
         {
             this.vs = vs;
             this.wins = wins;
             this.mode = mode;
             this.allInOne = allInOne && mode == Mode.Image;
+            this.adjustFirst = adjustFirst && !this.allInOne && mode == Mode.Image;
             chosen = mode;
             bright = grab;
             // ~36% black: the screen at 64% over a new (black) buffer, in one pass.
@@ -113,10 +115,18 @@ namespace Stackshot
         // frozen image only covers the result, and only when an image or text was chosen; otherwise it is a 1 px placeholder.
         public static Rectangle Pick(Mode mode, bool allInOne, out Bitmap frozen, out Rectangle frozenAt, out IntPtr window, out Mode chosen)
         {
+            return Pick(mode, allInOne, false, out frozen, out frozenAt, out window, out chosen);
+        }
+
+        // adjustFirst: an image area is not captured on release; it can be moved and resized, with a live preview of the
+        // result, until Enter, a double click or Capturar.
+        public static Rectangle Pick(Mode mode, bool allInOne, bool adjustFirst, out Bitmap frozen, out Rectangle frozenAt, out IntPtr window, out Mode chosen)
+        {
+            Stall.Mark("selector de \u00E1rea");
             Rectangle virtualScreen = SystemInformation.VirtualScreen;
             Dib grab = Dib.FromScreen(virtualScreen);
             List<Grabber.Win> wins = Grabber.Windows();
-            using (RegionPicker p = new RegionPicker(grab, virtualScreen, wins, mode, allInOne))
+            using (RegionPicker p = new RegionPicker(grab, virtualScreen, wins, mode, allInOne, adjustFirst))
             {
                 p.ShowDialog();
                 window = p.resultWindow;
@@ -239,6 +249,7 @@ namespace Stackshot
         {
             SyncScale();
             if (adjusting) LayoutBar();
+            LayoutPreview();
             Rectangle lit = Lit;
             List<Rectangle> parts = Parts();
             bool hint = HintOn;
@@ -307,6 +318,7 @@ namespace Stackshot
         {
             SyncScale();
             if (adjusting) LayoutBar();
+            LayoutPreview();
             Base(buf, r, r.Location);
             Overlay(buf, r.Location, new List<Rectangle> { r });
             Native.GdiFlush();
@@ -339,6 +351,11 @@ namespace Stackshot
             if (text.Length > 0 && label.IntersectsWith(bounds))
                 using (Graphics g = Clipped(target, origin, rs)) PaintLabel(g, label, text);
             if (adjusting && BarShadowRect().IntersectsWith(bounds)) Blend(target, origin, rs, BarSprite(), BarShadowRect().Location);
+            if (PreviewOn && PreviewShadowRect().IntersectsWith(bounds))
+            {
+                Blend(target, origin, rs, PreviewSprite(), PreviewShadowRect().Location);
+                if (previewCard.IntersectsWith(bounds)) PreviewText(target, origin, rs);
+            }
         }
 
         static Graphics Clipped(Dib target, Point origin, List<Rectangle> rs)
@@ -410,6 +427,7 @@ namespace Stackshot
             Rectangle label = LabelRect(out text);
             if (!label.IsEmpty) p.Add(Rectangle.Inflate(label, 2, 2));
             if (adjusting && bar.Count > 0) p.Add(BarShadowRect());
+            if (PreviewOn) p.Add(PreviewShadowRect());
             return p;
         }
 
@@ -556,6 +574,140 @@ namespace Stackshot
             return barSprite;
         }
 
+        // ---- "Ajustar antes": a floating card beside the area with a live picture of what will be captured and its size.
+        // It moves out of the way of the area, the bar and the size pill; with no room left on the monitor it hides.
+
+        Rectangle previewCard, previewThumb;   // the card on screen; the picture inside it (relative to the card)
+        Dib previewSprite, previewPic;
+        string previewFor;
+
+        bool PreviewOn { get { return adjustFirst && adjusting && !previewCard.IsEmpty; } }
+
+        Rectangle PreviewShadowRect() { return Rectangle.Inflate(previewCard, Pz(14), Pz(14)); }
+
+        void LayoutPreview()
+        {
+            previewCard = Rectangle.Empty;
+            if (!adjustFirst || !adjusting || sel.Width < 1 || sel.Height < 1) return;
+            int pad = Pz(8), foot = Pz(28);
+            // Big areas shrink to fit; tiny ones grow (up to 4x) so their pixels can be checked.
+            double k = Math.Min(Math.Min(Pz(232) / (double)sel.Width, Pz(150) / (double)sel.Height), 4);
+            int tw = Math.Max(1, (int)Math.Round(sel.Width * k)), th = Math.Max(1, (int)Math.Round(sel.Height * k));
+            int w = Math.Max(tw + 2 * pad, Pz(172)), h = pad + th + foot;
+            previewThumb = new Rectangle((w - tw) / 2, pad, tw, th);
+            Rectangle m = MonitorOf(sel);
+            int gap = Pz(16), edge = Pz(10);
+            string text;
+            Rectangle label = LabelRect(out text);
+            List<Rectangle> avoid = new List<Rectangle> { Rectangle.Inflate(sel, Pz(10), Pz(10)) };
+            if (bar.Count > 0) avoid.Add(Rectangle.Inflate(barRect, Pz(8), Pz(8)));
+            if (!label.IsEmpty) avoid.Add(Rectangle.Inflate(label, Pz(6), Pz(6)));
+            Point[] at =
+            {
+                new Point(sel.Right + gap, sel.Top), new Point(sel.Left - gap - w, sel.Top),
+                new Point(sel.Right - w, sel.Bottom + gap), new Point(sel.Right - w, sel.Top - gap - h),
+                new Point(sel.Left, sel.Bottom + gap), new Point(sel.Left, sel.Top - gap - h),
+                new Point(m.Right - w - edge, m.Top + edge), new Point(m.Left + edge, m.Top + edge),
+                new Point(m.Right - w - edge, m.Bottom - h - edge), new Point(m.Left + edge, m.Bottom - h - edge)
+            };
+            foreach (Point p in at)
+            {
+                Rectangle r = new Rectangle(Math.Max(m.Left + edge, Math.Min(m.Right - w - edge, p.X)), Math.Max(m.Top + edge, Math.Min(m.Bottom - h - edge, p.Y)), w, h);
+                if (!m.Contains(r)) continue;
+                bool clear = true;
+                foreach (Rectangle a in avoid) if (a.IntersectsWith(r)) { clear = false; break; }
+                if (clear) { previewCard = r; return; }
+            }
+        }
+
+        static readonly Color PreviewBack = Color.FromArgb(30, 30, 32);
+
+        // Shadow, card and picture, premultiplied, rebuilt only when the area or its place changes.
+        Dib PreviewSprite()
+        {
+            Rectangle sr = PreviewShadowRect();
+            string key = S + "|" + sel + "|" + previewCard.Size;
+            if (previewSprite != null && key == previewFor) return previewSprite;
+            if (previewSprite != null) previewSprite.Dispose();
+            Rectangle tr = previewThumb;
+            // The picture: GDI's halftone scaling from the frozen screen (fast and smooth), whole pixels when enlarged.
+            if (previewPic == null || previewPic.Width != tr.Width || previewPic.Height != tr.Height)
+            {
+                if (previewPic != null) previewPic.Dispose();
+                previewPic = new Dib(tr.Width, tr.Height);
+            }
+            Native.SetStretchBltMode(previewPic.Dc, tr.Width < sel.Width ? 4 : 3);   // HALFTONE : COLORONCOLOR
+            Native.SetBrushOrgEx(previewPic.Dc, 0, 0, IntPtr.Zero);
+            Native.StretchBlt(previewPic.Dc, 0, 0, tr.Width, tr.Height, bright.Dc, sel.X, sel.Y, sel.Width, sel.Height, Native.SRCCOPY);
+            Native.GdiFlush();
+            previewSprite = new Dib(sr.Width, sr.Height, true);
+            using (Graphics g = previewSprite.Graphics())
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TranslateTransform(-sr.X, -sr.Y);
+                Rectangle c = previewCard;
+                float radius = Pz(12);
+                for (int i = Ds.Brushes.High ? 0 : 7; i >= 1; i--)
+                {
+                    RectangleF sh = c;
+                    sh.Inflate(i * S, i * S);
+                    sh.Offset(0, 4 * S);
+                    using (GraphicsPath p = Theme.Round(sh, radius + i * S))
+                    using (SolidBrush b = new SolidBrush(Color.FromArgb(10 * (8 - i) / 3, 0, 0, 0))) g.FillPath(b, p);
+                }
+                using (GraphicsPath p = Theme.Round(c, radius))
+                using (SolidBrush bg = new SolidBrush(Ds.Gdi(Palette.HudBack(Ds.Rgb(PreviewBack.R, PreviewBack.G, PreviewBack.B))))) g.FillPath(bg, p);
+                RectangleF hl = c;
+                hl.Inflate(-0.5f, -0.5f);
+                using (GraphicsPath p = Theme.Round(hl, radius - 0.5f))
+                using (Pen line = new Pen(Ds.Gdi(Palette.HudLine), 1f)) g.DrawPath(line, p);
+                Rectangle pic = new Rectangle(c.X + tr.X, c.Y + tr.Y, tr.Width, tr.Height);
+                float pr = Math.Min(Pz(6), Math.Min(pic.Width, pic.Height) / 2f);
+                using (GraphicsPath p = Theme.Round(pic, pr))
+                {
+                    GraphicsState st = g.Save();
+                    g.SetClip(p);
+                    g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    g.PixelOffsetMode = PixelOffsetMode.Half;
+                    g.DrawImage(previewPic.Bitmap, pic.X, pic.Y, pic.Width, pic.Height);
+                    g.Restore(st);
+                    using (Pen edge = new Pen(Color.FromArgb(40, 255, 255, 255), 1f)) g.DrawPath(edge, p);
+                }
+            }
+            previewFor = key;
+            return previewSprite;
+        }
+
+        // "Vista previa" and the size under the picture, with ClearType straight onto the opaque buffer.
+        void PreviewText(Dib target, Point origin, List<Rectangle> rs)
+        {
+            Native.GdiFlush();
+            using (Graphics g = target.DcGraphics())
+            {
+                g.TranslateTransform(-origin.X, -origin.Y);
+                using (Region clip = new Region(Rectangle.Empty))
+                {
+                    foreach (Rectangle r in rs) clip.Union(r);
+                    g.Clip = clip;
+                }
+                Rectangle c = previewCard;
+                int pad = Pz(10), top = c.Y + previewThumb.Bottom;
+                Rectangle line = new Rectangle(c.X + pad, top, c.Width - 2 * pad, c.Bottom - top);
+                Color back = Ds.Gdi(Palette.HudBack(Ds.Rgb(PreviewBack.R, PreviewBack.G, PreviewBack.B)));
+                const TextFormatFlags f = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter |
+                                          TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform;
+                TextRenderer.DrawText(g, "Vista previa", labelFont, line, Over(Ds.Gdi(Palette.HudLabel2), back), f);
+                TextRenderer.DrawText(g, sel.Width + " \u00D7 " + sel.Height + " px", labelFont, line, Over(Ds.Gdi(Palette.HudLabel), back), f | TextFormatFlags.Right);
+            }
+        }
+
+        // GDI text has no transparency: a translucent colour mixed over the card.
+        static Color Over(Color c, Color back)
+        {
+            double a = c.A / 255.0;
+            return Color.FromArgb((int)Math.Round(c.R * a + back.R * (1 - a)), (int)Math.Round(c.G * a + back.G * (1 - a)), (int)Math.Round(c.B * a + back.B * (1 - a)));
+        }
+
         // "W x H" pill: under the area, or inside its bottom edge when there is no room below. While adjusting it sits
         // above the area, or inside its top edge, wherever the bar is not.
         Rectangle LabelRect(out string text)
@@ -617,6 +769,12 @@ namespace Stackshot
         {
             bar.Clear();
             AddBar("area", "Capturar", Mode.Image, true, false);
+            if (adjustFirst)
+            {
+                AddBar("close", null, Mode.Image, false, true);
+                barScale = 0;
+                return;
+            }
             AddBar("video", "V\u00EDdeo", Mode.Video, false, false);
             AddBar("gif", "GIF", Mode.Gif, false, false);
             AddBar("scroll", "Desplazar", Mode.Scroll, false, false);
@@ -742,6 +900,7 @@ namespace Stackshot
             hints.Clear();
             string text = mode == Mode.Image
                         ? (allInOne ? "Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Despu\u00E9s eliges qu\u00E9 hacer  \u00B7  C: color  \u00B7  May\u00FAs: medir  \u00B7  Esc: cancelar"
+                           : adjustFirst ? "Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Despu\u00E9s la ajustas  \u00B7  C: color  \u00B7  May\u00FAs: medir  \u00B7  Esc: cancelar"
                                     : "Arrastra para capturar un \u00E1rea  \u00B7  Clic: ventana o pantalla entera  \u00B7  C: color  \u00B7  May\u00FAs: medir  \u00B7  Esc: cancelar")
                         : mode == Mode.Video ? "Grabar v\u00EDdeo  \u00B7  Arrastra un \u00E1rea o haz clic en una ventana  \u00B7  Esc: cancelar"
                         : mode == Mode.Text ? "Copiar texto  \u00B7  Arrastra sobre el texto o haz clic en una ventana  \u00B7  Esc: cancelar"
@@ -785,6 +944,26 @@ namespace Stackshot
                 r[i] = c > 0 ? new HintPart { Key = parts[i].Substring(0, c), Label = parts[i].Substring(c + 2) } : new HintPart { Label = parts[i] };
             }
             return r;
+        }
+
+        // The whole hint (capsule, key caps, words) at `at` on any surface, for previews and tests; text joins its pieces
+        // with "  ·  " as the picker's own hints do.
+        internal static void PaintHintPreview(Graphics g, Point at, float s, string icon, string text)
+        {
+            HintPart[] parts = SplitHint(text.Split(new string[] { "  ·  " }, StringSplitOptions.None));
+            using (Font bold = new Font("Segoe UI Semibold", (float)Math.Round(13 * s), GraphicsUnit.Pixel))
+            using (Font reg = new Font("Segoe UI", (float)Math.Round(13 * s), GraphicsUnit.Pixel))
+            using (Font key = new Font("Segoe UI Semibold", (float)Math.Round(11.5 * s), GraphicsUnit.Pixel))
+            {
+                HintFonts f = new HintFonts { Bold = bold, Reg = reg, Key = key };
+                Rectangle pill = HintPill(new Rectangle(0, 0, 100000, 100000), s, parts, f);
+                pill.Location = at;
+                SmoothingMode sm = g.SmoothingMode;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                PaintHint(g, pill, s, icon, parts);
+                g.SmoothingMode = sm;
+                HintText(g, Point.Empty, pill, s, parts, f);
+            }
         }
 
         static Dib HintPatch(Dib under, Rectangle r, Rectangle pill, float s, string icon, HintPart[] parts, HintFonts f)
@@ -1138,7 +1317,7 @@ namespace Stackshot
                 r = sel;
             }
             else { r = hover; w = hoverHandle; }
-            if (allInOne) { resultWindow = w; Adjust(r); return; }
+            if (allInOne || adjustFirst) { resultWindow = w; Adjust(r); return; }
             Accept(r, w);
         }
 
@@ -1250,6 +1429,8 @@ namespace Stackshot
             hints.Clear();
             if (handleSprite != null) { handleSprite.Dispose(); handleSprite = null; }
             if (barSprite != null) { barSprite.Dispose(); barSprite = null; }
+            if (previewSprite != null) { previewSprite.Dispose(); previewSprite = null; }
+            if (previewPic != null) { previewPic.Dispose(); previewPic = null; }
             if (labelFont != null) labelFont.Dispose();
             if (barFont != null) barFont.Dispose();
         }
