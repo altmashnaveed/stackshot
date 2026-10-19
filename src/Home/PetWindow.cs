@@ -2069,12 +2069,16 @@ namespace Stackshot
                 // The label never runs under the shortcut: a very long one ends in "…".
                 float labelW = c.R.Width - 36 * s - (c.Detail != null ? c.DetailW + 16 * s : 0);
                 Rectangle lr = new Rectangle((int)Math.Round(c.R.X + 33 * s) - ox, (int)c.R.Y - oy, (int)Math.Max(10 * s, labelW), (int)c.R.Height);
+                // White on the accent: ClearType's coloured edges would fringe on a saturated colour, so this row's text is
+                // hinted greyscale (still sharp on its whole pixels); the others stay ClearType.
+                if (hot) g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 TextRenderer.DrawText(g, c.Text, item, lr, Over(fg, under), Line | TextFormatFlags.EndEllipsis);
                 if (c.Detail != null)
                 {
                     Rectangle dr = new Rectangle((int)c.R.X - ox, (int)c.R.Y - oy, (int)(c.R.Width - 10 * s), (int)c.R.Height);
                     TextRenderer.DrawText(g, c.Detail, small, dr, Over(hot ? fg : label2, under), Line | TextFormatFlags.Right);
                 }
+                if (hot) g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 ry += rowH;
             }
         }

@@ -530,6 +530,75 @@ namespace Stackshot
             PaintSleep(g, variant, D, now, c1, c2, 0.045f);
         }
 
+        // Cosy quilt colours; each sleeper gets the one furthest from its own colour, so the blanket always reads.
+        static readonly Color[] Quilts = { Color.FromArgb(70, 110, 196), Color.FromArgb(206, 76, 78), Color.FromArgb(72, 156, 116), Color.FromArgb(138, 96, 196), Color.FromArgb(226, 164, 58) };
+
+        // A quilt pulled up to its chest: arched over it, falling to a soft wavy hem, the sheet's cuff folded over its top,
+        // quilted in diamonds with stitching, shaded towards its folds. y: its top, in units of D (g is scaled by D).
+        static void PaintBlanket(Graphics g, float y, Color body)
+        {
+            Color q = Quilts[0];
+            int far = -1;
+            foreach (Color c in Quilts)
+            {
+                int d = Math.Abs(c.R - body.R) + Math.Abs(c.G - body.G) + Math.Abs(c.B - body.B);
+                if (d > far) { far = d; q = c; }
+            }
+            Color light = MascotParts.Lighter(q, 0.18), dark = MascotParts.Darker(q, 0.28), ink = MascotParts.Darker(q, 0.55);
+            PointF[] top = { new PointF(-0.355f, y + 0.065f), new PointF(-0.2f, y + 0.012f), new PointF(0, y - 0.012f), new PointF(0.2f, y + 0.012f), new PointF(0.355f, y + 0.065f) };
+            System.Collections.Generic.List<PointF> edge = new System.Collections.Generic.List<PointF>(top);
+            edge.AddRange(new PointF[] { new PointF(0.39f, y + 0.15f), new PointF(0.385f, y + 0.25f) });
+            for (int i = 0; i <= 8; i++) edge.Add(new PointF(0.33f - i * 0.0825f, y + (i % 2 == 0 ? 0.287f : 0.268f)));
+            edge.AddRange(new PointF[] { new PointF(-0.385f, y + 0.25f), new PointF(-0.39f, y + 0.15f) });
+            RectangleF box = new RectangleF(-0.4f, y - 0.03f, 0.8f, 0.33f);
+            using (GraphicsPath p = new GraphicsPath())
+            {
+                p.AddClosedCurve(edge.ToArray(), 0.45f);
+                using (LinearGradientBrush br = new LinearGradientBrush(box, light, dark, 90f)) g.FillPath(br, p);
+                Region old = g.Clip;
+                g.SetClip(p, CombineMode.Intersect);
+                // Quilted diamonds: a dark seam with a lit edge beside it, and the soft shade of the folds at its sides.
+                using (Pen seam = new Pen(Color.FromArgb(80, ink), 0.006f))
+                using (Pen lit = new Pen(Color.FromArgb(60, 255, 255, 255), 0.004f))
+                    for (float x = -0.62f; x < 0.62f; x += 0.085f)
+                    {
+                        g.DrawLine(seam, x, y + 0.04f, x + 0.3f, y + 0.34f);
+                        g.DrawLine(seam, x + 0.3f, y + 0.04f, x, y + 0.34f);
+                        g.DrawLine(lit, x + 0.008f, y + 0.04f, x + 0.308f, y + 0.34f);
+                    }
+                foreach (int s in new int[] { -1, 1 })
+                    using (GraphicsPath fold = new GraphicsPath())
+                    {
+                        fold.AddEllipse(s * 0.27f - 0.05f, y + 0.06f, 0.1f, 0.3f);
+                        using (PathGradientBrush fb = new PathGradientBrush(fold) { CenterColor = Color.FromArgb(55, ink), SurroundColors = new Color[] { Color.FromArgb(0, ink) } }) g.FillPath(fb, fold);
+                    }
+                // The sheet's cuff folded over the top, with its shadow on the quilt and a row of stitches.
+                PointF[] low = new PointF[top.Length];
+                for (int i = 0; i < top.Length; i++) low[top.Length - 1 - i] = new PointF(top[i].X * 1.04f, top[i].Y + 0.062f);
+                using (GraphicsPath cuff = new GraphicsPath())
+                {
+                    cuff.AddCurve(top, 0.45f);
+                    cuff.AddLine(top[top.Length - 1], low[0]);
+                    cuff.AddCurve(low, 0.45f);
+                    cuff.CloseFigure();
+                    using (Pen shade = new Pen(Color.FromArgb(70, ink), 0.02f)) g.DrawCurve(shade, Shift(low, 0.012f), 0.45f);
+                    using (LinearGradientBrush cb = new LinearGradientBrush(box, Color.FromArgb(252, 248, 238), Color.FromArgb(222, 214, 200), 90f)) g.FillPath(cb, cuff);
+                    using (Pen st = new Pen(Color.FromArgb(110, q), 0.005f) { DashPattern = new float[] { 2.2f, 1.6f } }) g.DrawCurve(st, Shift(low, -0.014f), 0.45f);
+                    using (Pen cuffEdge = new Pen(Color.FromArgb(90, 150, 140, 125), 0.005f)) g.DrawCurve(cuffEdge, low, 0.45f);
+                }
+                g.Clip = old;
+                old.Dispose();
+                using (Pen outline = new Pen(Color.FromArgb(150, ink), 0.009f) { LineJoin = LineJoin.Round }) g.DrawPath(outline, p);
+            }
+        }
+
+        static PointF[] Shift(PointF[] pts, float dy)
+        {
+            PointF[] o = new PointF[pts.Length];
+            for (int i = 0; i < pts.Length; i++) o[i] = new PointF(pts[i].X, pts[i].Y + dy);
+            return o;
+        }
+
         // bubbleY: the height the snore bubble grows at, by the nose.
         public static void PaintSleep(Graphics g, int variant, float D, double now, Color c1, Color c2, float bubbleY)
         {
@@ -537,22 +606,7 @@ namespace Stackshot
             if (!blanket && !bubble) return;
             GraphicsState st = g.Save();
             g.ScaleTransform(D, D);
-            if (blanket)
-            {
-                float by = 0.13f + (float)Math.Sin(now / 900.0) * 0.006f;
-                Color a = Mac.Mix(c1, c2, 0.6), b = MascotParts.Darker(a, 0.25);
-                RectangleF rc = new RectangleF(-0.38f, by, 0.76f, 0.27f);
-                using (GraphicsPath p = Theme.Round(rc, 0.07f))
-                {
-                    using (LinearGradientBrush br = new LinearGradientBrush(RectangleF.Inflate(rc, 0.01f, 0.01f), a, b, 90f)) g.FillPath(br, p);
-                    Region old = g.Clip;
-                    g.SetClip(p, CombineMode.Intersect);
-                    for (int i = 0; i < 6; i++) Seg(g, Color.FromArgb(46, 255, 255, 255), 0.03f, -0.4f + i * 0.17f, by + 0.3f, -0.2f + i * 0.17f, by - 0.04f);
-                    g.Clip = old;
-                    old.Dispose();
-                    using (Pen pn = new Pen(Color.FromArgb(70, 255, 255, 255), 0.008f)) g.DrawPath(pn, p);
-                }
-            }
+            if (blanket) PaintBlanket(g, 0.13f + (float)Math.Sin(now / 900.0) * 0.006f, c1);
             if (bubble)
             {
                 double cyc = (now % 4200) / 4200.0;

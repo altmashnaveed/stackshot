@@ -1043,10 +1043,16 @@ namespace Stackshot
                         break;
                     }
                     case 'z':
-                        Font f = Fonts.Get("Segoe UI Black", (float)Math.Round(Math.Max(6f, s * 1.2f)));
-                        using (SolidBrush b = new SolidBrush(Color.FromArgb(a * 3 / 4, 200, 210, 255)))
-                            g.DrawString("z", f, b, -s * 0.4f, -s * 0.7f);
+                    {
+                        // A drawn "z" (sharp at any size, unlike text): a soft dark edge under a pale rounded stroke.
+                        float zw = Math.Max(4f, s * 0.6f), zh = zw * 0.95f;
+                        PointF[] zp = { new PointF(-zw / 2, -zh / 2), new PointF(zw / 2, -zh / 2), new PointF(-zw / 2, zh / 2), new PointF(zw / 2, zh / 2) };
+                        using (Pen edge = new Pen(Color.FromArgb(a * 2 / 5, 52, 56, 104), Math.Max(2f, zw * 0.42f)) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round })
+                            g.DrawLines(edge, zp);
+                        using (Pen ink = new Pen(Color.FromArgb(a, 236, 240, 255), Math.Max(1.2f, zw * 0.24f)) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round })
+                            g.DrawLines(ink, zp);
                         break;
+                    }
                     case 'b':
                     {
                         float flap = (float)Math.Abs(Math.Sin(p.Age / 70.0));
