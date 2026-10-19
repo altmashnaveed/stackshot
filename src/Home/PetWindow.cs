@@ -1769,8 +1769,8 @@ namespace Stackshot
                 AddFocusChoices(f);
                 AddSep();
             }
+            // Short on purpose: what gets used, in four groups (capture, links, notes and well-being, the app).
             Add("area", "Capturar un \u00E1rea", Keys(settings.HotRegion), delegate { owner.Run("region"); });
-            Add("clock", "Capturar en " + settings.CaptureDelay + " segundos", Keys(settings.HotDelayed), delegate { owner.Run("delayed"); });
             Add("video", Recorder.Recording ? "Parar la grabaci\u00F3n" : "Grabar un v\u00EDdeo", null, delegate { owner.Run("video"); });
             Add("textscan", "Copiar texto", Keys(settings.HotText), delegate { owner.Run("text"); });
             Add("folder", "Abrir mis capturas", null, delegate { owner.OpenFolder(); });
@@ -1778,7 +1778,7 @@ namespace Stackshot
             // Quick links: each one opens with a word from it; the last row adds or tidies them.
             // A few fit above the mascot (fewer with the focus rows on top); the rest open from their window.
             List<QuickLink> links = owner.Links;
-            int room = f.On ? 2 : 5;
+            int room = f.On ? 2 : 3;
             for (int i = 0; i < links.Count && i < room; i++)
             {
                 QuickLink it = links[i];
@@ -1810,10 +1810,6 @@ namespace Stackshot
                 Add("google", "Conectar mi reloj", null, delegate { owner.ConnectWatch(null); m.Say("Te abro el inicio de sesi\u00F3n en el navegador.", 3600); });
             AddSep();
             Add("brush", "Cambiarme de ropa", null, delegate { owner.ShowHome("mascot", false); });
-            Add("sparkle", "Haz un truco", null, DoTrick);
-            if (m.HasPower) Add("flame", MascotParts.PowerName(m.Look.Kind), null, delegate { m.WakeUp(); m.Power(); });
-            Add("bot", m.Sleeping ? "Despierta" : "Echa una siesta", null, delegate { if (m.Sleeping) { m.WakeUp(); m.Hop(1.2); } else { m.SleepNow(); state = State.Idle; } });
-            AddSep();
             Add("logo", "Abrir Stackshot", null, delegate { owner.ShowHome("home", false); });
             Add("home", "Vete a casa", null, GoHome);
             menuAt = menuSeen = Anim.Now;

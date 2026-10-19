@@ -189,6 +189,46 @@ namespace Stackshot
         public static bool AnimeRetired(int i) { return i == 95 || i == 63; }
         public static bool KindRetired(int kind) { return kind == KindFallGuy || kind == KindMewtwo || kind == KindMewtwoSd; }
 
+        // Bodies drawn again as new ones (the Pokemon figures, the chibi ninjas, pirates and demon slayers, BMO, Snoopy,
+        // Baby Groot): the old body is no longer offered in "Cuerpo" and a look that still wears it shows the new one.
+        // Both stay in the list, so saved indices keep their meaning. -1: not replaced.
+        public static int KindNewer(int kind)
+        {
+            switch (kind)
+            {
+                case KindPikachu: return KindPikachuSd;
+                case KindEevee: return KindEeveeSd;
+                case KindCharmander: return KindCharmanderSd;
+                case KindBulbasaur: return KindBulbasaurSd;
+                case KindSquirtle: return KindSquirtleSd;
+                case KindJigglypuff: return KindJigglySd;
+                case KindSnorlax: return KindSnorlaxSd;
+                case KindGengar: return KindGengarSd;
+                case KindMew: return KindMewSd;
+                case KindPsyduck: return KindPsyduckSd;
+                case KindTogepi: return KindTogepiSd;
+                case KindMeowth: return KindMeowthSd;
+                case KindPiplup: return KindPiplupSd;
+                case KindMimikyu: return KindMimikyuSd;
+                case KindLucario: return KindLucarioSd;
+                case KindDragonite: return KindDragoniteSd;
+                case KindDitto: return KindDittoSd;
+                case KindGroot: return KindGrootSd;
+                case KindBmo: return KindBmoAt;
+                case KindSnoopy: return KindSnoopySd;
+                case KindNaruto: return KindNarutoSd;
+                case KindSasuke: return KindSasukeSd;
+                case KindKakashi: return KindKakashiSd;
+                case KindLuffy: return KindLuffySd;
+                case KindZoro: return KindZoroSd;
+                case KindTanjiro: return KindTanjiroSd;
+                case KindNezuko: return KindNezukoSd;
+                default: return -1;
+            }
+        }
+
+        public static int KindLatest(int kind) { int n = KindNewer(kind); return n >= 0 ? n : kind; }
+
         // What each character is in its story, shown on the vitrine's plate.
         public static readonly string[] AnimeRoles =
         {

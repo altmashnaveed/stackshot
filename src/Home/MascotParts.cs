@@ -16,7 +16,7 @@ namespace Stackshot
         public static MascotLook From(Settings s)
         {
             MascotLook l = new MascotLook();
-            l.Kind = Clamp(s.MascotKind, MascotParts.Kinds.Length);
+            l.Kind = MascotParts.KindLatest(Clamp(s.MascotKind, MascotParts.Kinds.Length));
             l.Color = Clamp(s.MascotColor, MascotParts.ColorNames.Length);
             l.Eyes = Clamp(s.MascotEyes, MascotParts.EyeNames.Length);
             l.Hat = s.MascotHat >= MascotParts.HatNames.Length ? 0 : Clamp(s.MascotHat, MascotParts.HatNames.Length);
@@ -255,7 +255,7 @@ namespace Stackshot
         // A random look that only uses unlocked items.
         public static void Randomize(MascotLook l, int level, Random rnd)
         {
-            do l.Kind = rnd.Next(Kinds.Length); while (KindRetired(l.Kind));
+            do l.Kind = KindLatest(rnd.Next(Kinds.Length)); while (KindRetired(l.Kind));
             do l.Color = rnd.Next(ColorNames.Length); while (ColorUnlock(l.Color) > level);
             l.Eyes = rnd.Next(EyeNames.Length);
             do l.Hat = rnd.Next(HatNames.Length); while (HatUnlock(l.Hat) > level);

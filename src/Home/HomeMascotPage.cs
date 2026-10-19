@@ -2007,7 +2007,7 @@ namespace Stackshot
         bool Shown(int slot, int i)
         {
             string id = Slots[slot].Id;
-            return !(id == "anime" && MascotParts.AnimeRetired(i)) && !(id == "kind" && MascotParts.KindRetired(i));
+            return !(id == "anime" && MascotParts.AnimeRetired(i)) && !(id == "kind" && (MascotParts.KindRetired(i) || MascotParts.KindNewer(i) >= 0));
         }
 
         void SetFavorite(int slot, int i, bool on)
@@ -2051,7 +2051,7 @@ namespace Stackshot
             if (v[0] >= MascotParts.Kinds.Length || v[1] >= MascotParts.ColorNames.Length || v[2] >= MascotParts.EyeNames.Length ||
                 v[3] >= MascotParts.HatNames.Length || v[4] >= MascotParts.OutfitNames.Length || v[5] >= MascotParts.FaceNames.Length ||
                 (p.Length == 8 && v[7] >= MascotParts.AccessoryNames.Length)) return false;
-            look = new MascotLook { Kind = v[0], Color = v[1], Eyes = v[2], Hat = v[3], Outfit = v[4], Face = v[5], Seasonal = p.Length < 7 || v[6] != 0, Accessory = p.Length == 8 ? v[7] : 0 };
+            look = new MascotLook { Kind = MascotParts.KindLatest(v[0]), Color = v[1], Eyes = v[2], Hat = v[3], Outfit = v[4], Face = v[5], Seasonal = p.Length < 7 || v[6] != 0, Accessory = p.Length == 8 ? v[7] : 0 };
             return true;
         }
 
