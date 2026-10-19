@@ -980,8 +980,12 @@ namespace Stackshot
             BuildAssist();
             Group("En el escritorio",
                 new ToggleRow("Mascota en el escritorio", "Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "screen", Mac.Indigo, Mac.Purple,
-                              delegate { return settings.MascotDesktop; }, delegate(bool v) { if (v && settings.Profile != 2) settings.Profile = 2; settings.MascotDesktop = v; owner.MascotChanged(); })
-                    { When = shown, WhenOff = "Activa antes \u00ABMostrar la mascota\u00BB." },
+                              delegate { return settings.MascotDesktop; }, delegate(bool v) { settings.MascotDesktop = v; owner.MascotChanged(); })
+                    {
+                        // Completo's alone: below it the switch is off and says where to get it (the profile is never changed here).
+                        When = delegate { return settings.MascotOn && settings.Profile == 2; },
+                        WhenOff = settings.Profile != 2 ? "Solo con el perfil Completo (en General \u203A Perfil)." : "Activa antes \u00ABMostrar la mascota\u00BB."
+                    },
                 new ToggleRow("Sube a las ventanas", "De vez en cuando salta a la ventana que tienes delante y pasea por encima. Si la mueves, viaja con ella.", "window", Mac.Teal, Mac.Blue,
                               delegate { return settings.MascotClimb; }, delegate(bool v) { settings.MascotClimb = v; owner.MascotChanged(); })
                     { When = delegate { return settings.MascotOn && settings.MascotDesktop; } });

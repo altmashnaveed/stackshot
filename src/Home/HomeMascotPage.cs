@@ -689,6 +689,14 @@ namespace Stackshot
             Press(pill, delegate { sw.IsOn = !sw.IsOn; SetDesktop(sw.IsOn); });
             AccessSwitchPill(pill, sw, "En el escritorio");
             LockedByPolicy(pill, Policy.MascotForced);
+            // On the desktop belongs to Completo: below it the pill stays off and says so (it never changes the profile).
+            if (settings.Profile != 2 && !Policy.MascotForced)
+            {
+                pill.IsEnabled = false;
+                pill.Opacity = 0.42;
+                pill.ToolTip = "Solo con el perfil Completo (en General › Perfil)";
+                ToolTipService.SetShowOnDisabled(pill, true);
+            }
             return pill;
         }
 
@@ -895,8 +903,6 @@ namespace Stackshot
 
         void SetDesktop(bool on)
         {
-            // On the desktop is Completo's: turning it on from a lighter profile moves to Completo.
-            if (on && settings.Profile != 2) settings.Profile = 2;
             settings.MascotDesktop = on;
             owner.MascotChanged();
             Changed();
