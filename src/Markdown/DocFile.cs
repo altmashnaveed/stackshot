@@ -389,10 +389,12 @@ namespace Stackshot
                 if (File.Exists(tmp) && !File.Exists(target)) { File.Move(tmp, target); return true; }
             }
             catch (Exception ex) { ShotStack.Log("Guardar (recuperar): " + ex.Message); }
+            bool opened = false;
             try
             {
                 using (FileStream fs = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.Read))
                 {
+                    opened = true;
                     fs.Write(b, 0, b.Length);
                     fs.Flush(true);
                 }
@@ -403,6 +405,9 @@ namespace Stackshot
             catch (UnauthorizedAccessException) { error = "No tengo permiso para escribir en " + name + ". Usa \u00ABGuardar como\u2026\u00BB."; }
             catch (IOException ex) { error = "No he podido guardar " + name + ": " + Short(ex.Message); }
             catch (Exception ex) { error = "No he podido guardar " + name + ": " + Short(ex.Message); }
+            // It couldn't even be opened (held by another program): the original is untouched and the text is still in the
+            // window, so the temporary copy would only be clutter next to it.
+            if (!opened && tmpWritten && File.Exists(target)) { try { File.Delete(tmp); } catch (Exception ex) { ShotStack.Log("Guardar (temporal): " + ex.Message); } }
             return false;
         }
 
