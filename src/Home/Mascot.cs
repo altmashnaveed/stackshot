@@ -477,6 +477,16 @@ namespace Stackshot
             if (asked && Talks) SayFor(cmd);
         }
 
+        // Whether the mouse going from a to b (owner's coordinates) changes where it looks: far away the gaze is already
+        // at its limit, so moving there changes nothing on screen.
+        public bool GazeMoves(PointF a, PointF b)
+        {
+            float d = Math.Max(1, Box.Width);
+            double cx = Box.X + d / 2, cy = Box.Y + d * 0.45, r = d * 2.2;
+            return Math.Max(-1, Math.Min(1, (a.X - cx) / r)) != Math.Max(-1, Math.Min(1, (b.X - cx) / r)) ||
+                   Math.Max(-1, Math.Min(1, (a.Y - cy) / r)) != Math.Max(-1, Math.Min(1, (b.Y - cy) / r));
+        }
+
         // Advances the animation. mouse: cursor in the owner's coordinates; moved: whether it moved.
         public void Step(double t, PointF mouse, bool moved)
         {

@@ -59,7 +59,7 @@ namespace Stackshot
                 brandTimer.Tick += delegate
                 {
                     brandTimer.Interval = TimeSpan.FromSeconds(BrandEveryS);
-                    if (brandPlay != null && IsVisible && WindowState != WindowState.Minimized) brandPlay();
+                    if (brandPlay != null && IsVisible && WindowState != WindowState.Minimized && !Unseen()) brandPlay();
                 };
             }
             if (brandTimer.IsEnabled) return;

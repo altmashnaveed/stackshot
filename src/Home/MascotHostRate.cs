@@ -48,7 +48,8 @@ namespace Stackshot
         {
             if (!shown) return 0;
             if (cloaked) return Hidden;
-            if (lively) return entering ? Look : Anim;
+            // Behind another window an animation runs at half rate: nobody follows it closely.
+            if (lively) return entering || !active ? Look : Anim;
             if (!hasMascot) return 0;
             if (looking) return Look;
             bool settled = quietMs > SettleMs;

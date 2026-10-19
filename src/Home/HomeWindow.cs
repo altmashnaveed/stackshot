@@ -89,7 +89,8 @@ namespace Stackshot
             };
             IsVisibleChanged += delegate { VisibilityChanged(); };
             StateChanged += delegate { VisibilityChanged(); };
-            Activated += delegate { active = true; };
+            // Brought to the front: back to its full rate at once, not at the next slow check.
+            Activated += delegate { active = true; covered = false; if (timer.IsEnabled) timer.Interval = MascotRate.Anim; else Wake(); };
             Deactivated += delegate { active = false; CancelListening(); };
             PreviewKeyDown += OnKeyDown;
             PreviewKeyUp += OnKeyUp;
@@ -847,8 +848,9 @@ namespace Stackshot
 
             D.Point sm = WF.Control.MousePosition;
             bool moved = sm != lastScreenMouse;
+            // Only a move that turns the mascot's eyes keeps the clock fast; one far away leaves the picture as it is.
+            if (moved && (mascotHost == null || mascotHost.GazeMoves(lastScreenMouse, sm))) lastMove = now;
             lastScreenMouse = sm;
-            if (moved) lastMove = now;
             // A slot that left the window (its card was swapped, the mascot was hidden from a page that stays) is let go,
             // so nothing keeps the clock running for it.
             if (mascotHost != null && (!settings.MascotOn || !mascotHost.Live)) { mascotHost.Detach(); mascotHost = null; }
@@ -875,23 +877,32 @@ namespace Stackshot
             bool looking = mascotHost != null && now - lastMove < MascotRate.NearMs;
             if (lively || looking) lastStir = now;
             int ms = MascotRate.Home(true, false, mascotHost != null, lively, now < quietUntil, looking, mascotHost != null && mascot.Sleeping,
-                                     active, now - lastStir);
+                                     active || intro != null, now - lastStir);
             if (ms == 0) { timer.Stop(); return; }
             timer.Interval = ms;
         }
 
         double lastStir;
 
-        // On another virtual desktop (cloaked) or with the screen off or locked nobody sees it: the clock only checks,
-        // twice a second, whether it is back. MascotScreen reports the screen state with or without the desktop pet.
+        // On another virtual desktop (cloaked), hidden under another window, or with the screen off or locked nobody sees
+        // it: the clock only checks, twice a second, whether it is back. MascotScreen reports the screen state with or
+        // without the desktop pet.
         bool Unseen()
         {
             int cloaked;
             MascotScreen.Ensure();
             if (MascotRate.ScreenOff) MascotScreen.Check();
             if (MascotRate.ScreenOff) return true;
-            return Handle != IntPtr.Zero && Native.DwmGetInt(Handle, 14, out cloaked, 4) == 0 && cloaked != 0;   // DWMWA_CLOAKED
+            if (Handle == IntPtr.Zero) return false;
+            if (Native.DwmGetInt(Handle, 14, out cloaked, 4) == 0 && cloaked != 0) return true;   // DWMWA_CLOAKED
+            if (active || intro != null) return covered = false;
+            double now = Anim.Now;
+            if (now - coveredAt > 300) { coveredAt = now; covered = Native.Covered(Handle); }
+            return covered;
         }
+
+        bool covered;
+        double coveredAt = -1e9;
 
         void StartIntro()
         {
@@ -1239,6 +1250,14 @@ namespace Stackshot
             mascot.Step(now, new D.PointF((float)(p.X * k), (float)(p.Y * k)), moved);
             Layer.Refresh();
             UpdateBubble();
+        }
+
+        public bool GazeMoves(D.Point from, D.Point to)
+        {
+            if (!attached || PresentationSource.FromVisual(this) == null) return true;
+            float k = Layer.Scale;
+            Point a = PointFromScreen(new Point(from.X, from.Y)), b = PointFromScreen(new Point(to.X, to.Y));
+            return mascot.GazeMoves(new D.PointF((float)(a.X * k), (float)(a.Y * k)), new D.PointF((float)(b.X * k), (float)(b.Y * k)));
         }
 
         void Paint(D.Graphics g, float k)

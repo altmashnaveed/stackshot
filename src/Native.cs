@@ -117,6 +117,38 @@ namespace Stackshot
         [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
         [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetRect(IntPtr hwnd, int attr, out RECT value, int size);
         [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetInt(IntPtr hwnd, int attr, out int value, int size);
+        [DllImport("user32.dll", EntryPoint = "GetWindow")] static extern IntPtr GetWindowRel(IntPtr hWnd, uint cmd);
+        [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr hWnd);
+
+        // Whether one opaque window above it hides it completely (a maximized browser over the main window). Layered or
+        // see-through windows never count, and the covering one must reach past its rounded corners: when unsure, no.
+        public static bool Covered(IntPtr hwnd)
+        {
+            RECT me;
+            if (hwnd == IntPtr.Zero || !VisibleBounds(hwnd, out me)) return false;
+            IntPtr h = hwnd;
+            for (int i = 0; i < 512; i++)
+            {
+                h = GetWindowRel(h, 3);   // GW_HWNDPREV: the next window above
+                if (h == IntPtr.Zero) return false;
+                if (!IsWindowVisible(h) || IsIconic(h)) continue;
+                if ((GetWindowLong(h, -20) & (0x00080000 | 0x00000020)) != 0) continue;   // WS_EX_LAYERED | WS_EX_TRANSPARENT
+                int cloaked;
+                if (DwmGetInt(h, 14, out cloaked, 4) == 0 && cloaked != 0) continue;     // DWMWA_CLOAKED: another desktop
+                RECT r;
+                if (!VisibleBounds(h, out r)) continue;
+                int Corner = IsZoomed(h) ? 0 : 12;   // maximized windows have square corners
+                if (r.Left + Corner <= me.Left && r.Top + Corner <= me.Top && r.Right - Corner >= me.Right && r.Bottom - Corner >= me.Bottom) return true;
+            }
+            return false;
+        }
+
+        // The window as drawn on screen (without the invisible resize borders), or its plain rectangle.
+        static bool VisibleBounds(IntPtr h, out RECT r)
+        {
+            if (DwmGetRect(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0 && !GetWindowRect(h, out r)) return false;   // DWMWA_EXTENDED_FRAME_BOUNDS
+            return r.Right > r.Left && r.Bottom > r.Top;
+        }
         [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint mods, uint vk);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         [DllImport("user32.dll")] public static extern bool GetCursorInfo(ref CURSORINFO ci);

@@ -62,7 +62,10 @@ namespace Stackshot
         int queued;
         volatile bool closing;
         bool fast, thrown;
-        int bounces, walkFrame;
+        int bounces;
+        double lastWalkPaint;
+        float walkPaintX;
+        const double WalkPaintMs = 26;
         double slide;                  // leftover ground speed after a landing
         double dragVx, dragVy, dragPull, dragLastT;
         Point dragLast;
@@ -1293,8 +1296,9 @@ namespace Stackshot
             Point mouse = Control.MousePosition;
             bool near = Math.Abs(mouse.X - (bx + D / 2.0)) < 360 * s && Math.Abs(mouse.Y - (by + D / 2.0)) < 300 * s;
             bool moved = near && mouse != lastMouse;
+            // Only a move that turns its eyes keeps the faster rate; past their limit the picture stays the same.
+            if (moved && m.GazeMoves(new PointF(lastMouse.X - wx, lastMouse.Y - wy), new PointF(mouse.X - wx, mouse.Y - wy))) lastNear = now;
             lastMouse = mouse;
-            if (moved) lastNear = now;
             // Back from being away: wakes on the first input, not at the next check.
             if (asleepForAway && MascotRate.AwayWake(true, IdleMs(), moved)) { asleepForAway = false; m.WakeUp(); m.Hop(1.2); }
 
@@ -1392,7 +1396,8 @@ namespace Stackshot
                 case State.Walk:
                 {
                     if ((menu != null || menuDue > 0) && !leaving) { Halt(); break; }
-                    double step = (leaving ? 160 : Math.Abs(targetX - bx) > 600 * s ? 150 : 75) * s * dt;
+                    // At most a 30 fps frame's worth: after a hiccup it carries on from where it was instead of leaping ahead.
+                    double step = (leaving ? 160 : Math.Abs(targetX - bx) > 600 * s ? 150 : 75) * s * Math.Min(dt, 1 / 30.0);
                     if (Math.Abs(targetX - bx) <= step)
                     {
                         bx = targetX;
@@ -1411,7 +1416,7 @@ namespace Stackshot
                     {
                         // Skids a little after a toss, then stops.
                         double lo = perch != IntPtr.Zero ? perchRect.Left : wa.Left, hi = perch != IntPtr.Zero ? perchRect.Right - D : wa.Right - D;
-                        bx += slide * dt;
+                        bx += slide * Math.Min(dt, 1 / 30.0);
                         slide *= Math.Exp(-7 * dt);
                         if (bx < lo || bx > hi) { bx = Math.Max(lo, Math.Min(hi, bx)); slide = 0; }
                         targetX = bx;
@@ -1437,9 +1442,13 @@ namespace Stackshot
 
             PlaceWindow();
             m.Step(now, new PointF(mouse.X - wx, mouse.Y - wy), moved);
-            // While it only walks, the picture is redrawn every other frame (30 fps) and the window still moves every frame.
-            bool still = state == State.Walk && fast && menu == null && bubble == null && m.Bubble == null && !lastFull && (++walkFrame & 1) == 1;
-            if (still) MoveOnly(); else Render(now);
+            // While it only walks, the picture is redrawn at about 30 fps whatever the display's rate (every other frame at
+            // 60 Hz, every fourth at 144) and the window still moves every frame. Against a screen edge the window stops and
+            // the mascot walks inside it: then every frame is drawn, or it would stand still and jump.
+            bool still = state == State.Walk && fast && menu == null && bubble == null && m.Bubble == null && !lastFull && now - lastWalkPaint < WalkPaintMs &&
+                         Math.Abs(m.Box.X - walkPaintX) < 1;
+            if (still) MoveOnly();
+            else { Render(now); lastWalkPaint = now; walkPaintX = m.Box.X; }
 
             // The menu opening or closing runs at the display's rate too, so it glides instead of stepping.
             bool menuMoving = (menu != null && now - menuAt < MenuInMs + 200) || (menuGone != null && now - menuGoneAt < MenuOutMs + 40);

@@ -275,6 +275,7 @@ namespace Stackshot.Tests
                 Check(MascotRate.Home(true, true, true, true, false, true, false, true, 0) == MascotRate.Hidden, "cloaked: only a slow check");
                 Check(MascotRate.Home(true, false, true, true, false, false, false, true, 0) == MascotRate.Anim, "animating: full rate");
                 Check(MascotRate.Home(true, false, true, true, true, false, false, true, 0) == MascotRate.Look, "a page entering: half rate");
+                Check(MascotRate.Home(true, false, true, true, false, false, false, false, 0) == MascotRate.Look, "animating in the background: half rate");
                 Check(MascotRate.Home(true, false, false, false, false, false, false, true, 0) == 0, "nothing to draw: stop");
                 Check(MascotRate.Home(true, false, true, false, false, true, false, false, 0) == MascotRate.Look, "following the mouse");
                 Check(MascotRate.Home(true, false, true, false, false, false, false, true, 1000) == MascotRate.Look, "active, just stirred");
