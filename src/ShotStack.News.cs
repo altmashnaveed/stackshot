@@ -20,16 +20,18 @@ namespace Stackshot
             if (settings.NewsSeen == v) return;
             // Nothing to tell: a fresh install, or a version without news of its own. Remembered, quietly.
             if (justInstalled || News.Of(v).Count == 0) { NewsTold(v); return; }
+            // What is new since the last news told (all of it coming from a version before 2.2.0, which kept no record).
+            string seen = settings.NewsSeen;
             newsTimer = new Timer { Interval = 15000 };
             newsTimer.Tick += delegate
             {
-                try { NewsTick(v); }
+                try { NewsTick(v, seen); }
                 catch (Exception ex) { Log("Novedades: " + ex.Message); NewsTold(v); }
             };
             newsTimer.Start();
         }
 
-        void NewsTick(string v)
+        void NewsTick(string v, string seen)
         {
             if (exiting) { StopNews(); return; }
             // Half an hour without a quiet moment: it gives up (Acerca de > Novedades still has them).
@@ -40,7 +42,7 @@ namespace Stackshot
             List<News.Item> items = News.Of(v);
             string head = News.Headline(items, 1);
             NewsTold(v);
-            Action open = delegate { if (!exiting) NewsWindow.Open(false); };
+            Action open = delegate { if (!exiting) NewsWindow.Open(false, seen); };
             if (pet != null && pet.CanRemind) pet.AnnounceNews(v, head, open);
             else Notify("Stackshot " + v + " ya est\u00E1 aqu\u00ED", (head.Length > 0 ? "Entre sus novedades: \u00AB" + head + "\u00BB. " : "") + "\u00BFQuieres ver qu\u00E9 trae?",
                         NoticeKind.Info, "Ver novedades", open);

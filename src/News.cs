@@ -22,6 +22,9 @@ namespace Stackshot
         static string embedded;
         static bool loaded;
 
+        // Tests: the news as if the program carried this text.
+        internal static void UseForTests(string md) { embedded = md; loaded = true; }
+
         // docs/novedades.md, built into the program.
         static string Embedded()
         {
@@ -53,6 +56,27 @@ namespace Stackshot
         {
             string md = Embedded();
             return md == null ? new List<Item>() : Section(md, version);
+        }
+
+        // Every version the program describes after `seen` and up to `current`, newest first, with its news: what is
+        // new to someone who last saw the news of `seen`. An empty `seen` (a version that kept no record, before 2.2.0)
+        // gets them all.
+        public static List<KeyValuePair<string, List<Item>>> Since(string seen, string current)
+        {
+            List<KeyValuePair<string, List<Item>>> all = new List<KeyValuePair<string, List<Item>>>();
+            string md = Embedded();
+            Version top, from = null;
+            if (md == null || !Version.TryParse(current, out top)) return all;
+            if (!string.IsNullOrEmpty(seen) && !Version.TryParse(seen, out from)) from = null;
+            foreach (Match m in Regex.Matches(md, @"^## (\d+\.\d+\.\d+)\s*$", RegexOptions.Multiline))
+            {
+                Version v = new Version(m.Groups[1].Value);
+                if (v > top || (from != null && v <= from)) continue;
+                List<Item> items = Section(md, m.Groups[1].Value);
+                if (items.Count > 0) all.Add(new KeyValuePair<string, List<Item>>(m.Groups[1].Value, items));
+            }
+            all.Sort(delegate(KeyValuePair<string, List<Item>> a, KeyValuePair<string, List<Item>> b) { return new Version(b.Key).CompareTo(new Version(a.Key)); });
+            return all;
         }
 
         static List<Item> Section(string md, string version)
@@ -89,7 +113,7 @@ namespace Stackshot
                 Match m = Regex.Match(line, @"^\*\*(.+?)\*\*\s*(.*)$");
                 Item it = m.Success ? new Item { Title = Plain(m.Groups[1].Value), Text = Plain(m.Groups[2].Value) } : new Item { Title = Plain(line), Text = "" };
                 if (it.Title.Length > 0) items.Add(it);
-                if (items.Count == 20) break;
+                if (items.Count == 60) break;   // the window scrolls; a runaway body stays bounded
             }
             return items;
         }
