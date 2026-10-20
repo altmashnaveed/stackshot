@@ -131,6 +131,13 @@ namespace Stackshot.Tests
             }
             int want = H + 242;
             Check(Math.Abs(s.Height - want) <= at.Length, "height " + s.Height + ", about " + want);
+
+            // A steady fractional scroll (4.2 rows a frame, as smooth scrolling at 125 % gives) keeps its length: the
+            // fraction left over is carried instead of lost on every frame.
+            Stitcher t = New();
+            for (int i = 0; i <= 60; i++) Feed(t, Frame(page, i * 4.2));
+            int steady = H + (int)Math.Round(60 * 4.2);
+            Check(Math.Abs(t.Height - steady) <= 2, "steady 4.2-row scroll: height " + t.Height + ", should be about " + steady);
         }
 
         static void Up()

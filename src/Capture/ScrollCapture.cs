@@ -128,6 +128,7 @@ namespace Stackshot
             while (bot < h - top && hs[h - 1 - bot] == prevHash[h - 1 - bot]) bot++;
 
             int d = BestShift(hs, flat, top, h - bot);
+            bool tolerant = false;
             if (d == UpShift) { result = h - top - bot < h / 6 ? Result.Same : Result.Up; return px; }
             if (d < 0)
             {
@@ -135,8 +136,12 @@ namespace Stackshot
                 if (h - top - bot < h / 6) { result = Result.Same; return px; }
                 d = Tolerant(px, flat, top, h - bot);
                 if (d < 0) { result = Result.Lost; return px; }
+                tolerant = true;
             }
             if (d == 0) { result = Result.Same; return px; }       // something animates, but nothing scrolled
+            // A fraction of a row left over is carried to the next frame, once this one is kept: a page that moves 4.2
+            // rows a frame gets a fifth row every fifth frame instead of slowly losing it.
+            if (tolerant) carry = carryNext;
             if (IsFull) { result = Result.Full; return px; }
 
             int n = Math.Min(d, maxRows - rows.Count);
@@ -303,8 +308,14 @@ namespace Stackshot
             if (bestErr > 20 || bestErr > total / counted * 0.3) return -1;
             for (int d = 0; d <= maxD; d++)
                 if (Math.Abs(d - best) > 2 && err[d] < bestErr * 1.5 + 1) return -1;
-            return Math.Max(0, (int)Math.Round(shift[best], MidpointRounding.AwayFromZero));   // the nearest whole row
+            // The nearest whole row, counting what earlier frames left over; the rest waits for the next kept frame.
+            double want = shift[best] + carry;
+            int whole = Math.Max(0, (int)Math.Round(want, MidpointRounding.AwayFromZero));
+            carryNext = Math.Max(-0.5, Math.Min(0.5, want - whole));
+            return whole;
         }
+
+        double carry, carryNext;   // fractions of a row (Tolerant)
 
         // Per row, the average brightness of each of the bins bands across the compared width.
         float[] Features(int[] px)
