@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Saved backdrop styles.** The editor's sidebar starts with "Estilos guardados" and a <kbd>+</kbd>, as CleanShot X's Presets: <kbd>+</kbd> keeps the backdrop on screen (kind, colour, margin, inset, shadow, corners, alignment and proportion) and the menu brings any of the last eight back in one click, or removes one.
+- **Nothing drawn while you are away.** After ten minutes without keyboard or mouse, the napping desktop mascot and the main window's mascot stop redrawing and only check, twice a second, for your return; on a screen that never switches off this saves what the nap cost all night (about 7 % of a core). The first move wakes them as before.
+
 ## 2.2.0
 
 - **Backdrops in a sidebar, CleanShot X style.** The editor's Fondo button (<kbd>B</kbd>) opens a sidebar instead of a strip: Ninguno, the gradients in a grid (Ver menos folds them to one row), Fondos de pantalla (the desktop's wallpaper, your own pictures and a button to add one; right-click one of yours to remove it), Desenfocado (the capture itself blurred, as it is, darker or lighter), Color liso (two rows of colours and a picker for any other), then Margen, Inserción with Auto-equilibrar, Sombra, Esquinas, a 3 × 3 Alineación and a Proporción menu. The inset is a border in the capture's own edge colour; Auto-equilibrar evens out the capture's own uneven margins. The shadow is now a slider (50 is the shadow as it was) and alignment puts the capture against those edges of the frame. The preview and the saved image use the same reading of the capture, so they match; videos keep gradients, pictures and plain colours. Everything is remembered, and the main window's Fondo page shows it.
