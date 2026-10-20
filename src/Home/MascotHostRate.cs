@@ -16,6 +16,7 @@ namespace Stackshot
         public const int Hidden = 500;      // nobody can see it (screen off, locked, cloaked): only checks for a change
 
         public const int AwayMs = 300000;   // no keyboard or mouse for 5 minutes: the user is away
+        public const int DeepAwayMs = 600000; // 10 minutes: long gone, whether or not the screen went off
         public const int BackMs = 1500;     // input this recent: the user is back
         public const int NearMs = 600;      // the mouse moved near the mascot this recently: it follows it smoothly
         public const int SettleMs = 15000;  // main window: nothing happening for this long slows its clock down
@@ -25,6 +26,13 @@ namespace Stackshot
         public static bool AwayNap(int idleMs, bool sleepIdle, bool atRest, bool away)
         {
             return sleepIdle && atRest && !away && idleMs > AwayMs;
+        }
+
+        // Long away and napping (or the main window not in front): the picture stays as it is and the clock only checks,
+        // twice a second, for the user's return, so a screen that never switches off doesn't run the nap all night.
+        public static bool Frozen(int idleMs, bool napping)
+        {
+            return napping && idleMs > DeepAwayMs;
         }
 
         // Checked every frame: any input, or the mouse moving near it, wakes it from that nap at once.

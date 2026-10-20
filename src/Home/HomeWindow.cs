@@ -820,6 +820,7 @@ namespace Stackshot
             burstUntil = Anim.Now + 1200;
             if (!IsVisible || WindowState == WindowState.Minimized) return;
             if (!timer.IsEnabled) { timer.Interval = MascotRate.Anim; timer.Start(); }
+            else if (timer.Interval > MascotRate.Anim) timer.Interval = MascotRate.Anim;   // a slow clock (frozen, hidden) answers at once
         }
 
         void Tick(object sender, EventArgs e)
@@ -827,6 +828,10 @@ namespace Stackshot
             if (!IsVisible || WindowState == WindowState.Minimized) { timer.Stop(); return; }
             double now = Anim.Now;
             if (Unseen()) { timer.Interval = MascotRate.Hidden; lastStir = now; return; }
+            // Nobody at the computer for long, the window not in front or its mascot asleep: nothing moves until someone is
+            // back (Wake answers a click at once).
+            bool resting = !active || (mascotHost != null && mascot.Sleeping && mascot.Bubble == null);
+            if (intro == null && MascotRate.Frozen(Native.IdleMs(), resting)) { timer.Interval = MascotRate.Hidden; lastStir = now; return; }
             bool lively = false;
             if (intro != null)
             {

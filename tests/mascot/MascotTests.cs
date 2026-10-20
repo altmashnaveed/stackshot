@@ -259,6 +259,14 @@ namespace Stackshot.Tests
                 Check(!MascotRate.AwayWake(true, 400000, false), "wakes with nobody there");
                 Check(!MascotRate.AwayWake(false, 100, true), "wakes when it was not napping");
             });
+            Test("rules", "long-away-freezes", delegate
+            {
+                Check(!MascotRate.Frozen(599999, true), "frozen before ten minutes away");
+                Check(MascotRate.Frozen(600001, true), "still drawing the nap after ten minutes away");
+                Check(!MascotRate.Frozen(3600000, false), "frozen while awake (it only freezes a nap)");
+                Check(!MascotRate.Frozen(400, true), "frozen with the user back");
+                Check(MascotRate.Hidden <= 500, "the frozen clock checks for the user's return less than twice a second");
+            });
             Test("rules", "pet-interval", delegate
             {
                 Check(MascotRate.Pet(true, true, true, true, true) == MascotRate.Hidden, "screen off must tick at the hidden rate");

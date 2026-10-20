@@ -1295,7 +1295,9 @@ namespace Stackshot
                 if (MascotRate.AwayNap(IdleMs(), settings.MascotSleepIdle, atRest, asleepForAway)) { asleepForAway = true; m.SleepNow(); }
             }
             if (MascotRate.ScreenOff) MascotScreen.Check();
-            if (!Visible || MascotRate.ScreenOff) { StopSession(); SetFast(false); SetInterval(MascotRate.Hidden); return; }
+            // Frozen only in a real nap: woken meanwhile (a reminder, the news, a XML with a fault) it keeps drawing.
+            bool napping = asleepForAway && m.Sleeping && state == State.Idle && menu == null && m.Bubble == null && !leaving;
+            if (!Visible || MascotRate.ScreenOff || (napping && MascotRate.Frozen(IdleMs(), true))) { StopSession(); SetFast(false); SetInterval(MascotRate.Hidden); return; }
 
             Point mouse = Control.MousePosition;
             bool near = Math.Abs(mouse.X - (bx + D / 2.0)) < 360 * s && Math.Abs(mouse.Y - (by + D / 2.0)) < 300 * s;
