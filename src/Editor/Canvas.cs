@@ -319,13 +319,69 @@ namespace Stackshot
         // is dragged (Live) a new one is made the fast way and a sharp one replaces it on release.
         void DrawBackdrop(Graphics g, Rectangle ir)
         {
+            // What the card will cover is not painted under it: most of the frame, and of the shadow's scaled pictures.
+            GraphicsState under = g.Save();
+            ExcludeCard(g, ir);
+            DrawBackdropLayers(g, ir);
+            g.Restore(under);
+        }
+
+        // Leaves out of the clip the part of the card that is opaque whatever its corners: the card less its four corner
+        // squares. An inset's border is always opaque; without one, only a capture with no transparent pixel covers it.
+        public static bool PaintUnderCard;   // tests: paint everything, to compare
+
+        void ExcludeCard(Graphics g, Rectangle ir)
+        {
+            if (PaintUnderCard || (insetPx == Padding.Empty && !Opaque())) return;
+            // Two pixels in from every edge: an antialiased card or a stretched capture is not quite opaque on its border.
+            Rectangle card = Rectangle.Inflate(CardScreen(ir), -2, -2);
+            int r = (int)Math.Ceiling(Math.Max(radiusScreen, innerRadiusScreen)) + 1;
+            if (card.Width <= 2 * r || card.Height <= 2 * r) return;
+            g.SetClip(Rectangle.FromLTRB(card.X + r, card.Y, card.Right - r, card.Bottom), CombineMode.Exclude);
+            g.SetClip(Rectangle.FromLTRB(card.X, card.Y + r, card.Right, card.Bottom - r), CombineMode.Exclude);
+        }
+
+        Bitmap opaqueFor;
+        bool opaque;
+
+        // Whether the capture has no transparent pixel (read once per picture, stopping at the first one).
+        bool Opaque()
+        {
+            if (opaqueFor == Img) return opaque;
+            opaqueFor = Img;
+            opaque = true;
+            if (!Image.IsAlphaPixelFormat(Img.PixelFormat)) return opaque;
+            const int Band = 256;
+            int[] row = new int[Img.Width];
+            for (int y0 = 0; y0 < Img.Height && opaque; y0 += Band)
+            {
+                int bh = Math.Min(Band, Img.Height - y0);
+                BitmapData d = Img.LockBits(new Rectangle(0, y0, Img.Width, bh), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                try
+                {
+                    for (int y = 0; y < bh && opaque; y++)
+                    {
+                        System.Runtime.InteropServices.Marshal.Copy(new IntPtr(d.Scan0.ToInt64() + (long)y * d.Stride), row, 0, row.Length);
+                        for (int x = 0; x < row.Length; x++) if ((uint)row[x] < 0xFF000000u) { opaque = false; break; }
+                    }
+                }
+                finally { Img.UnlockBits(d); }
+            }
+            return opaque;
+        }
+
+        void DrawBackdropLayers(Graphics g, Rectangle ir)
+        {
             string preset = Backdrop.FillKey(Bg, info), fk = preset + "|" + frameScreen.Size;
             if (Live && bgFill != null && fillPreset == preset && fk != fillKey)
             {
                 // "Margen" being dragged: the background already made, stretched to the new frame (a step is a few pixels).
+                // A gradient, a plain colour or a blur is smooth: stretched a few percent, the fastest scaling looks the
+                // same; a picture keeps bilinear.
                 InterpolationMode im = g.InterpolationMode;
                 PixelOffsetMode pm = g.PixelOffsetMode;
-                g.InterpolationMode = InterpolationMode.Bilinear;
+                bool picture = Bg.BgKind == 0 && !Backdrop.IsGradient(Bg.BgPreset);
+                g.InterpolationMode = picture ? InterpolationMode.Bilinear : InterpolationMode.NearestNeighbor;
                 g.PixelOffsetMode = PixelOffsetMode.Half;
                 g.DrawImage(bgFill, frameScreen);
                 g.InterpolationMode = im;
@@ -407,14 +463,22 @@ namespace Stackshot
         // Scaled capture with antialiased rounded corners; drawn into the same bitmap while the size stays.
         Bitmap RoundView(Bitmap v, float radius)
         {
+            // While a slider is dragged, corners less than a pixel apart (rounding as the margin changes) reuse the ones
+            // made; the exact ones come on release.
+            if (Live && roundView != null && roundFor == v && roundView.Size == v.Size && Math.Abs(radius - roundRadius) < 1f) return roundView;
             string key = v.GetHashCode() + "|" + v.Size + "|" + Math.Round(radius, 1);
             if (roundView != null && key == roundKey) return roundView;
             Bitmap made = Backdrop.Rounded(v, radius, roundView);
             if (roundView != null && made != roundView) roundView.Dispose();
             roundView = made;
             roundKey = key;
+            roundFor = v;
+            roundRadius = radius;
             return roundView;
         }
+
+        Bitmap roundFor;
+        float roundRadius;
 
         PointF ToImg(Point p, bool clamp)
         {
@@ -650,6 +714,9 @@ namespace Stackshot
             int sa = Ds.Dark ? 22 : 9;
             // Only the ring around r is filled: blending seven full-size layers under the capture was most of the paint time.
             Region old = g.Clip;
+            SmoothingMode sm = g.SmoothingMode;
+            // While a slider is dragged these faint rings need no antialiasing (it is put back on release).
+            if (Live) g.SmoothingMode = SmoothingMode.HighSpeed;
             g.SetClip(r, CombineMode.Exclude);
             for (int i = 1; i <= 7; i++)
             {
@@ -659,6 +726,7 @@ namespace Stackshot
                 using (GraphicsPath p = Theme.Round(sr, Pu(3 + i * 1.8f)))
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(sa, 0, 0, 0))) g.FillPath(b, p);
             }
+            g.SmoothingMode = sm;
             g.Clip = old;
             old.Dispose();
         }

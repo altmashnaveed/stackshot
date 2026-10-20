@@ -342,6 +342,109 @@ namespace Stackshot.Tests
             Console.WriteLine("    pictures in " + Dir("shots"));
         }
 
+        // ---- Dragging a slider: every repaint of the canvas stays quick (what the editor logs on release, measured)
+
+        static void SliderSmoothness()
+        {
+            // A full-HD capture with text-like detail, in an editor of an ordinary size.
+            D.Bitmap img = new D.Bitmap(1920, 1080, DI.PixelFormat.Format32bppArgb);
+            using (D.Graphics g = D.Graphics.FromImage(img))
+            {
+                g.Clear(D.Color.FromArgb(246, 246, 248));
+                Random r = new Random(5);
+                for (int i = 0; i < 400; i++)
+                    using (D.SolidBrush b = new D.SolidBrush(D.Color.FromArgb(r.Next(256), r.Next(256), r.Next(256))))
+                        g.FillRectangle(b, r.Next(1900), r.Next(1060), 4 + r.Next(80), 4 + r.Next(20));
+            }
+            Settings s = NewSettings();
+            s.BgBalance = true;
+            Editor ed = NewEditor(img, s, new D.Size(1400, 900));
+            try
+            {
+                Canvas c = CanvasOf(ed);
+                MethodInfo onPaint = typeof(Control).GetMethod("OnPaint", NP);
+                List<string> report = new List<string>(), slow = new List<string>();
+                foreach (string what in new string[] { "margen", "inserci\u00F3n", "sombra", "esquinas" })
+                {
+                    using (D.Bitmap screen = new D.Bitmap(c.Width, c.Height, DI.PixelFormat.Format32bppPArgb))   // as the window's back buffer
+                    using (D.Graphics g = D.Graphics.FromImage(screen))
+                    {
+                        PaintEventArgs pe = new PaintEventArgs(g, new D.Rectangle(0, 0, c.Width, c.Height));
+                        onPaint.Invoke(c, new object[] { pe });   // warm: layers made once, as when the panel opens
+                        c.Live = true;
+                        List<double> ms = new List<double>();
+                        for (int i = 1; i <= 30; i++)
+                        {
+                            int v = 20 + i * 2;
+                            if (what == "margen") s.BgPadding = v;
+                            else if (what == "esquinas") s.BgRadius = v;
+                            else if (what == "sombra") s.BgShadowSize = v;
+                            else s.BgInset = v;
+                            System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+                            c.BackdropChanged();
+                            onPaint.Invoke(c, new object[] { pe });
+                            ms.Add(sw.Elapsed.TotalMilliseconds);
+                        }
+                        // Where the time went, as the editor logs it on release.
+                        string parts = "";
+                        foreach (string f in new string[] { "slideFill", "slideShadow", "slideView", "slideMarks" })
+                            parts += f.Substring(5).ToLowerInvariant() + " " + Math.Round((double)typeof(Canvas).GetField(f, NP).GetValue(c) / 30, 1) + " ";
+                        report.Add(what + " [" + parts.Trim() + "]");
+                        c.Live = false;
+                        ms.Sort();
+                        double median = ms[ms.Count / 2], worst = ms[ms.Count - 1];
+                        report.Add(what + " " + Math.Round(median, 1) + " ms (peor " + Math.Round(worst, 1) + ")");
+                        // A Full HD capture filling a large frame, measured with other work around: 24 ms keeps 40 fps.
+                        if (median >= 24) slow.Add("dragging " + what + ": each repaint takes " + Math.Round(median, 1) + " ms (median)");
+                    }
+                }
+                Console.WriteLine("    " + string.Join(", ", report.ToArray()));
+                Check(slow.Count == 0, string.Join("; ", slow.ToArray()));
+            }
+            finally { ed.Dispose(); }
+        }
+
+        // Leaving out what the card covers changes no pixel: an opaque capture, one with an inset, and one with
+        // transparent pixels (then nothing is left out).
+        static void NothingUnderTheCard()
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                D.Bitmap img = Sample();
+                if (k == 2)
+                    using (D.Graphics g = D.Graphics.FromImage(img))
+                    {
+                        g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                        g.FillRectangle(new D.SolidBrush(D.Color.FromArgb(0, 0, 0, 0)), 200, 150, 120, 80);
+                    }
+                Settings s = NewSettings();
+                if (k == 1) { s.BgInset = 40; s.BgBalance = true; }
+                Editor ed = NewEditor(img, s, new D.Size(1200, 820));
+                try
+                {
+                    Canvas c = CanvasOf(ed);
+                    MethodInfo onPaint = typeof(Control).GetMethod("OnPaint", NP);
+                    D.Bitmap[] shots = new D.Bitmap[2];
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        Canvas.PaintUnderCard = pass == 1;
+                        shots[pass] = new D.Bitmap(c.Width, c.Height, DI.PixelFormat.Format32bppArgb);
+                        using (D.Graphics g = D.Graphics.FromImage(shots[pass]))
+                            onPaint.Invoke(c, new object[] { new PaintEventArgs(g, new D.Rectangle(0, 0, c.Width, c.Height)) });
+                    }
+                    Canvas.PaintUnderCard = false;
+                    int diff = 0;
+                    for (int y = 0; y < c.Height; y += 2)
+                        for (int x = 0; x < c.Width; x += 2)
+                            if (shots[0].GetPixel(x, y) != shots[1].GetPixel(x, y)) diff++;
+                    shots[0].Dispose();
+                    shots[1].Dispose();
+                    Check(diff == 0, new string[] { "opaque capture", "inset", "transparent capture" }[k] + ": " + diff + " pixels differ");
+                }
+                finally { Canvas.PaintUnderCard = false; ed.Dispose(); }
+            }
+        }
+
         // ---- Saved styles
 
         static void SavedStyles()
@@ -394,6 +497,8 @@ namespace Stackshot.Tests
             AppTests.Test(S, "plain, blurred, inset, balanced and shadow reach the saved image", Kinds);
             AppTests.Test(S, "the sidebar offers every choice and each one reaches the saved image", Sidebar);
             AppTests.Test(S, "saved styles: kept once, brought back exactly, at most eight, checked when read", SavedStyles);
+            AppTests.Test(S, "dragging margin, inset, shadow or corners stays smooth on a Full HD capture", SliderSmoothness);
+            AppTests.Test(S, "leaving out what the card covers changes no pixel", NothingUnderTheCard);
             AppTests.Test(S, "pictures of the editor with the sidebar", Pictures);
         }
     }
