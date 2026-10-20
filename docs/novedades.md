@@ -5,6 +5,15 @@ al actualizar y en Inicio > Acerca de > Novedades) y también se publica en la p
 
 Formato: una sección `## X.Y.Z` por versión y, en ella, una línea por novedad: `- **Título.** Explicación breve.`
 
+## 2.2.1
+
+- **Estilos guardados.** En el panel de fondos del editor, con + guardas el fondo que tienes (color, margen, sombra, inserción, alineación…) y desde «Estilos guardados» lo recuperas con un clic.
+- **Deslizadores del fondo más fluidos.** Margen, inserción, sombra y esquinas responden al instante, también en capturas grandes.
+- **Tu mascota descansa de verdad.** Si te vas más de diez minutos deja de dibujarse y no gasta nada; al volver se despierta como siempre.
+- **Capturas con desplazamiento más exactas.** Con el desplazamiento suave ya no se pierden líneas por el camino.
+- **Todas las novedades al actualizar.** Si vienes de una versión anterior, ves todo lo nuevo desde la tuya, versión a versión.
+- **Arreglos.** Chopper y Kero-chan dicen sus propias frases, la tira de secciones llega hasta el final con Mayús+rueda y una página nunca deja un título sin su tarjeta.
+
 ## 2.2.0
 
 - **Fondos como en CleanShot X.** En el editor, el botón Fondo abre un panel lateral: degradados, tu fondo de escritorio y tus imágenes, la propia captura desenfocada, colores lisos y cualquier otro color, y deslizadores para margen, inserción (con auto-equilibrado), sombra y esquinas, además de alineación y proporción.
