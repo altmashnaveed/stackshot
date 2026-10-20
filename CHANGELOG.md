@@ -3,6 +3,8 @@
 ## Unreleased
 
 - **Saved backdrop styles.** The editor's sidebar starts with "Estilos guardados" and a <kbd>+</kbd>, as CleanShot X's Presets: <kbd>+</kbd> keeps the backdrop on screen (kind, colour, margin, inset, shadow, corners, alignment and proportion) and the menu brings any of the last eight back in one click, or removes one.
+- **Backdrop sliders at full speed.** While a slider is dragged, the editor no longer paints the background and the shadow under the card that covers them, keeps the capture's rounded corners when they move less than a pixel, and stretches smooth backgrounds the fast way: on a Full HD capture a repaint while dragging Margen went from about 80 ms to under 20, and Inserción, Sombra and Esquinas stay around 12 ms. Released, it is drawn at full quality, pixel for pixel the same.
+- **Scrolling captures keep their length.** With smooth scrolling (4.2 rows a frame at 125 %), the fraction of a row left over is carried to the next frame instead of lost on every one.
 - **Nothing drawn while you are away.** After ten minutes without keyboard or mouse, the napping desktop mascot and the main window's mascot stop redrawing and only check, twice a second, for your return; on a screen that never switches off this saves what the nap cost all night (about 7 % of a core). The first move wakes them as before.
 
 ## 2.2.0
