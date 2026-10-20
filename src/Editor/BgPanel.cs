@@ -13,7 +13,7 @@ namespace Stackshot
     // release (persist settings).
     public partial class BgPanel : Control
     {
-        enum Kind { None, Header, More, Swatch, Add, Blur, Plain, Picker, Slider, Check, Align, Ratio }
+        enum Kind { None, Header, More, Swatch, Add, Blur, Plain, Picker, Slider, Check, Align, Ratio, Styles, Keep }
 
         class Item
         {
@@ -114,6 +114,10 @@ namespace Stackshot
             items.Clear();
             if (Bg == null) return;
             int m = P(14), w = Math.Max(P(120), width - 2 * m), y = P(14);
+            // Saved styles: a menu to bring one back and a button that keeps the one on screen.
+            Add(Kind.Styles, 0, "Estilos guardados", new Rectangle(m, y, w - P(38), P(28)));
+            Add(Kind.Keep, 0, "Guardar este estilo", new Rectangle(m + w - P(30), y, P(30), P(28)));
+            y += P(28) + P(10);
             Add(Kind.None, 0, "Ninguno", new Rectangle(m, y, w, P(30)));
             y += P(30) + P(18);
 
@@ -466,15 +470,36 @@ namespace Stackshot
                     EdLook.Fill(g, new RectangleF(bx, by, bw, bh), 1.5f * S, line);
                     return;
                 }
+                case Kind.Keep:
+                {
+                    Color ink = EdLook.C(isHot ? pal.Label : pal.Label2);
+                    if (pal.High) ink = EdHc.Segment(g, it.R, P(6), false, isHot, true);
+                    else EdLook.Fill(g, it.R, P(6), EdLook.C(isHot ? pal.ControlHover : pal.Control));
+                    using (Pen pen = new Pen(ink, Math.Max(1.4f, 1.6f * S)))
+                    {
+                        pen.StartCap = pen.EndCap = LineCap.Round;
+                        float cx = it.R.X + it.R.Width / 2f, cy = it.R.Y + it.R.Height / 2f, a = 5f * S;
+                        g.DrawLine(pen, cx - a, cy, cx + a, cy);
+                        g.DrawLine(pen, cx, cy - a, cx, cy + a);
+                    }
+                    return;
+                }
                 default:
                 {
-                    // The proportion: a pop-up button.
+                    // The proportion, or the saved styles: a pop-up button.
                     Color ink = EdLook.C(pal.Label);
                     if (pal.High) ink = EdHc.Segment(g, it.R, P(6), false, isHot, true);
                     else EdLook.Fill(g, it.R, P(6), EdLook.C(isHot ? pal.ControlHover : pal.Control));
-                    int ri = Math.Max(0, Array.IndexOf(Ratios, Bg.BgRatio));
+                    string text;
+                    if (it.Kind == Kind.Styles)
+                    {
+                        int n = Styles.Count(Bg);
+                        text = n == 0 ? "Estilos guardados\u2026" : "Estilos guardados (" + n + ")";
+                    }
+                    else text = RatioNames[Math.Max(0, Array.IndexOf(Ratios, Bg.BgRatio))];
                     Rectangle tr = new Rectangle(it.R.X + P(10), it.R.Y, it.R.Width - P(30), it.R.Height);
-                    TextKit.Draw(g, RatioNames[ri], Semibold(), tr, ink, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                    TextKit.Draw(g, text, it.Kind == Kind.Styles ? Regular() : Semibold(), tr, ink,
+                                 TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
                     using (Pen pen = new Pen(ink, Math.Max(1.2f, 1.5f * S)))
                     {
                         pen.StartCap = pen.EndCap = LineCap.Round;
@@ -517,7 +542,7 @@ namespace Stackshot
         {
             switch (it.Kind)
             {
-                case Kind.Swatch: case Kind.Blur: case Kind.Plain: case Kind.Picker: case Kind.Add: case Kind.Align: return it.Label;
+                case Kind.Swatch: case Kind.Blur: case Kind.Plain: case Kind.Picker: case Kind.Add: case Kind.Align: case Kind.Keep: return it.Label;
             }
             return null;
         }
@@ -561,6 +586,8 @@ namespace Stackshot
                 case Kind.More: allGradients = !allGradients; Relayout(); return;
                 case Kind.Add: AddPicture(); return;
                 case Kind.Ratio: RatioMenu(it); return;
+                case Kind.Styles: StylesMenu(it); return;
+                case Kind.Keep: KeepStyle(); return;
                 default: return;
             }
             Invalidate();
@@ -653,6 +680,7 @@ namespace Stackshot
             Backdrop.RemoveCustom(i);
             if (Bg.BgPreset == i) Bg.BgPreset = 0;
             else if (Bg.BgPreset > i) Bg.BgPreset--;   // the ones after it moved up
+            Styles.PictureRemoved(Bg, i);
             Relayout();
             Fire(Changed);
             Fire(Committed);

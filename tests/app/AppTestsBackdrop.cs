@@ -342,11 +342,58 @@ namespace Stackshot.Tests
             Console.WriteLine("    pictures in " + Dir("shots"));
         }
 
+        // ---- Saved styles
+
+        static void SavedStyles()
+        {
+            Settings s = NewSettings();
+            s.BgKind = 1; s.BgColor = 0x1D72E8; s.BgPadding = 30; s.BgInset = 20; s.BgAlign = 7; s.BgRatio = "16:9"; s.BgShadow = false;
+            Check(BgPanel.Styles.Keep(s), "the style on screen was not kept");
+            Check(!BgPanel.Styles.Keep(s), "the same style was kept twice");
+            string kept = BgPanel.Styles.Of(s);
+            Check(BgPanel.Styles.Name(kept) == "Color azul \u00B7 margen 30, inserci\u00F3n, sin sombra, abajo, 16:9", "name: " + BgPanel.Styles.Name(kept));
+            Settings other = NewSettings();
+            other.BgStyles = s.BgStyles;
+            Check(BgPanel.Styles.Apply(other, BgPanel.Styles.All(other)[0]), "a kept style does not apply");
+            Check(BgPanel.Styles.Of(other) == kept, "applied " + BgPanel.Styles.Of(other) + " instead of " + kept);
+            for (int i = 0; i < 12; i++) { s.BgPadding = i; BgPanel.Styles.Keep(s); }
+            Check(BgPanel.Styles.Count(s) == BgPanel.Styles.Max, "kept " + BgPanel.Styles.Count(s) + " styles, at most " + BgPanel.Styles.Max);
+            Check(!BgPanel.Styles.All(s).Contains(kept), "the oldest style was not the one let go");
+            BgPanel.Styles.Remove(s, 0);
+            Check(BgPanel.Styles.Count(s) == BgPanel.Styles.Max - 1, "removing a style");
+            // Pictures of the user's own: removing the 14th backdrop moves the styles that used later ones up by one.
+            Settings pics = NewSettings();
+            pics.BgStyles = "0,13,0,0,50,40,1,50,0,0,4,auto;0,14,0,0,50,40,1,50,0,0,4,auto;0,15,0,0,50,40,1,50,0,0,4,auto;0,2,0,0,50,40,1,50,0,0,4,auto;1,15,0,0,50,40,1,50,0,0,4,auto";
+            BgPanel.Styles.PictureRemoved(pics, 14);
+            Check(pics.BgStyles == "0,13,0,0,50,40,1,50,0,0,4,auto;0,0,0,0,50,40,1,50,0,0,4,auto;0,14,0,0,50,40,1,50,0,0,4,auto;0,2,0,0,50,40,1,50,0,0,4,auto;1,15,0,0,50,40,1,50,0,0,4,auto",
+                  "styles after removing a picture: " + pics.BgStyles);
+            // What settings.ini brings is checked: broken entries and a picture that is gone.
+            Check(!BgPanel.Styles.Apply(other, "1,2,3"), "a broken style applied");
+            Check(!BgPanel.Styles.Valid("0,0,0,0,50,40,1,50,0,0,4,5:4"), "an unknown proportion is valid");
+            Check(BgPanel.Styles.Apply(other, "0,999,0,9,500,-3,1,0,999,1,42,auto"), "a style out of range is refused instead of clamped");
+            Check(other.BgPreset == 0 && other.BgBlur == 2 && other.BgPadding == 100 && other.BgRadius == 0 && other.BgShadowSize == 1 && other.BgInset == 100 && other.BgAlign == 8,
+                  "out of range not clamped: " + BgPanel.Styles.Of(other));
+
+            // The sidebar's + keeps it and its menu lists it.
+            D.Bitmap img = Sample();
+            Settings e = NewSettings();
+            Editor ed = NewEditor(img, e, new D.Size(1200, 820));
+            try
+            {
+                BgPanel bg = PanelOf(ed);
+                Pick(bg, "Color negro");
+                Pick(bg, "Guardar este estilo");
+                Check(BgPanel.Styles.Count(e) == 1 && BgPanel.Styles.All(e)[0] == BgPanel.Styles.Of(e), "the + did not keep the style: " + e.BgStyles);
+            }
+            finally { ed.Dispose(); }
+        }
+
         public static void Suite()
         {
             AppTests.Test(S, "inset and alignment keep the capture inside the frame, where asked", Geometry);
             AppTests.Test(S, "plain, blurred, inset, balanced and shadow reach the saved image", Kinds);
             AppTests.Test(S, "the sidebar offers every choice and each one reaches the saved image", Sidebar);
+            AppTests.Test(S, "saved styles: kept once, brought back exactly, at most eight, checked when read", SavedStyles);
             AppTests.Test(S, "pictures of the editor with the sidebar", Pictures);
         }
     }

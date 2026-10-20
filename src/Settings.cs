@@ -64,6 +64,7 @@ namespace Stackshot
         public int BgInset = 0;         // 0-100: a border in the capture's own edge colour
         public bool BgBalance = false;  // the inset evens out the capture's own margins
         public int BgAlign = 4;         // 0-8, rows of three from the top left; 4 centred
+        public string BgStyles = "";    // styles saved from the editor's sidebar (BgPanel.Styles)
         // Main window and mascot.
         public int Appearance = 0;          // 0 follow Windows, 1 light, 2 dark
         public bool AllInOne = false;       // area capture: adjust the area and choose image, video, GIF or scrolling before capturing
@@ -360,6 +361,7 @@ namespace Stackshot
                         case "bginset": s.BgInset = Int(v, s.BgInset, 0, 100); break;
                         case "bgbalance": s.BgBalance = Bool(v, s.BgBalance); break;
                         case "bgalign": s.BgAlign = Int(v, s.BgAlign, 0, 8); break;
+                        case "bgstyles": s.BgStyles = KeptStyles(v); break;
                         // Recording package.
                         case "cinefps": s.CineFps = Int(v, s.CineFps, 1, 1000) >= 45 ? 60 : 30; break;
                         case "cinepeakmemory": s.CinePeakMemory = Int(v, s.CinePeakMemory, 0, 1); break;
@@ -532,6 +534,7 @@ namespace Stackshot
             b.AppendLine("BgInset = " + BgInset);
             b.AppendLine("BgBalance = " + (BgBalance ? "1" : "0"));
             b.AppendLine("BgAlign = " + BgAlign);
+            b.AppendLine("BgStyles = " + OneLine(BgStyles));
             b.AppendLine("# Tema: 0 como Windows, 1 claro, 2 oscuro");
             b.AppendLine("Appearance = " + Appearance);
             b.AppendLine("AllInOne = " + (AllInOne ? "1" : "0"));
@@ -732,6 +735,16 @@ namespace Stackshot
             if (v == "1" || v == "true" || v == "si" || v == "yes") return true;
             if (v == "0" || v == "false" || v == "no") return false;
             return def;
+        }
+
+        // Saved backdrop styles: only the well-formed ones, at most BgPanel.Styles.Max.
+        static string KeptStyles(string v)
+        {
+            System.Collections.Generic.List<string> kept = new System.Collections.Generic.List<string>();
+            foreach (string p in v.Split(';'))
+                if (BgPanel.Styles.Valid(p.Trim()) && !kept.Contains(p.Trim())) kept.Add(p.Trim());
+            while (kept.Count > BgPanel.Styles.Max) kept.RemoveAt(0);
+            return string.Join(";", kept.ToArray());
         }
 
         // "#RRGGBB" (or six hex digits without the #); anything else keeps the default.

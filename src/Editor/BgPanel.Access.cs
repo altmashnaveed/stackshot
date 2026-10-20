@@ -117,7 +117,7 @@ namespace Stackshot
                             a.PartState = StateOf(p.Enabled, false, false);
                             break;
                     }
-                    a.PartAction = it.Kind == Kind.Check ? "Cambiar" : it.Kind == Kind.More || it.Kind == Kind.Add || it.Kind == Kind.Picker ? "Pulsar" : "Elegir";
+                    a.PartAction = it.Kind == Kind.Check ? "Cambiar" : it.Kind == Kind.More || it.Kind == Kind.Add || it.Kind == Kind.Picker || it.Kind == Kind.Styles || it.Kind == Kind.Keep ? "Pulsar" : "Elegir";
                     if (p.Enabled) a.Do = delegate { p.AccessPick(item); };
                 }
             }

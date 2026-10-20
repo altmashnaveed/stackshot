@@ -52,6 +52,7 @@ namespace Stackshot
                                         int idx = settings.BgPreset;
                                         if (!Backdrop.IsCustom(idx)) return;
                                         Backdrop.RemoveCustom(idx);
+                                        BgPanel.Styles.PictureRemoved(settings, idx);
                                         swatches.Clear();
                                         composed.Clear();
                                         settings.BgPreset = 0;
