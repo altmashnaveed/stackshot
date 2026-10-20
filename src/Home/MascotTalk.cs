@@ -50,7 +50,7 @@ namespace Stackshot
         // Sometimes one of the character's own lines (null otherwise, or when it has none).
         static string Own(Settings s, double chance)
         {
-            string[] lines = MascotParts.OwnLines(s.MascotKind);
+            string[] lines = MascotParts.OwnLines(MascotParts.KindLatest(s.MascotKind));   // a body redrawn since speaks as the new one
             return lines != null && rnd.NextDouble() < chance ? Pick(lines) : null;
         }
 

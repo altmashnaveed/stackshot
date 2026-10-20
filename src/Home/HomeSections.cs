@@ -237,19 +237,7 @@ namespace Stackshot
         void SectionPinFollow(bool animate)
         {
             if (sectionPinRow == null || sectionPinChips.Count == 0 || sectionPinClip.ActualWidth < 1) return;
-            sectionPinRow.UpdateLayout();
-            // Where the row really puts each chip: its laid-out size with the gap, which layout rounding makes 6.4 rather
-            // than 6 at 125 % (added up over the row, the last chip ended a few pixels into the faded edge).
-            double view = sectionPinClip.ActualWidth - 80, total = 0, x0 = 0, x1 = 0, trail = 0;
-            for (int i = 0; i < sectionPinChips.Count; i++)
-            {
-                Border c = sectionPinChips[i];
-                double w = c.ActualWidth, slot = c.DesiredSize.Width;
-                if (i == sectionActive) { x0 = total; x1 = total + w; }
-                total += slot;
-                trail = slot - w;
-            }
-            total -= trail;
+            double x0, x1, view = sectionPinClip.ActualWidth - 80, total = SectionPinWidth(sectionActive, out x0, out x1);
             double min = Math.Min(0, view - total), s = sectionPinShift.X;
             if (sectionActive >= 0)
             {
@@ -257,6 +245,25 @@ namespace Stackshot
                 if (x1 + s > view - 24) s = view - 24 - x1;
             }
             SectionPinSlide(Math.Max(min, Math.Min(0, s)), min, animate);
+        }
+
+        // Where the row really puts each chip: its laid-out size with the gap, which layout rounding makes 6.4 rather than 6
+        // at 125 % (added up over the row, the last chip ended a few pixels into the faded edge). Returns the row's width
+        // and where chip `at` starts and ends.
+        double SectionPinWidth(int at, out double x0, out double x1)
+        {
+            sectionPinRow.UpdateLayout();
+            double total = 0, trail = 0;
+            x0 = x1 = 0;
+            for (int i = 0; i < sectionPinChips.Count; i++)
+            {
+                Border c = sectionPinChips[i];
+                double w = c.ActualWidth, slot = c.DesiredSize.Width;
+                if (i == at) { x0 = total; x1 = total + w; }
+                total += slot;
+                trail = slot - w;
+            }
+            return total - trail;
         }
 
         void SectionPinSlide(double s, double min, bool animate)
@@ -292,10 +299,9 @@ namespace Stackshot
                 scroller.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = UIElement.MouseWheelEvent });
                 return;
             }
-            if (sectionPinClip.ActualWidth < 1) return;
-            double total = 0;
-            foreach (Border c in sectionPinChips) total += c.ActualWidth + 6;
-            double min = Math.Min(0, sectionPinClip.ActualWidth - 80 - (total - 6));
+            if (sectionPinClip.ActualWidth < 1 || sectionPinRow == null) return;
+            double x0, x1, total = SectionPinWidth(-1, out x0, out x1);
+            double min = Math.Min(0, sectionPinClip.ActualWidth - 80 - total);
             SectionPinSlide(Math.Max(min, Math.Min(0, sectionPinShift.X + e.Delta / 2.0)), min, false);
         }
     }

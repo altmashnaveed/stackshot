@@ -38,11 +38,17 @@ namespace Stackshot
 
         // ---- Page building blocks
 
-        // Builds one part of a page; if it fails it is logged and left out, and what follows still shows.
+        // Builds one part of a page; if it fails it is logged and left out whole (no caption without its card), and what
+        // follows still shows.
         void Section(string what, Action build)
         {
+            int had = body.Children.Count;
             try { build(); }
-            catch (Exception ex) { ShotStack.Log("P\u00E1gina " + page + ", " + what + ": " + ex.Message); }
+            catch (Exception ex)
+            {
+                ShotStack.Log("P\u00E1gina " + page + ", " + what + ": " + ex.Message);
+                while (body.Children.Count > had) body.Children.RemoveAt(body.Children.Count - 1);
+            }
         }
 
         void Header(string title, string sub)
