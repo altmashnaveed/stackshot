@@ -553,7 +553,8 @@ namespace Stackshot
                 int cut = char.IsHighSurrogate(flat[87]) ? 87 : 88;
                 flat = flat.Substring(0, cut).TrimEnd() + "\u2026";
             }
-            return (n == 1 ? "1 l\u00EDnea" : n + " l\u00EDneas") + ": \u00AB" + flat + "\u00BB";
+            string count = I18n.IsSpanish ? (n == 1 ? "1 l\u00EDnea" : n + " l\u00EDneas") : (n == 1 ? "1 line" : n + " lines");
+            return count + ": \u00AB" + flat + "\u00BB";
         }
     }
 }

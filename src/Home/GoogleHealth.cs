@@ -81,14 +81,14 @@ namespace Stackshot
                 if (ear != null) ear.Stop();
                 connecting = false;
                 ShotStack.Log("Google Health: " + ex.Message);
-                done(ex is SocketException ? "El puerto " + back.Port + " est\u00E1 ocupado: cierra lo que lo use y vuelve a intentarlo." : "No se ha podido abrir el inicio de sesi\u00F3n: " + ex.Message);
+                done(ex is SocketException ? I18n.Fmt("El puerto {0} est\u00E1 ocupado: cierra lo que lo use y vuelve a intentarlo.", "Port {0} is busy: close whatever uses it and try again.", back.Port) : I18n.T("No se ha podido abrir el inicio de sesi\u00F3n: ", "Could not open login: ") + ex.Message);
                 return;
             }
             Thread t = new Thread(delegate()
             {
                 string error;
                 try { error = Wait(ear, back, state, verifier); }
-                catch (Exception ex) { error = "No se ha podido conectar: " + ex.Message; }
+                catch (Exception ex) { error = I18n.T("No se ha podido conectar: ", "Could not connect: ") + ex.Message; }
                 try { ear.Stop(); } catch { }
                 connecting = false;
                 ShotStack.Log(error == null ? "Google Health: conectado" : "Google Health: " + error);
@@ -117,7 +117,7 @@ namespace Stackshot
                     catch (IOException) { continue; }
                     string[] parts = line.Split(' ');
                     string target = parts.Length > 1 ? parts[1] : "";
-                    if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, Mark.Fail, "P\u00E1gina no encontrada", null, "Esta direcci\u00F3n no es de Stackshot."); continue; }
+                    if (!target.StartsWith(back.AbsolutePath, StringComparison.Ordinal)) { Answer(s, 404, Mark.Fail, I18n.T("P\u00E1gina no encontrada", "Page not found"), null, I18n.T("Esta direcci\u00F3n no es de Stackshot.", "This address does not belong to Stackshot.")); continue; }
                     Dictionary<string, string> q = Query(target);
                     string got, from;
                     // Google sends the state back with an error too: without it, the error comes from somewhere else.
@@ -125,26 +125,26 @@ namespace Stackshot
                     {
                         if (got == "access_denied")
                         {
-                            Answer(s, 200, Mark.Off, "Conexi\u00F3n cancelada", null, "No se ha conectado nada. Puedes cerrar esta pesta\u00F1a y, cuando quieras, volver a intentarlo desde Stackshot.");
+                            Answer(s, 200, Mark.Off, I18n.T("Conex\u00F3n cancelada", "Connection cancelled"), null, I18n.T("No se ha conectado nada. Puedes cerrar esta pesta\u00F1a y, cuando quieras, volver a intentarlo desde Stackshot.", "Nothing was connected. You can close this tab and try again whenever you like from Stackshot."));
                             return Cancelled;
                         }
-                        Answer(s, 200, Mark.Fail, "No se ha podido conectar", null, "Google ha respondido \u00AB" + got + "\u00BB. Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.");
-                        return "Google ha dicho: " + got;
+                        Answer(s, 200, Mark.Fail, I18n.T("No se ha podido conectar", "Could not connect"), null, I18n.Fmt("Google ha respondido \u00AB{0}\u00BB. Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.", "Google returned \u201C{0}\u201D. Close this tab and try again from Stackshot.", got));
+                        return I18n.Fmt("Google ha dicho: {0}", "Google said: {0}", got);
                     }
                     string code, st;
                     if (!q.TryGetValue("code", out code) || !q.TryGetValue("state", out st) || st != state)
                     {
-                        Answer(s, 400, Mark.Fail, "Respuesta no v\u00E1lida", null, "Esta respuesta no viene del inicio de sesi\u00F3n que ha abierto Stackshot. Vuelve a intentarlo desde la app.");
+                        Answer(s, 400, Mark.Fail, I18n.T("Respuesta no v\u00E1lida", "Invalid response"), null, I18n.T("Esta respuesta no viene del inicio de sesi\u00F3n que ha abierto Stackshot. Vuelve a intentarlo desde la app.", "This response is not from the login opened by Stackshot. Try again from the app."));
                         continue;
                     }
                     string error = Token("grant_type=authorization_code&code=" + Uri.EscapeDataString(code) + "&code_verifier=" + verifier +
                                          "&redirect_uri=" + Uri.EscapeDataString(Program.WatchRedirect));
-                    if (error == null) Answer(s, 200, Mark.Ok, "Reloj ", "conectado", "Stackshot ya puede ver tus pasos, tu actividad y tu sue\u00F1o. Puedes cerrar esta pesta\u00F1a y volver a la app.");
-                    else Answer(s, 200, Mark.Fail, "No se ha podido conectar", null, error + " Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.");
+                    if (error == null) Answer(s, 200, Mark.Ok, I18n.T("Reloj ", "Watch "), I18n.T("conectado", "connected"), I18n.T("Stackshot ya puede ver tus pasos, tu actividad y tu sue\u00F1o. Puedes cerrar esta pesta\u00F1a y volver a la app.", "Stackshot can now see your steps, activity and sleep. You can close this tab and return to the app."));
+                    else Answer(s, 200, Mark.Fail, I18n.T("No se ha podido conectar", "Could not connect"), null, error + I18n.T(" Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.", " Close this tab and try again from Stackshot."));
                     return error;
                 }
             }
-            return "Se acab\u00F3 el tiempo para iniciar sesi\u00F3n. Vuelve a intentarlo.";
+            return I18n.T("Se acab\u00F3 el tiempo para iniciar sesi\u00F3n. Vuelve a intentarlo.", "Login timed out. Try again.");
         }
 
         enum Mark { Ok, Off, Fail }

@@ -251,23 +251,26 @@ namespace Stackshot
             fps = s.CineFps == 30 ? 30 : 60;
             if (!EncoderAvailable(ffmpeg))
             {
-                Dialogs.Show("Esta versi\u00F3n de FFmpeg no incluye el codificador sin p\u00E9rdidas (libx264rgb), que la calidad Cine necesita.\n\n" +
-                                "Actual\u00EDzalo desde los ajustes de Stackshot o elige otra calidad.", "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.T("Esta versi\u00F3n de FFmpeg no incluye el codificador sin p\u00E9rdidas (libx264rgb), que la calidad Cine necesita.\n\nActual\u00EDzalo desde los ajustes de Stackshot o elige otra calidad.",
+                                    "This version of FFmpeg does not include the lossless encoder (libx264rgb), required for Cine quality.\n\nUpdate it from Stackshot settings or choose another quality."),
+                             "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             long free = FreeBytes(Settings.TempDir);
             if (free >= 0 && free < MinFreeBytes)
             {
-                Dialogs.Show("No hay espacio suficiente en el disco para grabar sin p\u00E9rdidas: quedan " + (free / 1048576.0 / 1024).ToString("0.0", CultureInfo.InvariantCulture) +
-                                " GB y hacen falta al menos " + (MinFreeBytes >> 30) + " GB (un minuto ocupa desde unos MB hasta varios GB seg\u00FAn el movimiento).",
-                                "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.Fmt("No hay espacio suficiente en el disco para grabar sin p\u00E9rdidas: quedan {0} GB y hacen falta al menos {1} GB (un minuto ocupa desde unos MB hasta varios GB seg\u00FAn el movimiento).",
+                                      "Not enough disk space for lossless recording: {0} GB left, need at least {1} GB (a minute takes from several MBs up to multiple GBs depending on motion).",
+                                      (free / 1048576.0 / 1024).ToString("0.0", CultureInfo.InvariantCulture), (MinFreeBytes >> 30)),
+                             "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             if (fps == 60 && (long)r.Width * r.Height * 60 > RealtimePixelRate)
             {
-                DialogResult d = Dialogs.Show("El \u00E1rea de " + r.Width + " \u00D7 " + r.Height + " es demasiado grande para codificar sin p\u00E9rdidas a 60 fps en la mayor\u00EDa de los equipos.\n\n" +
-                                                 "S\u00ED: grabar a 30 fps, sin p\u00E9rdidas.\nNo: probar a 60 fps (si el equipo no puede seguir, la grabaci\u00F3n se detiene y se conserva lo grabado).\nCancelar: no grabar.",
-                                                 "Stackshot", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                DialogResult d = Dialogs.Show(I18n.Fmt("El \u00E1rea de {0} \u00D7 {1} es demasiado grande para codificar sin p\u00E9rdidas a 60 fps en la mayor\u00EDa de los equipos.\n\nS\u00ED: grabar a 30 fps, sin p\u00E9rdidas.\nNo: probar a 60 fps (si el equipo no puede seguir, la grabaci\u00F3n se detiene y se conserva lo grabado).\nCancelar: no grabar.",
+                                                       "The area of {0} \u00D7 {1} is too large to encode losslessly at 60 fps on most computers.\n\nYes: record at 30 fps, lossless.\nNo: try at 60 fps (if the PC cannot keep up, recording stops and saved portion is kept).\nCancel: do not record.",
+                                                       r.Width, r.Height),
+                                              "Stackshot", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (d == DialogResult.Cancel) return false;
                 fps = d == DialogResult.Yes ? 30 : 60;
             }

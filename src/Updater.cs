@@ -471,23 +471,23 @@ namespace Stackshot
         // A failure in words for Acerca de (the details go to the log).
         static string Why(Exception ex, bool download)
         {
-            string what = download ? "descargar la actualizaci\u00F3n" : "consultar GitHub";
+            string what = download ? I18n.T("descargar la actualizaci\u00F3n", "download the update") : I18n.T("consultar GitHub", "check GitHub");
             WebException we = ex as WebException;
             if (we == null)
             {
-                if (ex is InvalidDataException) return "No se pudo " + what + " (" + ex.Message.TrimEnd('.') + ")."; // our own words
-                if (ex is IOException || ex is UnauthorizedAccessException) return "No se pudo " + what + ". " + ShotStack.Explain(ex, Path.Combine(UpdateDir, "x"));
-                return "No se pudo " + what + ". Se volver\u00E1 a intentar m\u00E1s tarde.";
+                if (ex is InvalidDataException) return I18n.Fmt("No se pudo {0} ({1}).", "Could not {0} ({1}).", what, ex.Message.TrimEnd('.'));
+                if (ex is IOException || ex is UnauthorizedAccessException) return I18n.Fmt("No se pudo {0}. ", "Could not {0}. ", what) + ShotStack.Explain(ex, Path.Combine(UpdateDir, "x"));
+                return I18n.Fmt("No se pudo {0}. Se volver\u00E1 a intentar m\u00E1s tarde.", "Could not {0}. Will try again later.", what);
             }
             HttpWebResponse resp = we.Response as HttpWebResponse;
             if (resp != null)
             {
                 int code = 0;
                 try { code = (int)resp.StatusCode; resp.Close(); } catch { }
-                if (code == 403 || code == 429) return "GitHub ha limitado las consultas durante un rato; se volver\u00E1 a intentar m\u00E1s tarde.";
-                if (code == 407) return "El proxy de la red no deja " + what + ".";
-                if (code >= 500) return "GitHub no responde ahora mismo; se volver\u00E1 a intentar m\u00E1s tarde.";
-                return "No se pudo " + what + " (error " + code + ").";
+                if (code == 403 || code == 429) return I18n.T("GitHub ha limitado las consultas durante un rato; se volver\u00E1 a intentar m\u00E1s tarde.", "GitHub rate limit reached; will try again later.");
+                if (code == 407) return I18n.Fmt("El proxy de la red no deja {0}.", "Network proxy does not allow to {0}.", what);
+                if (code >= 500) return I18n.T("GitHub no responde ahora mismo; se volver\u00E1 a intentar m\u00E1s tarde.", "GitHub is not responding right now; will try again later.");
+                return I18n.Fmt("No se pudo {0} (error {1}).", "Could not {0} (error {1}).", what, code);
             }
             switch (we.Status)
             {
@@ -498,12 +498,12 @@ namespace Stackshot
                 case WebExceptionStatus.ConnectionClosed:
                 case WebExceptionStatus.ReceiveFailure:
                 case WebExceptionStatus.SendFailure:
-                    return download ? "Se ha perdido la conexi\u00F3n durante la descarga." : "Sin conexi\u00F3n con GitHub. Se volver\u00E1 a intentar cuando vuelva la red.";
+                    return download ? I18n.T("Se ha perdido la conexi\u00F3n durante la descarga.", "Connection lost during download.") : I18n.T("Sin conexi\u00F3n con GitHub. Se volver\u00E1 a intentar cuando vuelva la red.", "No connection to GitHub. Will try again when network is restored.");
                 case WebExceptionStatus.TrustFailure:
                 case WebExceptionStatus.SecureChannelFailure:
-                    return "No se pudo abrir una conexi\u00F3n segura con GitHub.";
+                    return I18n.T("No se pudo abrir una conexi\u00F3n segura con GitHub.", "Could not open a secure connection to GitHub.");
             }
-            return "No se pudo " + what + ". Se volver\u00E1 a intentar m\u00E1s tarde.";
+            return I18n.Fmt("No se pudo {0}. Se volver\u00E1 a intentar m\u00E1s tarde.", "Could not {0}. Will try again later.", what);
         }
 
         // ---- Installing
@@ -685,7 +685,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Iniciar la actualizaci\u00F3n: " + ex);
-                error = "No se pudo iniciar la actualizaci\u00F3n. " + ShotStack.ExplainOpen(ex, readyExe);
+                error = I18n.T("No se pudo iniciar la actualizaci\u00F3n. ", "Could not start update. ") + ShotStack.ExplainOpen(ex, readyExe);
             }
             if (error != null) Failed(r, error, !manual, false);
         }
@@ -697,7 +697,7 @@ namespace Stackshot
             try { code = p.ExitCode; p.Dispose(); } catch { }
             if (installer == p) installer = null;
             if (Doing != Step.Installing) return;
-            Failed(r, "La instalaci\u00F3n no se ha completado" + (code != 0 ? " (c\u00F3digo " + code + ")" : "") + ". Vuelve a intentarlo o desc\u00E1rgala desde GitHub.",
+            Failed(r, I18n.Fmt("La instalaci\u00F3n no se ha completado{0}. Vuelve a intentarlo o desc\u00E1rgala desde GitHub.", "Installation did not complete{0}. Try again or download from GitHub.", code != 0 ? " (" + I18n.T("c\u00F3digo ", "code ") + code + ")" : ""),
                    !launchManual, false);
         }
 
@@ -758,7 +758,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("P\u00E1gina de la versi\u00F3n: " + ex.Message);
-                if (owner != null) owner.Notify("No se pudo abrir el navegador", page);
+                if (owner != null) owner.Notify(I18n.T("No se pudo abrir el navegador", "Could not open browser"), page);
             }
         }
 

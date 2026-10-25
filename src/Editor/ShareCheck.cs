@@ -238,10 +238,10 @@ namespace Stackshot
             bool all = true;
             foreach (ShareReport.Check c in r.Checks) if (!c.Passed) all = false;
             r.Passed = all;
-            if (all) r.Summary = "El v\u00EDdeo se ha comprobado: se abre entero y tiene el tama\u00F1o, la duraci\u00F3n y el sonido esperados.";
+            if (all) r.Summary = I18n.T("El v\u00EDdeo se ha comprobado: se abre entero y tiene el tama\u00F1o, la duraci\u00F3n y el sonido esperados.", "The video was verified: it opens completely and has the expected size, duration and sound.");
             else
             {
-                StringBuilder sb = new StringBuilder("El v\u00EDdeo no pasa la comprobaci\u00F3n: ");
+                StringBuilder sb = new StringBuilder(I18n.T("El v\u00EDdeo no pasa la comprobaci\u00F3n: ", "The video did not pass verification: "));
                 bool first = true;
                 foreach (ShareReport.Check c in r.Checks)
                 {

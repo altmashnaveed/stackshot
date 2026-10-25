@@ -14,7 +14,7 @@ namespace Stackshot
         // What an item is called: a button by its label, a tool or a colour by its tooltip, without the shortcut after it.
         internal static string AccessName(Item it, bool maximized)
         {
-            if (it.Kind == Kind.Caption) return it.Index == 0 ? "Minimizar" : it.Index == 1 ? (maximized ? "Restaurar" : "Maximizar") : "Cerrar";
+            if (it.Kind == Kind.Caption) return it.Index == 0 ? I18n.T("Minimizar", "Minimize") : it.Index == 1 ? (maximized ? I18n.T("Restaurar", "Restore") : I18n.T("Maximizar", "Maximize")) : I18n.T("Cerrar", "Close");
             string label = it.ShowAlt && it.Alt != null ? it.Alt : it.Label;
             string n = it.Kind == Kind.Button ? Access.Clean(label) : null;
             if (string.IsNullOrEmpty(n)) n = Access.Clean(it.Tip);

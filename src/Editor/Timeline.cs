@@ -26,12 +26,16 @@ namespace Stackshot
         public event Action<int, int> ClipMove;    // clip index and direction (-1 left, +1 right)
 
         // Export options, shown as segmented controls in the header.
-        public static readonly string[] Speeds = { "1\u00D7", "1,5\u00D7", "2\u00D7" };
+        static readonly string[] SpeedsEs = { "1\u00D7", "1,5\u00D7", "2\u00D7" };
+        static readonly string[] SpeedsEn = { "1\u00D7", "1.5\u00D7", "2\u00D7" };
+        public static string[] Speeds { get { return I18n.IsSpanish ? SpeedsEs : SpeedsEn; } }
         public static readonly double[] SpeedValues = { 1, 1.5, 2 };
         public static readonly string[] Sizes = { "Original", "1080p", "720p" };
         public static readonly int[] SizeValues = { 0, 1080, 720 };
         // The last two fit a size: WhatsApp's 16 MB and the 25 MB most mail takes (VideoExport.TargetBytes).
-        public static readonly string[] Qualities = { "M\u00E1xima", "Alta", "Ligera", "16 MB", "25 MB" };
+        static readonly string[] QualitiesEs = { "M\u00E1xima", "Alta", "Ligera", "16 MB", "25 MB" };
+        static readonly string[] QualitiesEn = { "Maximum", "High", "Light", "16 MB", "25 MB" };
+        public static string[] Qualities { get { return I18n.IsSpanish ? QualitiesEs : QualitiesEn; } }
         public static readonly string[] Formats = { "MP4", "GIF" };
         public int Speed, OutSize, Quality, Format;
         readonly Rectangle[][] segs = new Rectangle[4][];
@@ -509,20 +513,20 @@ namespace Stackshot
             ContextMenuStrip m = TrayMenu.Create();
             if (i == 0)
             {
-                ToolStripMenuItem info = TrayMenu.Item("V\u00EDdeo base: marca el tama\u00F1o y los fotogramas", null, delegate { });
+                ToolStripMenuItem info = TrayMenu.Item(I18n.T("V\u00EDdeo base: marca el tama\u00F1o y los fotogramas", "Base video: sets resolution and frame rate"), null, delegate { });
                 info.Enabled = false;
                 m.Items.Add(info);
             }
             else
             {
-                ToolStripMenuItem left = TrayMenu.Item("Mover a la izquierda", null, delegate { if (ClipMove != null) ClipMove(i, -1); });
+                ToolStripMenuItem left = TrayMenu.Item(I18n.T("Mover a la izquierda", "Move left"), null, delegate { if (ClipMove != null) ClipMove(i, -1); });
                 left.Enabled = i >= 2;
-                ToolStripMenuItem right = TrayMenu.Item("Mover a la derecha", null, delegate { if (ClipMove != null) ClipMove(i, 1); });
+                ToolStripMenuItem right = TrayMenu.Item(I18n.T("Mover a la derecha", "Move right"), null, delegate { if (ClipMove != null) ClipMove(i, 1); });
                 right.Enabled = i < Clips.Count - 1;
                 m.Items.Add(left);
                 m.Items.Add(right);
                 m.Items.Add(TrayMenu.Separator());
-                m.Items.Add(TrayMenu.Item("Quitar este v\u00EDdeo", null, delegate { if (ClipRemove != null) ClipRemove(i); }));
+                m.Items.Add(TrayMenu.Item(I18n.T("Quitar este v\u00EDdeo", "Remove this video"), null, delegate { if (ClipRemove != null) ClipRemove(i); }));
             }
             m.Closed += delegate { BeginInvoke((Action)delegate { m.Dispose(); }); };
             m.Show(PointToScreen(at));

@@ -38,13 +38,20 @@ namespace Stackshot
             if (r is FolderRow) return Policy.FolderForced;
             switch (r.Title)
             {
-                case "Buscar actualizaciones": return Policy.ChecksForced;
-                case "Instalar actualizaciones autom\u00E1ticamente": return Policy.AutoForced;
+                case "Buscar actualizaciones":
+                case "Check for updates": return Policy.ChecksForced;
+                case "Instalar actualizaciones autom\u00E1ticamente":
+                case "Install updates automatically": return Policy.AutoForced;
                 case "Mostrar la mascota":
+                case "Show mascot":
                 case "Saludos y consejos":
-                case "Mascota en el escritorio": return Policy.MascotForced;
-                case "Tapar los datos sensibles al capturar": return Policy.SensitiveForced;
-                case "Buscar por el texto de las capturas": return Policy.SearchForced;
+                case "Greetings and tips":
+                case "Mascota en el escritorio":
+                case "Mascot on desktop": return Policy.MascotForced;
+                case "Tapar los datos sensibles al capturar":
+                case "Mask sensitive data when capturing": return Policy.SensitiveForced;
+                case "Buscar por el texto de las capturas":
+                case "Search captures by OCR text": return Policy.SearchForced;
             }
             return false;
         }

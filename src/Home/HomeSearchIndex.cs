@@ -294,7 +294,7 @@ namespace Stackshot
 
         internal static string PageTitle(string id)
         {
-            if (id == "mascotset") return "Ajustes de la mascota";
+            if (id == "mascotset") return I18n.T("Ajustes de la mascota", "Mascot settings");
             int i = Array.IndexOf(PageIds, id);
             return i >= 0 ? PageNames[i] : id;
         }
@@ -338,7 +338,7 @@ namespace Stackshot
                     List<string> combos = a >= 0 && a < Settings.Actions.Length ? Hotkeys.Split(settings.HotkeysFor(Settings.Actions[a])) : new List<string>();
                     List<string> shown = new List<string>();
                     foreach (string c in combos) shown.Add(Hotkeys.DisplayOne(c));
-                    sub = shown.Count > 0 ? string.Join(", ", shown.ToArray()) : "Sin atajo";
+                    sub = shown.Count > 0 ? string.Join(", ", shown.ToArray()) : I18n.T("Sin atajo", "No shortcut");
                     extra = sub;
                 }
                 AddMark(into, r, caption, r.Title, sub, extra, r.Icon, W(r.C1), W(r.C2));

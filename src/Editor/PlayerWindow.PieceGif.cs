@@ -83,7 +83,7 @@ namespace Stackshot
         // dated subfolders (as the MP4 export says it).
         internal static string ReadyText(Settings s, string output)
         {
-            return SaveFolders.Inside(s, Path.GetDirectoryName(output)) ? "GIF listo y guardado junto al original" : "GIF listo: est\u00E1 en la pila";
+            return SaveFolders.Inside(s, Path.GetDirectoryName(output)) ? I18n.T("GIF listo y guardado junto al original", "GIF ready and saved next to original") : I18n.T("GIF listo: est\u00E1 en la pila", "GIF ready: added to stack");
         }
 
         // A real palette: 256 colours, some of them opaque (the stand-in frame is all transparent).
@@ -121,20 +121,23 @@ namespace Stackshot
         string GifTip()
         {
             double f = GifRate;
-            return "Crear un GIF con el tramo marcado (E y S) \u00B7 " + (f > 0 ? f.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',') + " fps" : "al ritmo del GIF") + "  (G)";
+            return I18n.Fmt("Crear un GIF con el tramo marcado (E y S) \u00B7 {0}  (G)", "Create a GIF from marked clip (E & S) \u00B7 {0}  (G)",
+                (f > 0 ? f.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',') + " fps" : I18n.T("al ritmo del GIF", "at GIF frame rate")));
         }
 
         // In Mas opciones, greyed out until there is a piece.
         ToolStripMenuItem GifMenuItem()
         {
-            ToolStripMenuItem it = TrayMenu.Item("Exportar GIF del tramo", "gif", "G", delegate { ExportGif(); });
+            ToolStripMenuItem it = TrayMenu.Item(I18n.T("Exportar GIF del tramo", "Export GIF of clip"), "gif", "G", delegate { ExportGif(); });
             it.Enabled = HasRange;
             return it;
         }
 
         bool LongGifWanted(double seconds)
         {
-            string text = "El tramo dura " + PlayerKit.Clock(Math.Round(seconds)) + ": un GIF tan largo pesa mucho y tarda en crearse. Para un trozo as\u00ED suele ir mejor \u00ABExportar tramo\u00BB (MP4).\n\n\u00BFCrear el GIF igualmente?";
+            string text = I18n.Fmt("El tramo dura {0}: un GIF tan largo pesa mucho y tarda en crearse. Para un trozo as\u00ED suele ir mejor \u00ABExportar tramo\u00BB (MP4).\n\n\u00BFCrear el GIF igualmente?",
+                                   "Clip is {0} long: such a long GIF has a large file size and takes time to create. For such a clip, \"Export clip\" (MP4) is usually better.\n\nCreate GIF anyway?",
+                                   PlayerKit.Clock(Math.Round(seconds)));
             Func<string, bool> ask = AskLongGif;
             if (ask != null) return ask(text);
             if (Quiet) return true;
@@ -146,7 +149,7 @@ namespace Stackshot
         void ExportGif()
         {
             if (info == null || !info.CanPlay || exportThread != null) return;
-            if (!HasRange) { Flash("Marca el tramo con E y S para crear el GIF"); return; }
+            if (!HasRange) { Flash(I18n.T("Marca el tramo con E y S para crear el GIF", "Mark clip with E and S to create GIF")); return; }
             double a = markIn, b = markOut, dur = b - a;
             if (dur > PieceGif.LongSeconds && !LongGifWanted(dur)) return;
             if (exportThread != null || info == null) return;
@@ -160,7 +163,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Reproductor: GIF " + ex.Message);
-                Flash("No se pudo preparar el GIF.");
+                Flash(I18n.T("No se pudo preparar el GIF.", "Could not prepare GIF."));
                 return;
             }
             if (play != null && Playing) play.Pause();
@@ -239,7 +242,7 @@ namespace Stackshot
             {
                 ShotStack.Log("Reproductor: GIF, FFmpeg " + code + ": " + err);
                 try { if (File.Exists(output)) File.Delete(output); } catch (Exception) { }
-                Alert("No se pudo crear el GIF.\n\n" + Tail(err));
+                Alert(I18n.T("No se pudo crear el GIF.\n\n", "Could not create GIF.\n\n") + Tail(err));
                 return;
             }
             ShotStack.Log("Reproductor: comprobaci\u00F3n " + (rep != null && rep.Passed ? "correcta" : "FALLIDA") + " de " + Path.GetFileName(output) + "\n" + rep);
@@ -251,7 +254,7 @@ namespace Stackshot
                     owner.AddRecording(output);
                     Flash(PieceGif.ReadyText(settings, output));
                 }
-                else Flash("GIF listo");
+                else Flash(I18n.T("GIF listo", "GIF ready"));
                 return;
             }
             // Not a normal result: kept under another name so it is never taken for a good export.
@@ -262,7 +265,7 @@ namespace Stackshot
                 File.Move(output, kept);
             }
             catch (Exception ex) { kept = output; ShotStack.Log("Reproductor: no se pudo renombrar: " + ex.Message); }
-            Alert((rep != null ? rep.Summary : "No se pudo comprobar el GIF.") + "\n\nEl archivo no se ha a\u00F1adido a la pila. Queda en:\n" + kept);
+            Alert((rep != null ? rep.Summary : I18n.T("No se pudo comprobar el GIF.", "Could not verify GIF.")) + I18n.Fmt("\n\nEl archivo no se ha a\u00F1adido a la pila. Queda en:\n{0}", "\n\nThe file was not added to stack. Stored in:\n{0}", kept));
         }
     }
 }

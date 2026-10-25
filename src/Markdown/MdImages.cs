@@ -288,7 +288,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Pegar imagen: " + ex.Message);
-                error = "No he podido guardar la imagen: " + ex.Message;
+                error = I18n.T("No he podido guardar la imagen: ", "Could not save image: ") + ex.Message;
                 return null;
             }
         }
@@ -332,7 +332,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("Soltar imagen: " + ex.Message);
-                error = "No he podido copiar " + System.IO.Path.GetFileName(file) + ": " + ex.Message;
+                error = I18n.Fmt("No he podido copiar {0}: {1}", "Could not copy {0}: {1}", System.IO.Path.GetFileName(file), ex.Message);
                 return null;
             }
         }

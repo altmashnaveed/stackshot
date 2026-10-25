@@ -119,7 +119,7 @@ namespace Stackshot
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
                 if (!session.Abandon()) return;
                 if (current == session) current = null;
-                Dialogs.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.T("No se pudo empezar a grabar: ", "Could not start recording: ") + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -128,7 +128,9 @@ namespace Stackshot
             if (current != null) current.Stop();
         }
 
-        internal static readonly string[] QualityNames = { "Est\u00E1ndar", "M\u00E1xima", "Alta", "Cine" };
+        static readonly string[] QualityNamesEs = { "Est\u00E1ndar", "M\u00E1xima", "Alta", "Cine" };
+        static readonly string[] QualityNamesEn = { "Standard", "Maximum", "High", "Cinema" };
+        internal static string[] QualityNames { get { return I18n.IsSpanish ? QualityNamesEs : QualityNamesEn; } }
 
         // The frame rate a take will record at, as Session picks it.
         internal static int TargetFps(Settings s, bool gif, int cineFps)
@@ -153,26 +155,31 @@ namespace Stackshot
             DiskBudget.Estimate e = DiskBudget.For(q, gif, r.Width, r.Height, TargetFps(s, q, gif, cineFps), tracks, free);
             if (e.TypicalMinutes >= DiskBudget.WarnMinutes) return true;
             string name = gif ? "GIF" : QualityNames[q];
-            string left = "Quedan " + DiskBudget.Gb(free) + " libres en el disco";
+            string left = I18n.Fmt("Quedan {0} libres en el disco", "{0} free on disk", DiskBudget.Gb(free));
             if (e.TypicalMinutes < 1)
             {
-                Dialogs.Show(left + ": no cabe ni un minuto en " + name + ".\n\nLibera espacio o elige una calidad m\u00E1s ligera.", "Stackshot",
-                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.Fmt("{0}: no cabe ni un minuto en {1}.\n\nLibera espacio o elige una calidad m\u00E1s ligera.",
+                                      "{0}: not even one minute fits in {1}.\n\nFree up space or choose a lighter quality.", left, name), "Stackshot",
+                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
-            string fits = left + ": en " + name + " caben " + DiskBudget.Range(e.HeavyMinutes, e.TypicalMinutes) + ", seg\u00FAn el movimiento.";
-            const string anyway = "la grabaci\u00F3n se detiene sola antes de llenar el disco y conserva lo grabado";
+            string fits = I18n.Fmt("{0}: en {1} caben {2}, seg\u00FAn el movimiento.",
+                                   "{0}: {1} holds {2}, depending on motion.", left, name, DiskBudget.Range(e.HeavyMinutes, e.TypicalMinutes));
+            string anyway = I18n.T("la grabaci\u00F3n se detiene sola antes de llenar el disco y conserva lo grabado",
+                                   "recording stops automatically before disk is full and keeps what was recorded");
             int alt = gif ? -1 : q == Cinema || q == Maximum ? High : q == High ? Standard : -1;
             if (alt < 0)
             {
-                DialogResult ok = Dialogs.Show(fits + "\n\nAceptar: grabar igualmente (" + anyway + ").\nCancelar: no grabar.", "Stackshot",
-                                                  MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                DialogResult ok = Dialogs.Show(fits + I18n.Fmt("\n\nAceptar: grabar igualmente ({0}).\nCancelar: no grabar.",
+                                                               "\n\nOK: record anyway ({0}).\nCancel: do not record.", anyway), "Stackshot",
+                                               MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
                 return ok == DialogResult.OK;
             }
             DiskBudget.Estimate ae = DiskBudget.For(alt, false, r.Width, r.Height, TargetFps(s, alt, false, cineFps), tracks, free);
-            DialogResult d = Dialogs.Show(fits + "\n\nS\u00ED: grabar en " + QualityNames[alt] + " (caben " + DiskBudget.Range(ae.HeavyMinutes, ae.TypicalMinutes) + ").\n" +
-                                             "No: grabar en " + name + " igualmente (" + anyway + ").\nCancelar: no grabar.", "Stackshot",
-                                             MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+            DialogResult d = Dialogs.Show(fits + I18n.Fmt("\n\nS\u00ED: grabar en {0} (caben {1}).\nNo: grabar en {2} igualmente ({3}).\nCancelar: no grabar.",
+                                                         "\n\nYes: record in {0} (holds {1}).\nNo: record in {2} anyway ({3}).\nCancel: do not record.",
+                                                         QualityNames[alt], DiskBudget.Range(ae.HeavyMinutes, ae.TypicalMinutes), name, anyway), "Stackshot",
+                                          MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
             if (d == DialogResult.Cancel) return false;
             if (d == DialogResult.Yes) quality = alt;
             return true;
@@ -654,20 +661,20 @@ namespace Stackshot
 
         public static string Chip(double minutes)
         {
-            return "~" + Math.Max(0, (int)Math.Floor(minutes)) + " min de disco";
+            return "~" + Math.Max(0, (int)Math.Floor(minutes)) + (I18n.IsSpanish ? " min de disco" : " min disk space");
         }
 
         public static string Range(double fromMin, double toMin)
         {
-            if (toMin < 1) return "menos de 1 min";
-            if (fromMin < 1) return "hasta " + Minutes(toMin);
+            if (toMin < 1) return I18n.T("menos de 1 min", "under 1 min");
+            if (fromMin < 1) return (I18n.IsSpanish ? "hasta " : "up to ") + Minutes(toMin);
             string a = Minutes(fromMin), b = Minutes(toMin);
-            return a == b ? "unos " + a : "entre " + a + " y " + b;
+            return a == b ? (I18n.IsSpanish ? "unos " + a : "about " + a) : (I18n.IsSpanish ? "entre " + a + " y " + b : "between " + a + " and " + b);
         }
 
         static string Minutes(double m)
         {
-            if (double.IsInfinity(m) || m > 99 * 60) return "muchas horas";
+            if (double.IsInfinity(m) || m > 99 * 60) return I18n.T("muchas horas", "many hours");
             return m < 120 ? (int)Math.Floor(m) + " min" : (int)Math.Floor(m / 60) + " h";
         }
 
@@ -981,7 +988,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 ShotStack.Log("FFmpeg: " + ex.Message);
-                Dialogs.Show("No se pudo arrancar FFmpeg: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.T("No se pudo arrancar FFmpeg: ", "Could not start FFmpeg: ") + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 if (webcam != null) { webcam.Close(); webcam = null; }
                 long none = 0;
                 if (sys != null) sys.Finish(none);
@@ -1029,16 +1036,18 @@ namespace Stackshot
             string text = null;
             if (!source.Gpu)
             {
-                string why = source.Description.StartsWith("GDI (", StringComparison.Ordinal) ? source.Description.Substring(5).TrimEnd(')') : "sin duplicaci\u00F3n de pantalla";
-                text = "Esta zona no se puede grabar con la captura de Windows (" + why + "): se usar\u00EDa la de reserva (GDI), que no ve el contenido " +
-                       "acelerado por hardware (v\u00EDdeos, juegos, algunas apps) y no es fiel a la pantalla.\n\n\u00BFGrabar igualmente en Cine?";
+                string why = source.Description.StartsWith("GDI (", StringComparison.Ordinal) ? source.Description.Substring(5).TrimEnd(')') : I18n.T("sin duplicaci\u00F3n de pantalla", "no Desktop Duplication");
+                text = I18n.Fmt("Esta zona no se puede grabar con la captura de Windows ({0}): se usar\u00EDa la de reserva (GDI), que no ve el contenido acelerado por hardware (v\u00EDdeos, juegos, algunas apps) y no es fiel a la pantalla.\n\n\u00BFGrabar igualmente en Cine?",
+                                "This area cannot be recorded with Windows screen capture ({0}): fallback (GDI) would be used, which cannot see hardware-accelerated content (videos, games, some apps) and may not be frame-accurate.\n\nRecord in Cinema mode anyway?", why);
             }
             else if (source.OutputCount > 1)
             {
-                text = "El \u00E1rea ocupa " + source.OutputCount + " pantallas. Los fotogramas siguen el ritmo de la principal (" +
-                       (source.RefreshNum / (double)source.RefreshDen).ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',') + " Hz)" +
-                       (source.MixedRefresh ? " y la otra va a otra frecuencia, as\u00ED que su parte puede verse a saltos." : "; si una se mueve a otro ritmo, su parte puede verse a saltos.") +
-                       "\n\n\u00BFGrabar igualmente en Cine?";
+                string hz = (source.RefreshNum / (double)source.RefreshDen).ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
+                string cadence = source.MixedRefresh
+                    ? I18n.T(" y la otra va a otra frecuencia, as\u00ED que su parte puede verse a saltos.", " and the other runs at a different refresh rate, so its portion may appear choppy.")
+                    : I18n.T("; si una se mueve a otro ritmo, su parte puede verse a saltos.", "; if one runs at a different rate, its portion may appear choppy.");
+                text = I18n.Fmt("El \u00E1rea ocupa {0} pantallas. Los fotogramas siguen el ritmo de la principal ({1} Hz){2}\n\n\u00BFGrabar igualmente en Cine?",
+                                "The area spans {0} monitors. Frames match the primary display rate ({1} Hz){2}\n\nRecord in Cinema mode anyway?", source.OutputCount, hz, cadence);
             }
             if (text == null) return true;
             ShotStack.Log("Cine: aviso antes de grabar: " + source.Description);
@@ -1087,7 +1096,7 @@ namespace Stackshot
                     bool late = prepClock.ElapsedMilliseconds > CameraWaitMs;
                     if (webcam.GaveUp || late)
                     {
-                        cameraNote = webcam.GaveUp ? "No se ha podido abrir la c\u00E1mara." : "La c\u00E1mara no ha respondido a tiempo.";
+                        cameraNote = webcam.GaveUp ? I18n.T("No se ha podido abrir la c\u00E1mara.", "Could not open camera.") : I18n.T("La c\u00E1mara no ha respondido a tiempo.", "Camera timed out.");
                         ShotStack.Log("C\u00E1mara: " + cameraNote + " Se graba sin ella.");
                         webcam.Dismiss();
                         webcam = null;
@@ -1106,7 +1115,7 @@ namespace Stackshot
                 prep.Stop();
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
                 if (Abandon()) Recorder.Ended(this);
-                Dialogs.Show("No se pudo empezar a grabar: " + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(I18n.T("No se pudo empezar a grabar: ", "Could not start recording: ") + ex.Message, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1154,8 +1163,8 @@ namespace Stackshot
             capture.Start();
             ShotStack.Log("Grabando " + (gif ? "GIF" : "v\u00EDdeo") + " " + area.Width + "x" + area.Height + " a " + rate + " fps \u00B7 " + source.Description +
                           " \u00B7 " + enc + (sys != null ? " \u00B7 sonido: " + sys.DeviceName : "") + (mic != null ? " \u00B7 micr\u00F3fono: " + mic.DeviceName : ""));
-            if (notes.Count > 0) owner.Notify("Grabando sin parte del sonido", string.Join("\n", notes.ToArray()));
-            if (cameraNote != null) owner.Notify("Grabando sin c\u00E1mara", cameraNote);
+            if (notes.Count > 0) owner.Notify(I18n.T("Grabando sin parte del sonido", "Recording without part of audio"), string.Join("\n", notes.ToArray()));
+            if (cameraNote != null) owner.Notify(I18n.T("Grabando sin c\u00E1mara", "Recording without camera"), cameraNote);
         }
 
         AudioCapture StartAudio(bool computer, string device, string path)
@@ -1732,19 +1741,19 @@ namespace Stackshot
             {
                 limitsTold = true;
                 if (FloatWindow.AffinityFailed && !ShotStack.Test)
-                    lines.Add("Este equipo no deja ocultar la barra de grabaci\u00F3n: saldr\u00E1 en el v\u00EDdeo si est\u00E1 dentro del \u00E1rea.");
+                    lines.Add(I18n.T("Este equipo no deja ocultar la barra de grabaci\u00F3n: saldr\u00E1 en el v\u00EDdeo si est\u00E1 dentro del \u00E1rea.", "This computer cannot hide the recording bar: it will appear in the video if inside the area."));
                 // Cine asks before recording this way; the other qualities say it here.
                 if (!source.Gpu && !cine)
-                    lines.Add("Se graba con el m\u00E9todo de reserva: puede ir m\u00E1s lento y no ver v\u00EDdeos, juegos ni algunas apps.");
+                    lines.Add(I18n.T("Se graba con el m\u00E9todo de reserva: puede ir m\u00E1s lento y no ver v\u00EDdeos, juegos ni algunas apps.", "Recording with fallback method: may be slower and not capture videos, games or some apps."));
             }
             if (!inputTold && hooks != null && hooks.Failed)
             {
                 inputTold = true;
-                lines.Add("Windows no deja seguir el rat\u00F3n y el teclado ahora: el v\u00EDdeo sale sin clics ni teclas.");
+                lines.Add(I18n.T("Windows no deja seguir el rat\u00F3n y el teclado ahora: el v\u00EDdeo sale sin clics ni teclas.", "Windows is not allowing mouse and keyboard tracking right now: video will be recorded without clicks or keystrokes."));
             }
             if (lines.Count == 0) return;
             string text = string.Join("\n", lines.ToArray());
-            Ui(delegate { owner.Notify("Grabando con limitaciones", text); });
+            Ui(delegate { owner.Notify(I18n.T("Grabando con limitaciones", "Recording with limitations"), text); });
         }
 
         // A sound device that drops out mid-take is followed silently by AudioCapture; the user is told each change.
@@ -1754,21 +1763,21 @@ namespace Stackshot
             int t = a.Trouble, was = told;
             if (t == was) return;
             told = t;
-            string what = a.Computer ? "sonido del equipo" : "micr\u00F3fono", title, text;
+            string what = a.Computer ? I18n.T("sonido del equipo", "system audio") : I18n.T("micr\u00F3fono", "microphone"), title, text;
             if (t == 0)
             {
-                title = a.Computer ? "Sonido del equipo recuperado" : "Micr\u00F3fono recuperado";
-                text = "Vuelve a grabarse desde \u00AB" + a.DeviceName + "\u00BB.";
+                title = a.Computer ? I18n.T("Sonido del equipo recuperado", "System audio restored") : I18n.T("Micr\u00F3fono recuperado", "Microphone restored");
+                text = I18n.Fmt("Vuelve a grabarse desde \u00AB{0}\u00BB.", "Recording resumed from \"{0}\".", a.DeviceName);
             }
             else if (t == 1)
             {
-                title = a.Computer ? "La salida de sonido elegida no est\u00E1" : "El micr\u00F3fono elegido se ha desconectado";
-                text = "Se graba con \u00AB" + a.DeviceName + "\u00BB, el de Windows, hasta que vuelva.";
+                title = a.Computer ? I18n.T("La salida de sonido elegida no est\u00E1", "Selected audio output is unavailable") : I18n.T("El micr\u00F3fono elegido se ha desconectado", "Selected microphone disconnected");
+                text = I18n.Fmt("Se graba con \u00AB{0}\u00BB, el de Windows, hasta que vuelva.", "Recording with \"{0}\", default Windows device, until it returns.", a.DeviceName);
             }
             else
             {
-                title = a.Computer ? "Sin sonido del equipo" : "Sin micr\u00F3fono";
-                text = "No hay ning\u00FAn dispositivo: esta parte se graba sin " + what + ".";
+                title = a.Computer ? I18n.T("Sin sonido del equipo", "No system audio") : I18n.T("Sin micr\u00F3fono", "No microphone");
+                text = I18n.Fmt("No hay ning\u00FAn dispositivo: esta parte se graba sin {0}.", "No device available: this part will record without {0}.", what);
             }
             ShotStack.Log("Grabaci\u00F3n: " + title + (t == 1 ? " (" + a.DeviceName + ")" : ""));
             Ui(delegate { owner.Notify(title, text); });
@@ -2404,7 +2413,7 @@ namespace Stackshot
                 Dialogs.Show(error, "Stackshot", MessageBoxButtons.OK, icon);
                 return;
             }
-            if (Dialogs.Show(error + "\n\n\u00BFAbrir la carpeta?", "Stackshot", MessageBoxButtons.YesNo, icon) != DialogResult.Yes) return;
+            if (Dialogs.Show(error + I18n.T("\n\n\u00BFAbrir la carpeta?", "\n\nOpen folder?"), "Stackshot", MessageBoxButtons.YesNo, icon) != DialogResult.Yes) return;
             try { Process.Start(Native.Explorer, "\"" + rescueDir + "\""); }
             catch (Exception ex) { ShotStack.Log("Carpeta: " + ex.Message); }
         }
@@ -2415,20 +2424,20 @@ namespace Stackshot
             string title = null, text = null;
             if (stopReason != null)
             {
-                title = "Grabaci\u00F3n detenida";
-                text = stopReason + ": se ha guardado lo grabado hasta ese momento.";
+                title = I18n.T("Grabaci\u00F3n detenida", "Recording stopped");
+                text = stopReason + I18n.T(": se ha guardado lo grabado hasta ese momento.", ": what was recorded up to that point was saved.");
             }
             if (health != null && health.Bad)
             {
-                if (title == null) title = "La grabaci\u00F3n ha ido a tirones";
+                if (title == null) title = I18n.T("La grabaci\u00F3n ha ido a tirones", "Recording was choppy");
                 text = text == null ? health.Text : text + " " + health.Text;
             }
             // A source that clipped: the limiter keeps the MP4 from crackling, but the sound itself came in distorted.
             string clipped = Saturation(sys, mic);
             if (clipped != null)
             {
-                if (title == null) title = "El sonido ha saturado";
-                clipped += " Si se oye distorsionado, baja el volumen de esa fuente antes de grabar.";
+                if (title == null) title = I18n.T("El sonido ha saturado", "Audio clipped");
+                clipped += I18n.T(" Si se oye distorsionado, baja el volumen de esa fuente antes de grabar.", " If it sounds distorted, lower volume for that source before recording.");
                 text = text == null ? clipped : text + " " + clipped;
             }
             // Clicking it opens Grabación, where the advice (fps, quality, memory) can be acted on.
@@ -2442,16 +2451,18 @@ namespace Stackshot
             if (report.Passed && report.CaptureClean)
             {
                 long n = report.Verification.FramesMatched;
-                string done = n + " fotogramas id\u00E9nticos a los capturados. Para compartirlo, \u00E1brelo y exp\u00F3rtalo a MP4 (esa copia s\u00ED comprime).";
+                string done = I18n.Fmt("{0} fotogramas id\u00E9nticos a los capturados. Para compartirlo, \u00E1brelo y exp\u00F3rtalo a MP4 (esa copia s\u00ED comprime).",
+                                       "{0} frames identical to captured. To share, open and export to MP4 (that copy compresses).", n);
                 if (report.Saturation != null) done = report.Saturation + " " + done;
-                owner.Notify("Cine: sin p\u00E9rdidas, verificado", done);
+                owner.Notify(I18n.T("Cine: sin p\u00E9rdidas, verificado", "Cinema: lossless, verified"), done);
                 return;
             }
             string text = report.Summary();
             if (warning != null) text = warning + "\n\n" + text;
             if (health != null && health.Bad) text += "\n\n" + health.Text;
             else if (stopReason != null && stopReason.StartsWith("El equipo no ha podido", StringComparison.Ordinal))
-                text += "\n\nPrueba a grabar a 30 fps, un \u00E1rea m\u00E1s peque\u00F1a o con m\u00E1s memoria para picos de movimiento (Grabaci\u00F3n > Cine).";
+                text += I18n.T("\n\nPrueba a grabar a 30 fps, un \u00E1rea m\u00E1s peque\u00F1a o con m\u00E1s memoria para picos de movimiento (Grabaci\u00F3n > Cine).",
+                               "\n\nTry recording at 30 fps, smaller area or more memory for motion peaks (Recording > Cinema).");
             Dialogs.Show(text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 

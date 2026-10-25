@@ -93,11 +93,11 @@ namespace Stackshot
                     if (result == null)
                     {
                         Log("Unir capturas: " + error);
-                        Notify("No se pudieron unir", "Las capturas son demasiado grandes o no se han podido leer. Vuelve a intentarlo.");
+                        Notify(I18n.T("No se pudieron unir", "Could not combine"), I18n.T("Las capturas son demasiado grandes o no se han podido leer. Vuelve a intentarlo.", "The captures are too large or could not be read. Please try again."));
                         return;
                     }
                     Log("Capturas unidas: " + result.Width + "x" + result.Height);
-                    SaveCapture(result, "Unidas");
+                    SaveCapture(result, I18n.T("Unidas", "Combined"));
                 });
             });
         }

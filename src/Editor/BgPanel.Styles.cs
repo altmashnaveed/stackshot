@@ -164,7 +164,7 @@ namespace Stackshot
             string mine = On ? Styles.Of(Bg) : null;
             if (all.Count == 0)
             {
-                ToolStripMenuItem none = TrayMenu.Item("A\u00FAn no hay estilos: pulsa + para guardar el de ahora", null, delegate { });
+                ToolStripMenuItem none = TrayMenu.Item(I18n.T("A\u00FAn no hay estilos: pulsa + para guardar el de ahora", "No styles yet: click + to save the current one"), null, delegate { });
                 none.Enabled = false;
                 m.Items.Add(none);
             }
@@ -178,7 +178,7 @@ namespace Stackshot
             if (all.Count > 0)
             {
                 m.Items.Add(TrayMenu.Separator());
-                ToolStripMenuItem remove = TrayMenu.Item("Quitar un estilo", "trash", delegate { });
+                ToolStripMenuItem remove = TrayMenu.Item(I18n.T("Quitar un estilo", "Remove a style"), "trash", delegate { });
                 for (int i = 0; i < all.Count; i++)
                 {
                     int idx = i;

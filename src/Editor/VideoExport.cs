@@ -94,7 +94,7 @@ namespace Stackshot
                 // FFmpeg gone (an antivirus quarantined it, a custom path that no longer exists): a failure to report,
                 // never an exception on the caller's worker thread.
                 try { p.Start(); }
-                catch (Exception ex) { stderr = "No se pudo iniciar FFmpeg: " + ex.Message; return -1; }
+                catch (Exception ex) { stderr = I18n.T("No se pudo iniciar FFmpeg: ", "Could not start FFmpeg: ") + ex.Message; return -1; }
                 ChildJob.Add(p);
                 p.BeginErrorReadLine();
                 if (onLine != null) p.BeginOutputReadLine();

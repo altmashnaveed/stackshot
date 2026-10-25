@@ -82,6 +82,7 @@ namespace Stackshot
             watch.Interval = 30;
             watch.Tick += WatchTick;
             Ds.Changed += OnTheme;
+            I18n.Changed += OnTheme;
         }
 
         protected override bool PerPixel { get { return true; } }
@@ -477,17 +478,17 @@ namespace Stackshot
             items.Clear();
             Add(KHead, null, null, null, 0);
             Add(KLine, null, null, null, 0);
-            AddCapture("region", "\u00C1rea", "area", 1);
-            AddCapture("repeat", "Repetir \u00E1rea", "update", 1);
-            AddCapture("delayed", "\u00C1rea en " + settings.CaptureDelay + " s", "clock", 1);
-            AddCapture("screen", "Pantalla", "screen", 1);
-            AddCapture("window", "Ventana", "window", 1);
-            AddCapture("scroll", scrolling ? "Terminar desplazamiento" : "Desplazamiento", "scroll", 1);
-            AddCapture("text", "Texto", "textscan", 1);
+            AddCapture("region", I18n.T("\u00C1rea", "Area"), "area", 1);
+            AddCapture("repeat", I18n.T("Repetir \u00E1rea", "Repeat area"), "update", 1);
+            AddCapture("delayed", I18n.T("\u00C1rea en " + settings.CaptureDelay + " s", "Area in " + settings.CaptureDelay + " s"), "clock", 1);
+            AddCapture("screen", I18n.T("Pantalla", "Screen"), "screen", 1);
+            AddCapture("window", I18n.T("Ventana", "Window"), "window", 1);
+            AddCapture("scroll", scrolling ? I18n.T("Terminar desplazamiento", "Finish scrolling") : I18n.T("Desplazamiento", "Scrolling"), "scroll", 1);
+            AddCapture("text", I18n.T("Texto", "Text"), "textscan", 1);
             Add(KLine, null, null, null, 0);
-            AddCapture("video", recording ? "Detener grabaci\u00F3n" : "V\u00EDdeo", recording ? "stop!" : "video", 2).Alert = recording;
+            AddCapture("video", recording ? I18n.T("Detener grabaci\u00F3n", "Stop recording") : I18n.T("V\u00EDdeo", "Video"), recording ? "stop!" : "video", 2).Alert = recording;
             bool paused = recording && Recorder.Paused;
-            if (recording && Recorder.CanPause) Add(KRow, "pause", paused ? "Reanudar grabaci\u00F3n" : "Pausar grabaci\u00F3n", paused ? "play" : "pause", 2);
+            if (recording && Recorder.CanPause) Add(KRow, "pause", paused ? I18n.T("Reanudar grabaci\u00F3n", "Resume recording") : I18n.T("Pausar grabaci\u00F3n", "Pause recording"), paused ? "play" : "pause", 2);
             if (!recording) AddCapture("gif", "GIF", "gif", 2);
             AddCapture("markdown", "Markdown", "markdown", 2);
             Add(KLine, null, null, null, 0);
@@ -496,17 +497,17 @@ namespace Stackshot
                 Add(KStrip, null, null, null, 0);
                 Add(KLine, null, null, null, 0);
             }
-            Add(KRow, "home", "Abrir Stackshot", "home", 3);
-            Add(KRow, "folder", "Abrir capturas guardadas", "folder", 3);
-            Add(KRow, "openvideo", "Abrir v\u00EDdeo\u2026", "video", 3);
-            if (settings.XmlWatch) Add(KRow, "lastxml", "Abrir el \u00FAltimo XML", "doc", 3);
-            Add(KRow, "closeall", "Cerrar todas las miniaturas", "stack", 3).Enabled = HasCards == null || HasCards();
-            Add(KRow, "settings", "Ajustes\u2026", "gear", 3);
+            Add(KRow, "home", I18n.T("Abrir Stackshot", "Open Stackshot"), "home", 3);
+            Add(KRow, "folder", I18n.T("Abrir capturas guardadas", "Open saved captures"), "folder", 3);
+            Add(KRow, "openvideo", I18n.T("Abrir v\u00EDdeo\u2026", "Open video\u2026"), "video", 3);
+            if (settings.XmlWatch) Add(KRow, "lastxml", I18n.T("Abrir el \u00FAltimo XML", "Open latest XML"), "doc", 3);
+            Add(KRow, "closeall", I18n.T("Cerrar todas las miniaturas", "Close all thumbnails"), "stack", 3).Enabled = HasCards == null || HasCards();
+            Add(KRow, "settings", I18n.T("Ajustes\u2026", "Settings\u2026"), "gear", 3);
             Add(KLine, null, null, null, 0);
-            Add(KRow, "quit", "Salir", "power", 4);
+            Add(KRow, "quit", I18n.T("Salir", "Quit"), "power", 4);
             statusAlert = recording;
-            status = recording ? (paused ? "Grabaci\u00F3n en pausa" : "Grabando la pantalla") : scrolling ? "Captura con desplazamiento en curso"
-                   : today == 1 ? "1 captura hoy" : today > 1 ? today + " capturas hoy" : "Listo para capturar";
+            status = recording ? (paused ? I18n.T("Grabaci\u00F3n en pausa", "Recording paused") : I18n.T("Grabando la pantalla", "Recording screen")) : scrolling ? I18n.T("Captura con desplazamiento en curso", "Scrolling capture in progress")
+                   : today == 1 ? I18n.T("1 captura hoy", "1 capture today") : today > 1 ? I18n.T(today + " capturas hoy", today + " captures today") : I18n.T("Listo para capturar", "Ready to capture");
         }
 
         // Items from the current state; lays out (and drops the cached layers) only if anything changed. fit is the

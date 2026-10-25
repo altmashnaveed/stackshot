@@ -59,9 +59,10 @@ namespace Stackshot
             if (pet != null && !pet.CanRemind) return;
             settings.FitbitAsked = Today;
             settings.Save();
-            string text = "\u00BFTienes un Pixel Watch o un Fitbit? Si lo conectas, te acompa\u00F1o con tus pasos, tu actividad y tu sue\u00F1o. Los datos van de Google a tu equipo.";
+            string text = I18n.T("\u00BFTienes un Pixel Watch o un Fitbit? Si lo conectas, te acompa\u00F1o con tus pasos, tu actividad y tu sue\u00F1o. Los datos van de Google a tu equipo.",
+                                 "Have a Pixel Watch or a Fitbit? If you connect it, I can accompany you with your steps, activity and sleep. Data goes from Google directly to your PC.");
             if (pet != null) pet.WatchOffer(text, delegate { ConnectWatch(null); }, delegate { settings.FitbitAsked = "no"; settings.Save(); });
-            else Notify("\u00BFConectamos tu reloj?", text, NoticeKind.Info, "Conectar", delegate { ConnectWatch(null); });
+            else Notify(I18n.T("\u00BFConectamos tu reloj?", "Connect your smartwatch?"), text, NoticeKind.Info, I18n.T("Conectar", "Connect"), delegate { ConnectWatch(null); });
         }
 
         // ---- Water
@@ -95,27 +96,27 @@ namespace Stackshot
             List<string> parts = new List<string>();
             int water = WaterToday();
             if ((want & Settings.SummaryWater) != 0 && WaterOn && (water > 0 || settings.WaterGoal > 0))
-                parts.Add(settings.WaterGoal > 0 ? water + " de " + settings.WaterGoal + " vasos de agua" : water + (water == 1 ? " vaso" : " vasos") + " de agua");
+                parts.Add(settings.WaterGoal > 0 ? I18n.Fmt("{0} de {1} vasos de agua", "{0} of {1} glasses of water", water, settings.WaterGoal) : I18n.Fmt(water == 1 ? "{0} vaso de agua" : "{0} vasos de agua", water == 1 ? "{0} glass of water" : "{0} glasses of water", water));
             if ((want & Settings.SummaryBreaks) != 0 && settings.WellOn)
             {
                 int[] done = Wellness.Today(settings);
                 int eyes = done[WellKind.Eyes], move = done[WellKind.Move], breathe = done[WellKind.Breathe];
-                if (eyes > 0) parts.Add(eyes + (eyes == 1 ? " descanso" : " descansos") + " de vista");
-                if (move > 0) parts.Add(move + (move == 1 ? " pausa" : " pausas") + " para moverte");
-                if (breathe > 0) parts.Add(breathe + " " + (breathe == 1 ? "minuto" : "minutos") + " respirando");
+                if (eyes > 0) parts.Add(I18n.Fmt(eyes == 1 ? "{0} descanso de vista" : "{0} descansos de vista", eyes == 1 ? "{0} eye rest" : "{0} eye rests", eyes));
+                if (move > 0) parts.Add(I18n.Fmt(move == 1 ? "{0} pausa para moverte" : "{0} pausas para moverte", move == 1 ? "{0} movement break" : "{0} movement breaks", move));
+                if (breathe > 0) parts.Add(I18n.Fmt(breathe == 1 ? "{0} minuto respirando" : "{0} minutos respirando", breathe == 1 ? "{0} minute breathing" : "{0} minutes breathing", breathe));
             }
             FocusDayCheck();
             if ((want & Settings.SummaryFocus) != 0 && settings.FocusBlocks > 0)
-                parts.Add(settings.FocusBlocks + (settings.FocusBlocks == 1 ? " bloque" : " bloques") + " de concentraci\u00F3n (" + FocusClock.Minutes(settings.FocusMinutes) + ")");
+                parts.Add(I18n.Fmt(settings.FocusBlocks == 1 ? "{0} bloque de concentraci\u00F3n ({1})" : "{0} bloques de concentraci\u00F3n ({1})", settings.FocusBlocks == 1 ? "{0} focus block ({1})" : "{0} focus blocks ({1})", settings.FocusBlocks, FocusClock.Minutes(settings.FocusMinutes)));
             if ((want & Settings.SummarySteps) != 0 && GoogleHealth.Connected && watch != null && watch.ReadAt.Date == DateTime.Today && watch.Steps > 0)
-                parts.Add(watch.Steps.ToString("N0", Es) + " pasos");
+                parts.Add(watch.Steps.ToString("N0", I18n.IsSpanish ? Es : CultureInfo.InvariantCulture) + I18n.T(" pasos", " steps"));
             StatsDayCheck();
             if ((want & Settings.SummaryCaptures) != 0 && settings.StatsCaptures > 0)
-                parts.Add(settings.StatsCaptures + (settings.StatsCaptures == 1 ? " captura" : " capturas"));
+                parts.Add(I18n.Fmt(settings.StatsCaptures == 1 ? "{0} captura" : "{0} capturas", settings.StatsCaptures == 1 ? "{0} capture" : "{0} captures", settings.StatsCaptures));
             if (parts.Count == 0) return null;
             string last = parts[parts.Count - 1];
             parts.RemoveAt(parts.Count - 1);
-            return "Hoy: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) + " y " + last : last) + ".";
+            return I18n.T("Hoy: ", "Today: ") + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) + I18n.T(" y ", " and ") + last : last) + ".";
         }
 
         double summaryWait;
@@ -130,8 +131,8 @@ namespace Stackshot
             settings.SummaryDay = Today;
             settings.Save();
             if (text == null) return;
-            if (teller == Teller.Pet) pet.HealthTell("\u00BFQu\u00E9 tal el d\u00EDa? " + text, true);
-            else Notify("Tu d\u00EDa", text);
+            if (teller == Teller.Pet) pet.HealthTell(I18n.T("\u00BFQu\u00E9 tal el d\u00EDa? ", "How was your day? ") + text, true);
+            else Notify(I18n.T("Tu d\u00EDa", "Your day"), text);
         }
 
         // ---- Today's captures
@@ -150,7 +151,7 @@ namespace Stackshot
             settings.Save();
             // A busy day gets a word from the mascot, at a few round numbers.
             int n = settings.StatsCaptures;
-            if (settings.MascotRhythm && PetShown && (n == 25 || n == 50 || n == 100)) pet.FocusSay("\u00A1Vaya d\u00EDa! Ya llevas " + n + " capturas.");
+            if (settings.MascotRhythm && PetShown && (n == 25 || n == 50 || n == 100)) pet.FocusSay(I18n.Fmt("\u00A1Vaya d\u00EDa! Ya llevas {0} capturas.", "What a day! You're already at {0} captures.", n));
         }
 
         // ---- The watch
@@ -273,10 +274,12 @@ namespace Stackshot
                 Ui(delegate
                 {
                     if (error == GoogleHealth.Cancelled) { }
-                    else if (error != null) Notify("No se ha conectado el reloj", error);
+                    else if (error != null) Notify(I18n.T("No se ha conectado el reloj", "Watch could not connect"), error);
                     else
                     {
-                        Notify("Reloj conectado", "Stackshot leer\u00E1 tus pasos, tu actividad y tu sue\u00F1o cada media hora. Los datos van de Google a tu equipo.");
+                        Notify(I18n.T("Reloj conectado", "Watch connected"),
+                               I18n.T("Stackshot leer\u00E1 tus pasos, tu actividad y tu sue\u00F1o cada media hora. Los datos van de Google a tu equipo.",
+                                      "Stackshot will read your steps, activity and sleep every half hour. Data goes from Google directly to your PC."));
                         ReadWatch(delegate { if (changed != null) changed(); });
                     }
                     if (changed != null) changed();

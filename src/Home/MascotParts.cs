@@ -195,11 +195,15 @@ namespace Stackshot
         public static readonly string[] FaceNames = { "Nada", "Gafas de sol", "Gafas pixel", "Gafas redondas", "Mon\u00F3culo", "Antifaz",
                                                       "Parche pirata", "Bigote", "Venda", "Cejas gordas", "Mofletes rojos", "Marcas de bigote", "Tatuaje y barba", "Barba de mago", "Terminal",
                                                       "Estrella y l\u00E1grima", "Bozal de bamb\u00FA", "M\u00E1scara ninja", "M\u00E1scara ar\u00E1cnida", "Nariz azul", "Gafas triangulares" };
-        public static readonly string[] Personalities = { "Alegre", "Tranquilo", "Gamberro" };
+        static readonly string[] PersonalitiesEs = { "Alegre", "Tranquilo", "Gamberro" };
+        static readonly string[] PersonalitiesEn = { "Cheerful", "Calm", "Mischievous" };
+        public static string[] Personalities { get { return I18n.IsSpanish ? PersonalitiesEs : PersonalitiesEn; } }
 
         // ---- Friendship: one point per capture. A few items unlock along the way, like companions that grow with you.
         static readonly int[] LevelAt = { 0, 10, 30, 75, 150, 300 };
-        public static readonly string[] LevelNames = { "Reci\u00E9n llegados", "Colegas", "Amigos", "Mejores amigos", "Inseparables", "Leyenda" };
+        static readonly string[] LevelNamesEs = { "Reci\u00E9n llegados", "Colegas", "Amigos", "Mejores amigos", "Inseparables", "Leyenda" };
+        static readonly string[] LevelNamesEn = { "Newcomers", "Buddies", "Friends", "Best Friends", "Inseparable", "Legend" };
+        public static string[] LevelNames { get { return I18n.IsSpanish ? LevelNamesEs : LevelNamesEn; } }
 
         public static int Level(int love)
         {
@@ -223,7 +227,9 @@ namespace Stackshot
         public static int UnlockLove(int level) { return LevelAt[Math.Max(0, Math.Min(LevelAt.Length - 1, level))]; }
 
         // Ready-made looks: kind, color, eyes, hat, outfit, face.
-        public static readonly string[] StyleNames = { "Cl\u00E1sico", "Halloween", "Chulo", "Cute", "Vampiro", "Dragoncito", "Pirata", "Chef", "Vaquero", "Doctor", "Brujita", "M\u00FAsico", "Invierno", "Enamorado", "Fiestero", "Aventurero", "Primavera", "Campe\u00F3n" };
+        static readonly string[] StyleNamesEs = { "Cl\u00E1sico", "Halloween", "Chulo", "Cute", "Vampiro", "Dragoncito", "Pirata", "Chef", "Vaquero", "Doctor", "Brujita", "M\u00FAsico", "Invierno", "Enamorado", "Fiestero", "Aventurero", "Primavera", "Campe\u00F3n" };
+        static readonly string[] StyleNamesEn = { "Classic", "Halloween", "Cool", "Cute", "Vampire", "Little Dragon", "Pirate", "Chef", "Cowboy", "Doctor", "Little Witch", "Musician", "Winter", "In Love", "Party Goer", "Adventurer", "Spring", "Champion" };
+        public static string[] StyleNames { get { return I18n.IsSpanish ? StyleNamesEs : StyleNamesEn; } }
         static readonly int[,] Styles =
         {
             { 0, 0, 0, 0, 0, 0, 0 },

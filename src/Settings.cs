@@ -67,6 +67,7 @@ namespace Stackshot
         public string BgStyles = "";    // styles saved from the editor's sidebar (BgPanel.Styles)
         // Main window and mascot.
         public int Appearance = 0;          // 0 follow Windows, 1 light, 2 dark
+        public string Language = "auto";    // auto, es, en
         public bool AllInOne = false;       // area capture: adjust the area and choose image, video, GIF or scrolling before capturing
         public bool AdjustFirst = false;    // area capture: the area stays adjustable, with a live preview, until Enter or Capturar
         public int CaptureDelay = 3;        // seconds the timed capture counts down: 3, 5 or 10
@@ -172,6 +173,7 @@ namespace Stackshot
             // Equilibrado no longer has the mascot on the desktop: whoever had put it there is on Completo, as before.
             if (s.Profile == 1 && s.MascotDesktopSaved && s.MascotOnSaved) s.Profile = 2;
             Policy.Apply(s); // what IT forces; the file keeps the user's own choices
+            if (!ReadOnly) I18n.Apply(s.Language);
             return s;
         }
 
@@ -259,6 +261,7 @@ namespace Stackshot
                         case "window": s.HotWindow = v; break;
                         case "scroll": s.HotScroll = v; break;
                         case "appearance": s.Appearance = Int(v, s.Appearance, 0, 2); break;
+                        case "language": { string l = v.ToLowerInvariant().Trim(); if (l == "auto" || l == "es" || l == "en") s.Language = l; break; }
                         case "allinone": s.AllInOne = Bool(v, s.AllInOne); break;
                         case "adjustfirst": s.AdjustFirst = Bool(v, s.AdjustFirst); break;
                         case "capturedelay": { int cd = Int(v, s.CaptureDelay, 0, 60); s.CaptureDelay = cd == 3 || cd == 5 || cd == 10 ? cd : s.CaptureDelay; break; }
@@ -537,6 +540,8 @@ namespace Stackshot
             b.AppendLine("BgStyles = " + OneLine(BgStyles));
             b.AppendLine("# Tema: 0 como Windows, 1 claro, 2 oscuro");
             b.AppendLine("Appearance = " + Appearance);
+            b.AppendLine("# Idioma / Language: auto, es, en");
+            b.AppendLine("Language = " + OneLine(Language));
             b.AppendLine("AllInOne = " + (AllInOne ? "1" : "0"));
             b.AppendLine("AdjustFirst = " + (AdjustFirst ? "1" : "0"));
             b.AppendLine("CaptureDelay = " + CaptureDelay);

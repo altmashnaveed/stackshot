@@ -98,9 +98,9 @@ namespace Stackshot
         public static string Note(CoverOutcome r)
         {
             if (r == null) return null;
-            if (r.Error != null) return "Sin revisar";
+            if (r.Error != null) return I18n.T("Sin revisar", "Unchecked");
             int n = r.Found.Count;
-            return n == 0 ? null : n == 1 ? "1 dato tapado" : n + " datos tapados";
+            return n == 0 ? null : n == 1 ? I18n.T("1 dato tapado", "1 piece of data redacted") : (I18n.IsSpanish ? n + " datos tapados" : n + " items redacted");
         }
 
         // Same pixels, a pixel fully transparent in both counting as the same whatever its colour.

@@ -66,7 +66,7 @@ namespace Stackshot
             if (dir != null)
             {
                 n.Folder = dir;
-                n.ActionLabel = "Abrir la carpeta";
+                n.ActionLabel = I18n.T("Abrir la carpeta", "Open folder");
                 n.Action = delegate { OpenExplorer(dir); };
             }
             return n;
@@ -77,8 +77,8 @@ namespace Stackshot
         void TellArrivedXml(string path)
         {
             string op = XmlWatch.Operation(path);
-            Notify("Nuevo XML", System.IO.Path.GetFileName(path) + (op.Length > 0 ? " (" + op + ")" : "") + ". El visor tiene cambios sin guardar: \u00E1brelo desde la bandeja cuando acabes.",
-                   NoticeKind.Info, "Abrir el XML", delegate { if (!exiting) OpenViewerFile(path); });
+            Notify(I18n.T("Nuevo XML", "New XML"), System.IO.Path.GetFileName(path) + (op.Length > 0 ? " (" + op + ")" : "") + I18n.T(". El visor tiene cambios sin guardar: \u00E1brelo desde la bandeja cuando acabes.", ". The viewer has unsaved changes: open it from the tray when finished."),
+                   NoticeKind.Info, I18n.T("Abrir el XML", "Open XML"), delegate { if (!exiting) OpenViewerFile(path); });
         }
 
         // The busy-shortcuts notice's button: Atajos, to pick others.
