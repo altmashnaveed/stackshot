@@ -5,3 +5,4 @@ tests/*/results/
 tools/report-relay/.wrangler/
 tools/report-relay/node_modules/
 scratch/
+push_to_github.bat
