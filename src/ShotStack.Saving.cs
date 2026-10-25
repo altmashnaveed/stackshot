@@ -21,7 +21,7 @@ namespace Stackshot
             peeked = false;
             Screen scr = AnchorScreen();
             if (savingCard == null || savingCard.IsDisposed) savingCard = new SavingCard();
-            savingCard.Set(SavingSlot(scr), ScaleFor(scr), label ?? (gif ? "Guardando el GIF\u2026" : "Guardando el v\u00EDdeo\u2026"), fraction);
+            savingCard.Set(SavingSlot(scr), ScaleFor(scr), label ?? (gif ? I18n.T("Guardando el GIF\u2026", "Saving GIF\u2026") : I18n.T("Guardando el v\u00EDdeo\u2026", "Saving video\u2026")), fraction);
         }
 
         public void SavingDone()

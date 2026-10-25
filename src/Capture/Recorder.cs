@@ -208,7 +208,9 @@ namespace Stackshot
         static readonly int[] NtscFamily = { 60, 120, 144, 180, 240, 360 };
 
         // Stop codes of a stopped recording, shown to the user.
-        internal const string LockedReason = "Se ha bloqueado el equipo", SuspendReason = "El equipo se va a suspender", DiskReason = "Queda poco espacio en el disco";
+        internal static string LockedReason { get { return I18n.T("Se ha bloqueado el equipo", "Computer was locked"); } }
+        internal static string SuspendReason { get { return I18n.T("El equipo se va a suspender", "Computer is suspending"); } }
+        internal static string DiskReason { get { return I18n.T("Queda poco espacio en el disco", "Low disk space"); } }
 
         // Runs one final FFmpeg pass to the end under a watch (cancel, stall), reporting progress (0..1 of `seconds`);
         // stderr goes to `errors`. The exit code, or -1 when it could not start (the reason is then in `errors`).
@@ -707,15 +709,19 @@ namespace Stackshot
             bool spike = maxLateMs > 250;
             if (!many && !spike) return r;
             r.Bad = true;
-            if (onBattery) r.Advice.Add("enchufar el port\u00E1til");
-            if (fps > (gif ? 20 : 30)) r.Advice.Add(gif ? "bajar los fotogramas del GIF" : "bajar a 30 fps");
-            if ((long)w * h > 1920L * 1080) r.Advice.Add("grabar un \u00E1rea m\u00E1s peque\u00F1a");
-            if (!gif && (quality == Recorder.Maximum || quality == Recorder.Cinema)) r.Advice.Add("usar la calidad Alta");
-            r.Advice.Add("cerrar las apps que no uses");
+            if (onBattery) r.Advice.Add(I18n.T("enchufar el port\u00E1til", "plug in your laptop"));
+            if (fps > (gif ? 20 : 30)) r.Advice.Add(gif ? I18n.T("bajar los fotogramas del GIF", "lower GIF frame rate") : I18n.T("bajar a 30 fps", "lower to 30 fps"));
+            if ((long)w * h > 1920L * 1080) r.Advice.Add(I18n.T("grabar un \u00E1rea m\u00E1s peque\u00F1a", "record a smaller area"));
+            if (!gif && (quality == Recorder.Maximum || quality == Recorder.Cinema)) r.Advice.Add(I18n.T("usar la calidad Alta", "use High quality"));
+            r.Advice.Add(I18n.T("cerrar las apps que no uses", "close unused apps"));
             string what = many
-                ? "Tu equipo no ha podido seguir el ritmo: " + r.Affected + " fotogramas (" + Num(r.Percent) + " %) salieron tarde o repetidos."
-                : "Tu equipo se atasc\u00F3 un momento (" + Num(maxLateMs / 1000) + " s) y alg\u00FAn fotograma pudo repetirse.";
-            r.Text = what + " Prueba a " + Join(r.Advice, 3) + ".";
+                ? (I18n.IsSpanish
+                    ? "Tu equipo no ha podido seguir el ritmo: " + r.Affected + " fotogramas (" + Num(r.Percent) + " %) salieron tarde o repetidos."
+                    : "Your computer couldn't keep up: " + r.Affected + " frames (" + Num(r.Percent) + "%) were late or repeated.")
+                : (I18n.IsSpanish
+                    ? "Tu equipo se atasc\u00F3 un momento (" + Num(maxLateMs / 1000) + " s) y alg\u00FAn fotograma pudo repetirse."
+                    : "Your computer hitched for a moment (" + Num(maxLateMs / 1000) + " s) and some frames may have repeated.");
+            r.Text = what + (I18n.IsSpanish ? " Prueba a " : " Try to ") + Join(r.Advice, 3) + ".";
             return r;
         }
 
@@ -731,7 +737,7 @@ namespace Stackshot
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < n; i++)
             {
-                if (i > 0) sb.Append(i == n - 1 ? " o " : ", ");
+                if (i > 0) sb.Append(i == n - 1 ? (I18n.IsSpanish ? " o " : " or ") : ", ");
                 sb.Append(items[i]);
             }
             return sb.ToString();
@@ -2155,19 +2161,19 @@ namespace Stackshot
             string held = total < 0.9995 ? Math.Max(1, (int)Math.Round(total * 1000)) + " ms" : total.ToString("0.0", CultureInfo.CurrentCulture) + " s";
             string when = first >= 3600 ? (first / 3600) + ":" + (first / 60 % 60).ToString("00") + ":" + (first % 60).ToString("00")
                                         : (first / 60) + ":" + (first % 60).ToString("00");
-            return "satur\u00F3 " + (a.ClipEvents == 1 ? "una vez" : "en " + a.ClipEvents + " momentos") +
-                   " (" + (a.ClipEvents == 1 ? "a " : "el primero a ") + when + ", " + held + " a fondo de escala)";
+            return (I18n.IsSpanish ? "satur\u00F3 " : "clipped ") + (a.ClipEvents == 1 ? (I18n.IsSpanish ? "una vez" : "once") : (I18n.IsSpanish ? "en " + a.ClipEvents + " momentos" : a.ClipEvents + " times")) +
+                   " (" + (a.ClipEvents == 1 ? (I18n.IsSpanish ? "a " : "at ") : (I18n.IsSpanish ? "el primero a " : "first at ")) + when + ", " + held + (I18n.IsSpanish ? " a fondo de escala)" : " peak)");
         }
 
         // One line for the notice when a source clipped, or null.
         internal static string Saturation(AudioCapture sys, AudioCapture mic)
         {
             List<string> parts = new List<string>();
-            if (sys != null && sys.ClipEvents > 0) parts.Add("el sonido del equipo " + ClipText(sys));
-            if (mic != null && mic.ClipEvents > 0) parts.Add("el micr\u00F3fono " + ClipText(mic));
+            if (sys != null && sys.ClipEvents > 0) parts.Add((I18n.IsSpanish ? "el sonido del equipo " : "system audio ") + ClipText(sys));
+            if (mic != null && mic.ClipEvents > 0) parts.Add((I18n.IsSpanish ? "el micr\u00F3fono " : "microphone ") + ClipText(mic));
             if (parts.Count == 0) return null;
-            string t = string.Join(" y ", parts.ToArray());
-            return "Ojo: " + t + ".";
+            string t = string.Join(I18n.IsSpanish ? " y " : " and ", parts.ToArray());
+            return (I18n.IsSpanish ? "Ojo: " : "Note: ") + t + ".";
         }
 
         void MakeCine(double seconds)
@@ -2180,7 +2186,7 @@ namespace Stackshot
             string temp = Path.Combine(Settings.TempDir, "~cine " + stamp + Cine.Extension);
             TryDelete(temp);
             masterTemp = temp;
-            string failure = CineMaster.Build(ffmpeg, video, sysArg, micArg, gain, temp, seconds, CineProgress("Guardando el m\u00E1ster sin p\u00E9rdidas\u2026"), watch);
+            string failure = CineMaster.Build(ffmpeg, video, sysArg, micArg, gain, temp, seconds, CineProgress(I18n.T("Guardando el m\u00E1ster sin p\u00E9rdidas\u2026", "Saving lossless master\u2026")), watch);
             report.MuxSeconds = sw.Elapsed.TotalSeconds;
             if (failure != null)
             {
@@ -2198,7 +2204,7 @@ namespace Stackshot
             expect.FrameHashes = sink.Hashes;
             expect.Audio = tracks;
             Stopwatch vw = Stopwatch.StartNew();
-            CineVerification v = CineVerifier.Verify(ffmpeg, temp, expect, CineProgress("Comprobando que no hay p\u00E9rdidas\u2026"), watch);
+            CineVerification v = CineVerifier.Verify(ffmpeg, temp, expect, CineProgress(I18n.T("Comprobando que no hay p\u00E9rdidas\u2026", "Verifying lossless capture\u2026")), watch);
             report.VerifySeconds = vw.Elapsed.TotalSeconds;
             report.Verification = v;
             poster = v.Poster;
@@ -2317,7 +2323,7 @@ namespace Stackshot
 
         void MakeGif(double seconds)
         {
-            Encode(Recorder.GifArgs(area.Width, gifFps, video, output), "Creando el GIF\u2026", seconds, "No se pudo crear el GIF.");
+            Encode(Recorder.GifArgs(area.Width, gifFps, video, output), I18n.T("Creando el GIF\u2026", "Creating GIF\u2026"), seconds, I18n.T("No se pudo crear el GIF.", "Could not create GIF."));
         }
 
         // The finished MP4: sound added (voice brought to a steady level, mixed without clipping) and, for the lossless
@@ -2327,8 +2333,8 @@ namespace Stackshot
             string voiceGain = mic != null ? VoiceGain() : "";
             string args = Recorder.FinishArgs(quality, lossless, source != null && source.Nv12, area.Width, area.Height, fpsNum, fpsDen, video,
                                               sys != null ? sysPath : null, mic != null ? micPath : null, voiceGain, output);
-            string label = quality == Recorder.Maximum ? "Guardando en m\u00E1xima calidad\u2026" : "A\u00F1adiendo el sonido\u2026";
-            Encode(args, label, seconds, "No se pudo guardar el v\u00EDdeo.");
+            string label = quality == Recorder.Maximum ? I18n.T("Guardando en m\u00E1xima calidad\u2026", "Saving in maximum quality\u2026") : I18n.T("A\u00F1adiendo el sonido\u2026", "Adding audio\u2026");
+            Encode(args, label, seconds, I18n.T("No se pudo guardar el v\u00EDdeo.", "Could not save video."));
         }
 
         // A fixed gain that brings the voice to about -16 LUFS (EBU R128), the level of good voice-overs: no compression
