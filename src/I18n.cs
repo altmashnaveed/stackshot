@@ -17,6 +17,14 @@ namespace Stackshot
         }
 
         // Sets the active language: "auto" (follows Windows UI culture), "es", or "en".
+        // What Automático picks for a Windows display language: Spanish on a Spanish Windows, and on a Catalan, Galician or
+        // Basque one (Spanish is closer to home there than English); English everywhere else.
+        public static bool SpanishWindows(CultureInfo ui)
+        {
+            string l = ui.TwoLetterISOLanguageName.ToLowerInvariant();
+            return l == "es" || l == "ca" || l == "gl" || l == "eu";
+        }
+
         public static void Apply(string mode)
         {
             if (string.IsNullOrEmpty(mode)) mode = "auto";
@@ -37,16 +45,8 @@ namespace Stackshot
             }
             else
             {
-                // Auto: default to Spanish if system is Spanish; otherwise English.
-                try
-                {
-                    string ui = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-                    IsSpanish = string.Equals(ui, "es", StringComparison.OrdinalIgnoreCase);
-                }
-                catch
-                {
-                    IsSpanish = false;
-                }
+                try { IsSpanish = SpanishWindows(CultureInfo.CurrentUICulture); }
+                catch { IsSpanish = false; }
             }
 
             if (wasSpanish != IsSpanish || wasMode != Mode)
