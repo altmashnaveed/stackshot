@@ -477,7 +477,7 @@ namespace Stackshot
             if (hr == AccessDenied)
                 return Computer ? I18n.T("Windows no deja grabar el sonido del equipo.", "Windows does not allow recording computer audio.") :
                        I18n.T("Windows no deja usar el micr\u00F3fono. Act\u00EDvalo en Configuraci\u00F3n > Privacidad y seguridad > Micr\u00F3fono (\u00ABPermitir que las aplicaciones de escritorio accedan al micr\u00F3fono\u00BB).",
-                              "Windows does not allow using the microphone. Enable it in Settings > Privacy & security > Microphone (\u00ABLet desktop apps access your microphone\u00BB).");
+                              "Windows does not allow using the microphone. Enable it in Settings > Privacy & security > Microphone (\u201CLet desktop apps access your microphone\u201D).");
             return I18n.Fmt("El dispositivo de sonido no se puede usar (0x{0}).", "The audio device cannot be used (0x{0}).", hr.ToString("X8"));
         }
 

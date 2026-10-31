@@ -41,10 +41,16 @@ namespace Stackshot
             public DateTime When = DateTime.Now;
         }
 
-        // Empty or the default (however it is spaced around): today's names.
+        // The default as Ajustes shows it, in the interface's language; both spellings are the default.
+        public const string DefaultEnglish = "{type} {date} {time}";
+        public static string DefaultShown { get { return I18n.IsSpanish ? Settings.DefaultNameTemplate : DefaultEnglish; } }
+
+        // Empty or the default (however it is spaced around, in either language): today's names.
         public static bool IsDefault(string template)
         {
-            return template == null || template.Trim().Length == 0 || template.Trim() == Settings.DefaultNameTemplate;
+            if (template == null || template.Trim().Length == 0) return true;
+            string t = template.Trim();
+            return t == Settings.DefaultNameTemplate || t == DefaultEnglish;
         }
 
         // True when the template has that token ("{n}"), in any case.

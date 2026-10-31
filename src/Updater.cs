@@ -313,7 +313,8 @@ namespace Stackshot
                 {
                     failedBefore = null;
                     autoFailed = problemTag = Available.Tag;
-                    Problem = "La instalaci\u00F3n de la " + Available.Version.ToString(3) + " no se complet\u00F3. Vuelve a intentarlo o desc\u00E1rgala desde GitHub.";
+                    Problem = I18n.Fmt("La instalaci\u00F3n de la {0} no se complet\u00F3. Vuelve a intentarlo o desc\u00E1rgala desde GitHub.",
+                                       "Installing {0} did not complete. Try again or download it from GitHub.", Available.Version.ToString(3));
                     ProblemInstalling = true;
                 }
                 // Found from Acerca de: it's already on screen, no need to announce it.
@@ -485,7 +486,7 @@ namespace Stackshot
                 int code = 0;
                 try { code = (int)resp.StatusCode; resp.Close(); } catch { }
                 if (code == 403 || code == 429) return I18n.T("GitHub ha limitado las consultas durante un rato; se volver\u00E1 a intentar m\u00E1s tarde.", "GitHub rate limit reached; will try again later.");
-                if (code == 407) return I18n.Fmt("El proxy de la red no deja {0}.", "Network proxy does not allow to {0}.", what);
+                if (code == 407) return I18n.Fmt("El proxy de la red no deja {0}.", "The network proxy does not let Stackshot {0}.", what);
                 if (code >= 500) return I18n.T("GitHub no responde ahora mismo; se volver\u00E1 a intentar m\u00E1s tarde.", "GitHub is not responding right now; will try again later.");
                 return I18n.Fmt("No se pudo {0} (error {1}).", "Could not {0} (error {1}).", what, code);
             }
@@ -561,7 +562,7 @@ namespace Stackshot
                         error = Matches(exe, r);
                     }
                 }
-                catch (FormatException) { error = "La firma de la actualizaci\u00F3n no es v\u00E1lida; se ha descartado."; }
+                catch (FormatException) { error = I18n.T("La firma de la actualizaci\u00F3n no es v\u00E1lida; se ha descartado.", "The update's signature is not valid; it was discarded."); }
                 catch (Exception ex)
                 {
                     error = Why(ex, true);
@@ -601,14 +602,14 @@ namespace Stackshot
             using (Stream s = resp.GetResponseStream())
             {
                 long total = resp.ContentLength;
-                if (total > MaxDownload) throw new InvalidDataException("demasiado grande");
+                if (total > MaxDownload) throw new InvalidDataException(I18n.T("demasiado grande", "too large"));
                 MemoryStream ms = new MemoryStream(total > 0 ? (int)total : 1 << 20);
                 byte[] buf = new byte[81920];
                 int n, shown = Environment.TickCount;
                 while ((n = s.Read(buf, 0, buf.Length)) > 0)
                 {
                     ms.Write(buf, 0, n);
-                    if (ms.Length > MaxDownload) throw new InvalidDataException("demasiado grande");
+                    if (ms.Length > MaxDownload) throw new InvalidDataException(I18n.T("demasiado grande", "too large"));
                     if (report && total > 0 && unchecked(Environment.TickCount - shown) >= 60)
                     {
                         shown = Environment.TickCount;
@@ -628,7 +629,7 @@ namespace Stackshot
             string fv = FileVersionInfo.GetVersionInfo(exe).FileVersion ?? "";
             if (!Version.TryParse(fv, out got) || got <= Installer.MyVersion || got.Major != r.Version.Major || got.Minor != r.Version.Minor ||
                 Math.Max(0, got.Build) != r.Version.Build)
-                return "La versi\u00F3n descargada no coincide con la publicada; se ha descartado.";
+                return I18n.T("La versi\u00F3n descargada no coincide con la publicada; se ha descartado.", "The downloaded version does not match the published one; it was discarded.");
             return null;
         }
 
@@ -667,7 +668,7 @@ namespace Stackshot
                     byte[] data = new byte[fs.Length];
                     int off = 0, n;
                     while (off < data.Length && (n = fs.Read(data, off, data.Length - off)) > 0) off += n;
-                    error = off != data.Length ? "La descarga est\u00E1 incompleta; se ha descartado." : Verify(data, readySig, r.Sha256) ?? Matches(readyExe, r);
+                    error = off != data.Length ? I18n.T("La descarga est\u00E1 incompleta; se ha descartado.", "The download is incomplete; it was discarded.") : Verify(data, readySig, r.Sha256) ?? Matches(readyExe, r);
                     if (error == null)
                     {
                         ShotStack.Log("Actualizando a " + r.Tag + (manual ? "" : " (autom\u00E1tica)") + " (verificada: SHA-256 y firma)");
@@ -741,12 +742,12 @@ namespace Stackshot
         {
             string actual;
             using (SHA256 sha = SHA256.Create()) actual = BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "").ToLowerInvariant();
-            if (sha256 == null || actual != sha256) return "La descarga no coincide con la suma SHA-256 publicada; se ha descartado.";
+            if (sha256 == null || actual != sha256) return I18n.T("La descarga no coincide con la suma SHA-256 publicada; se ha descartado.", "The download does not match the published SHA-256 checksum; it was discarded.");
             using (RSACng rsa = new RSACng())
             {
                 rsa.FromXmlString(PublicKey);
                 if (sig == null || !rsa.VerifyData(data, sig, HashAlgorithmName.SHA256, RSASignaturePadding.Pss))
-                    return "La firma de la actualizaci\u00F3n no es v\u00E1lida; se ha descartado.";
+                    return I18n.T("La firma de la actualizaci\u00F3n no es v\u00E1lida; se ha descartado.", "The update's signature is not valid; it was discarded.");
             }
             return null;
         }

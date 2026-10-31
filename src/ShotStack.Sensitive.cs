@@ -46,7 +46,7 @@ namespace Stackshot
             Ui(delegate
             {
                 Card c = Find(path);
-                if (c != null) c.CoverNote("Revisando datos\u2026");
+                if (c != null) c.CoverNote(I18n.T("Revisando datos\u2026", "Checking data\u2026"));
             });
             job.Start();
             return true;

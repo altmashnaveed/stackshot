@@ -722,7 +722,7 @@ namespace Stackshot
             handleHot = on;
             Cursor = on ? Cursors.Hand : Cursors.Default;
             Rectangle r = HandleRect;
-            if (on) EdTip.Schedule(this, r, "Arr\u00E1strala al chat, a un correo o a otra aplicaci\u00F3n", true);
+            if (on) EdTip.Schedule(this, r, I18n.T("Arr\u00E1strala al chat, a un correo o a otra aplicaci\u00F3n", "Drag it into a chat, an email or another app"), true);
             else EdTip.Cancel();
             Invalidate(Rectangle.Inflate(r, 2, 2));
         }

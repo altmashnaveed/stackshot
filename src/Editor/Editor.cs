@@ -459,7 +459,7 @@ namespace Stackshot
             if (z != bar.Maximized)
             {
                 bar.Maximized = z;
-                if (maxItem != null) maxItem.Tip = z ? "Restaurar" : "Maximizar";
+                if (maxItem != null) maxItem.Tip = z ? I18n.T("Restaurar", "Restore") : I18n.T("Maximizar", "Maximize");
                 bar.Invalidate();
             }
         }
@@ -1402,7 +1402,7 @@ namespace Stackshot
             double local;
             int ci = ClipSeq.Locate(clips, t, out local);
             if (play != null && ci == playClip) play.Seek(local);
-            else if (!PlayFrom(t, false)) PlayFailed("No se puede reproducir " + clips[ci].Name + ".");
+            else if (!PlayFrom(t, false)) PlayFailed(I18n.Fmt("No se puede reproducir {0}.", "Cannot play {0}.", clips[ci].Name));
         }
 
         void TogglePlay()
@@ -1654,7 +1654,7 @@ namespace Stackshot
             if (Exporting || timeline == null) return;
             using (OpenFileDialog d = new OpenFileDialog())
             {
-                d.Title = "A\u00F1adir v\u00EDdeo";
+                d.Title = I18n.T("A\u00F1adir v\u00EDdeo", "Add video");
                 d.Filter = ShotStack.VideoFilter;
                 d.Multiselect = true;
                 d.CheckFileExists = true;
@@ -1911,8 +1911,9 @@ namespace Stackshot
         {
             if (export == null) return;
             hint.Progress = duration > 0 ? fr : 0.5;
-            hint.LeftText = (toGif ? "Creando el GIF\u2026 " : "Creando el v\u00EDdeo\u2026 ") + (duration > 0 ? (int)Math.Round(fr * 100) + " %" : "");
-            hint.RightText = "Esc cancela";
+            hint.LeftText = (toGif ? I18n.T("Creando el GIF\u2026 ", "Creating the GIF\u2026 ") : I18n.T("Creando el v\u00EDdeo\u2026 ", "Creating the video\u2026 ")) +
+                            (duration > 0 ? (int)Math.Round(fr * 100) + (I18n.IsSpanish ? " %" : "%") : "");
+            hint.RightText = I18n.T("Esc cancela", "Esc cancels");
             hint.Invalidate();
         }
 

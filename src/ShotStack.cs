@@ -123,6 +123,8 @@ namespace Stackshot
             // Turned on with no folder (an earlier version had a default one): said once per start, instead of silence.
             if (settings.XmlWatch && XmlWatch.FolderFor(settings) == null && !Test)
                 After(6000, delegate { if (!exiting) NotifyPage(I18n.T("Elige la carpeta de los XML", "Choose the XML folder"), I18n.T("La vigilancia de XML est\u00E1 activada pero no tiene carpeta. El\u00EDgela en General > Avanzado.", "XML monitoring is on, but has no folder. Pick one in General > Advanced."), "general"); });
+            // Spanish kept from before on a Windows in another language: English is offered once.
+            if (!Test) After(8000, delegate { if (!exiting) OfferEnglish(); });
 
             // Another instance (an update, the uninstaller) can ask this one to quit cleanly.
             if (!Test)
@@ -742,7 +744,7 @@ namespace Stackshot
                 if (src.Width < 1 || src.Height < 1) return;
                 Bitmap shot = frozen.Clone(src, PixelFormat.Format32bppArgb);
                 start.DrawPointer(shot, new Point(src.X + vs.X, src.Y + vs.Y));
-                string name = "Captura";
+                string name = I18n.T("Captura", "Capture");
                 if (window != IntPtr.Zero)
                 {
                     name = Grabber.ProcessName(window) ?? name;
@@ -828,7 +830,7 @@ namespace Stackshot
             Screen scr = Grabber.CurrentScreen();
             Bitmap shot = Grabber.Grab(scr.Bounds);
             start.DrawPointer(shot, scr.Bounds.Location);
-            SaveCapture(shot, "Pantalla", start);
+            SaveCapture(shot, I18n.T("Pantalla", "Screen"), start);
         }
 
         void CaptureWindow()
@@ -842,7 +844,7 @@ namespace Stackshot
             Bitmap shot = Grabber.Grab(r);
             start.DrawPointer(shot, r.Location);
             if (WindowIsRounded(h, r)) shot = Grabber.RoundCorners(shot, 8 * ScaleFor(Screen.FromRectangle(r)));
-            SaveCapture(shot, Grabber.ProcessName(h) ?? "Ventana", start);
+            SaveCapture(shot, Grabber.ProcessName(h) ?? I18n.T("Ventana", "Window"), start);
         }
 
         // On Windows 11, normal (non-maximized) windows have rounded corners.
@@ -1481,9 +1483,12 @@ namespace Stackshot
             List<WorkFiles.Rescued> moved = WorkFiles.Rescue(folder, RecoveredDir, TimeSpan.FromSeconds(10), true);
             if (moved.Count == 0) return;
             WorkFiles.Rescued last = moved[moved.Count - 1];
-            string when = last.Started != DateTime.MinValue ? " (" + (last.Started.Date != DateTime.Today ? I18n.Fmt("la del {0} a las {1}", "the one on {0} at {1}", last.Started.ToString("d/M"), last.Started.ToString("HH:mm")) : I18n.Fmt("la de las {0}", "the one at {0}", last.Started.ToString("HH:mm"))) + ")" : "";
+            // Spanish as it always was; English with the month spelled out (3/11 reads differently in the US).
+            string when = last.Started == DateTime.MinValue ? "" : I18n.IsSpanish
+                ? " (la de las " + last.Started.ToString("HH:mm") + (last.Started.Date != DateTime.Today ? " del " + last.Started.ToString("d/M") : "") + ")"
+                : " (the one from " + last.Started.ToString("HH:mm") + (last.Started.Date != DateTime.Today ? " on " + last.Started.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture) : "") + ")";
             string text = (moved.Count == 1 ? I18n.Fmt("Stackshot se cerr\u00F3 mientras grababa{0}. Lo grabado est\u00E1 a salvo", "Stackshot closed while recording{0}. The recording is safe", when) : I18n.Fmt("Stackshot se cerr\u00F3 durante {0} grabaciones. Lo grabado est\u00E1 a salvo", "Stackshot closed during {0} recordings. The recordings are safe", moved.Count)) +
-                          " " + I18n.T("en la carpeta \u00ABrecuperado\u00BB.", "in the \u00ABrecovered\u00BB folder.");
+                          " " + I18n.T("en la carpeta \u00ABrecuperado\u00BB.", "in the \u201Crecuperado\u201D folder.");
             string dir = moved.Count == 1 ? last.Folder : RecoveredDir;
             sync.BeginInvoke((Action)delegate { if (!exiting) Notify(I18n.T("Grabaci\u00F3n recuperada", "Recording recovered"), text, dir); });
         }

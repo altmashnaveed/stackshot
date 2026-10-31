@@ -122,9 +122,9 @@ namespace Stackshot
                 }
                 else if (n[0] == 2) b.Append(BlurNames[Clamp(n[3], 0, 2)]);
                 else b.Append(n[1] >= 0 && n[1] < Backdrop.Count ? Backdrop.Name(n[1]) : Backdrop.Name(0));
-                b.Append(" \u00B7 margen ").Append(Clamp(n[4], 0, 100));
-                if (n[8] > 0) b.Append(", inserci\u00F3n");
-                if (n[6] == 0) b.Append(", sin sombra");
+                b.Append(I18n.T(" \u00B7 margen ", " \u00B7 padding ")).Append(Clamp(n[4], 0, 100));
+                if (n[8] > 0) b.Append(I18n.T(", inserci\u00F3n", ", border inset"));
+                if (n[6] == 0) b.Append(I18n.T(", sin sombra", ", no shadow"));
                 if (n[10] != 4) b.Append(", ").Append(AlignNames[Clamp(n[10], 0, 8)].ToLowerInvariant());
                 string ratio = style.Substring(style.LastIndexOf(',') + 1);
                 if (ratio != "auto") b.Append(", ").Append(ratio);
@@ -143,12 +143,12 @@ namespace Stackshot
 
         void KeepStyle()
         {
-            if (!Styles.Keep(Bg)) { EdTip.Schedule(this, Shown(KeepRect()), "Este estilo ya est\u00E1 guardado"); return; }
+            if (!Styles.Keep(Bg)) { EdTip.Schedule(this, Shown(KeepRect()), I18n.T("Este estilo ya est\u00E1 guardado", "This style is already saved")); return; }
             On = true;
             Invalidate();
             Fire(Changed);
             Fire(Committed);   // saved with the settings
-            EdTip.Schedule(this, Shown(KeepRect()), "Estilo guardado: est\u00E1 en Estilos guardados");
+            EdTip.Schedule(this, Shown(KeepRect()), I18n.T("Estilo guardado: est\u00E1 en Estilos guardados", "Style saved: it is in Saved styles"));
         }
 
         Rectangle KeepRect()

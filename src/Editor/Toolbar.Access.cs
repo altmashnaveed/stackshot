@@ -29,7 +29,7 @@ namespace Stackshot
             public BarAccess(Bar bar) : base(bar) { this.bar = bar; }
 
             public override AccessibleRole Role { get { return AccessibleRole.ToolBar; } }
-            public override string Name { get { return "Barra del editor"; } }
+            public override string Name { get { return I18n.T("Barra del editor", "Editor toolbar"); } }
 
             protected override string Signature()
             {
@@ -53,7 +53,7 @@ namespace Stackshot
                     p.PartKeys = it.Kind == Kind.Caption ? null : Access.Shortcut(it.Tip);
                     string help = Access.HelpBesides(it.Tip, p.PartName);
                     if (help.Length > 0) p.PartHelp = help;
-                    p.PartAction = choice ? "Elegir" : "Pulsar";
+                    p.PartAction = choice ? I18n.T("Elegir", "Select") : I18n.T("Pulsar", "Press");
                     Item item = it;
                     if (usable && it.Do != null) p.Do = delegate { if (item.Enabled && item.Do != null) item.Do(); };
                 }

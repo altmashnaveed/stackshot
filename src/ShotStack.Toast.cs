@@ -131,7 +131,7 @@ namespace Stackshot
         static string ToastQuietNow(Rectangle monitor)
         {
             foreach (Form f in Application.OpenForms)
-                if (f is RegionPicker && f.Visible) return "eligiendo un \u00E1rea";
+                if (f is RegionPicker && f.Visible) return I18n.T("eligiendo un \u00E1rea", "picking an area");
             return ToastQuiet.Reason(monitor);
         }
 

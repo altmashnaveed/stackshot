@@ -50,7 +50,7 @@ namespace Stackshot
                     r.Offset(c.Pad, c.Pad);
                     PartAccessible p = NewPart(into, x.Label, AccessibleRole.PushButton, r);
                     p.PartState = StateOf(true, false, false);
-                    p.PartAction = "Pulsar";
+                    p.PartAction = I18n.T("Pulsar", "Press");
                     Btn b = x;
                     p.Do = delegate { if (!c.Leaving && !c.IsDisposed && b.Do != null) b.Do(); };
                 }

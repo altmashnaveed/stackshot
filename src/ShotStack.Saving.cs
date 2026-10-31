@@ -129,7 +129,8 @@ namespace Stackshot
             title.MaxTextWidth = Math.Max(1, tw);
             title.MaxLineCount = 1;
             title.Trimming = System.Windows.TextTrimming.CharacterEllipsis;
-            string sub = fraction >= 0 ? (int)Math.Round(fraction * 100) + " %  \u00B7  aparecer\u00E1 aqu\u00ED" : "Aparecer\u00E1 aqu\u00ED en un momento";
+            string sub = fraction >= 0 ? I18n.Fmt("{0} %  \u00B7  aparecer\u00E1 aqu\u00ED", "{0}%  \u00B7  it will appear here", (int)Math.Round(fraction * 100))
+                                       : I18n.T("Aparecer\u00E1 aqu\u00ED en un momento", "It will appear here in a moment");
             System.Windows.Media.FormattedText st = Ink.Px(sub, Ds.Regular, P(11.5f), dim);
             st.MaxTextWidth = Math.Max(1, tw);
             st.MaxLineCount = 1;

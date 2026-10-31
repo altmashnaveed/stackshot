@@ -42,7 +42,7 @@ namespace Stackshot
                     {
                         Bitmap shot = Grabber.Grab(r);
                         start.DrawPointer(shot, r.Location);
-                        string name = "Captura";
+                        string name = I18n.T("Captura", "Capture");
                         if (window != IntPtr.Zero)
                         {
                             name = Grabber.ProcessName(window) ?? name;

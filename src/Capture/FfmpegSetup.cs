@@ -365,10 +365,10 @@ namespace Stackshot
                         return I18n.T("La descarga ha tardado demasiado. Vuelve a intentarlo.", "The download timed out. Try again.");
                     case WebExceptionStatus.TrustFailure:
                     case WebExceptionStatus.SecureChannelFailure:
-                        return I18n.T("No se pudo establecer una conexi\u00F3n segura (quiz\u00E1 un proxy de la empresa). Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.", "Could not establish a secure connection (perhaps a corporate proxy). You can download FFmpeg yourself and pick it with \u00ABI already have it\u2026\u00BB.");
+                        return I18n.T("No se pudo establecer una conexi\u00F3n segura (quiz\u00E1 un proxy de la empresa). Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.", "Could not establish a secure connection (perhaps a corporate proxy). You can download FFmpeg yourself and pick it with \u201CI already have it\u2026\u201D.");
                 }
                 HttpWebResponse r = w.Response as HttpWebResponse;
-                if (r != null && (int)r.StatusCode == 407) return I18n.T("El proxy de tu red pide usuario y contrase\u00F1a. Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.", "Your network proxy requires username and password. You can download FFmpeg yourself and pick it with \u00ABI already have it\u2026\u00BB.");
+                if (r != null && (int)r.StatusCode == 407) return I18n.T("El proxy de tu red pide usuario y contrase\u00F1a. Puedes descargar FFmpeg t\u00FA y elegirlo con \u00ABYa lo tengo\u2026\u00BB.", "Your network proxy requires username and password. You can download FFmpeg yourself and pick it with \u201CI already have it\u2026\u201D.");
             }
             if (ex.InnerException is IOException || ex is IOException) return I18n.T("No se pudo guardar la descarga: quiz\u00E1 no quede espacio en el disco.", "Could not save download: disk might be full.");
             return I18n.T("No se pudo descargar FFmpeg. Vuelve a intentarlo.", "Could not download FFmpeg. Try again.");
@@ -387,7 +387,7 @@ namespace Stackshot
             track.Visibility = Visibility.Collapsed;
             download.IsEnabled = true;
             browse.IsEnabled = true;
-            download.Label = "Reintentar";
+            download.Label = I18n.T("Reintentar", "Retry");
         }
 
         protected override void OnClosed(EventArgs e)

@@ -550,7 +550,7 @@ namespace Stackshot
                     }
                     try
                     {
-                        string png = ShotStack.Unique(Path.Combine(Path.GetDirectoryName(src), name + " fotograma " + PlayerKit.Clock(t).Replace(':', '.') + ".png"));
+                        string png = ShotStack.Unique(Path.Combine(Path.GetDirectoryName(src), name + I18n.T(" fotograma ", " frame ") + PlayerKit.Clock(t).Replace(':', '.') + ".png"));
                         bmp.Save(png, ImageFormat.Png);
                         Flash(I18n.Fmt("Fotograma guardado: {0}", "Frame saved: {0}", Path.GetFileName(png)));
                     }
@@ -1205,7 +1205,8 @@ namespace Stackshot
             List<string[]> rows = new List<string[]>(infoRows);
             // Right under the video's size: how big it is shown now.
             string scale = PlayerKit.ScaleNote(info.Display, VideoRect(), !fullscreen && WindowState != FormWindowState.Maximized);
-            int at = rows.FindIndex(x => x[0] == I18n.T("Tama\u00F1o", "Size"));
+            // The rows were made when the video opened, in the language of that moment.
+            int at = rows.FindIndex(x => x[0] == "Tama\u00F1o" || x[0] == "Size");
             if (scale.Length > 0) rows.Insert(at >= 0 ? at + 1 : rows.Count, new string[] { I18n.T("En pantalla", "On screen"), scale });
             if (play != null) rows.Add(new string[] { I18n.T("Reproducci\u00F3n", "Playback"), I18n.Fmt("{0} fotogramas mostrados, {1} omitidos", "{0} frames shown, {1} dropped", play.FramesShown, play.FramesDropped) });
             int h = pad * 2 + P(26) + rows.Count * rowH;

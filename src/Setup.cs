@@ -124,7 +124,7 @@ namespace Stackshot
             if (ManagedByMsi) return; // the MSI handles this
             string exe = Settings.InstalledExe;
             // A shortcut the shell refuses (a locked-down profile) is logged, never a reason for the install to fail.
-            try { CreateShortcut(MenuLink, exe, "Stackshot: capturas de pantalla, v\u00EDdeo y GIF", ""); }
+            try { CreateShortcut(MenuLink, exe, I18n.T("Stackshot: capturas de pantalla, v\u00EDdeo y GIF", "Stackshot: screenshots, video and GIF"), ""); }
             catch (Exception ex) { ShotStack.Log("Acceso directo del men\u00FA Inicio: " + ex.Message); }
             SetStartup(startup);
             try

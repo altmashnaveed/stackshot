@@ -292,7 +292,7 @@ namespace Stackshot
                     case Keys.Return: return "Enter";
                     case Keys.Back: return "Backspace";
                     case Keys.Tab: return "Tab";
-                    case Keys.Delete: return "Delete";
+                    case Keys.Delete: return "Del";
                     case Keys.Insert: return "Insert";
                     case Keys.Home: return "Home";
                     case Keys.End: return "End";
@@ -324,7 +324,7 @@ namespace Stackshot
                     case Keys.BrowserBack: return "Back";
                     case Keys.BrowserForward: return "Forward";
                     case Keys.BrowserRefresh: return "Refresh";
-                    case Keys.BrowserStop: return "Stop";
+                    case Keys.BrowserStop: return "Stop loading";
                     case Keys.BrowserSearch: return "Search";
                     case Keys.BrowserFavorites: return "Favorites";
                     case Keys.BrowserHome: return "Browser Home";
@@ -389,7 +389,7 @@ namespace Stackshot
         public static string Problem(Keys key, Keys modifiers, bool win)
         {
             bool ctrl = (modifiers & Keys.Control) != 0, shift = (modifiers & Keys.Shift) != 0, alt = (modifiers & Keys.Alt) != 0;
-            if (key == Keys.Capital || key == Keys.NumLock) return KeyName(key) + " no sirve de atajo";
+            if (key == Keys.Capital || key == Keys.NumLock) return I18n.Fmt("{0} no sirve de atajo", "{0} cannot be a shortcut", KeyName(key));
             if (!win)
             {
                 string what = null;
@@ -442,7 +442,7 @@ namespace Stackshot
                 if (ctrl && alt)
                 {
                     string ch = AltGrChar(key, shift);
-                    if (ch != null) return I18n.Fmt("As\u00ED escribes \u00AB{0}\u00BB: prueba otra", "This types \u00AB{0}\u00BB: try another", ch);
+                    if (ch != null) return I18n.Fmt("As\u00ED escribes \u00AB{0}\u00BB: prueba otra", "This types \u201C{0}\u201D: try another", ch);
                 }
             }
             return null;

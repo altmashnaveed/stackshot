@@ -41,7 +41,7 @@ namespace Stackshot
         static readonly string[] PlainNamesEn =
         {
             "Black", "White", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink",
-            "Dark grey", "Light grey", "Soft red", "Soft orange", "Soft yellow", "Soft green", "Soft blue", "Soft purple"
+            "Dark gray", "Light gray", "Soft red", "Soft orange", "Soft yellow", "Soft green", "Soft blue", "Soft purple"
         };
         static string[] PlainNames { get { return I18n.IsSpanish ? PlainNamesEs : PlainNamesEn; } }
         static readonly string[] BlurNamesEs = { "Desenfocada", "Desenfocada y oscura", "Desenfocada y clara" };
@@ -510,7 +510,7 @@ namespace Stackshot
                     if (it.Kind == Kind.Styles)
                     {
                         int n = Styles.Count(Bg);
-                        text = n == 0 ? "Estilos guardados\u2026" : "Estilos guardados (" + n + ")";
+                        text = n == 0 ? I18n.T("Estilos guardados\u2026", "Saved styles\u2026") : I18n.Fmt("Estilos guardados ({0})", "Saved styles ({0})", n);
                     }
                     else text = RatioNames[Math.Max(0, Array.IndexOf(Ratios, Bg.BgRatio))];
                     Rectangle tr = new Rectangle(it.R.X + P(10), it.R.Y, it.R.Width - P(30), it.R.Height);

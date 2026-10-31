@@ -63,7 +63,7 @@ namespace Stackshot
             if (quiet) return;
             string when = WhenText(dueLocal);
             if (PetShown) pet.FocusSay(I18n.Fmt("Te lo recuerdo {0}.", "I'll remind you {0}.", when));
-            else Notify(I18n.T("Recordatorio guardado", "Reminder saved"), I18n.Fmt("Te lo recuerdo {0}: \u00AB{1}\u00BB.", "I'll remind you {0}: \"{1}\".", when, text));
+            else Notify(I18n.T("Recordatorio guardado", "Reminder saved"), I18n.Fmt("Te lo recuerdo {0}: \u00AB{1}\u00BB.", "I'll remind you {0}: \u201C{1}\u201D.", when, text));
         }
 
         public void RemoveReminder(Reminder r)
@@ -151,7 +151,7 @@ namespace Stackshot
                 List<string> kept = new List<string>();
                 foreach (string l in text.Split('\n')) if (l.Trim().Length > 0) kept.Add(l.TrimEnd());
                 string body = string.Join("\n  ", kept.ToArray());
-                string entry = (fresh ? "# Notas\n\n" : "") + "- [ ] **" + DateTime.Now.ToString("d/M/yyyy H:mm", CultureInfo.GetCultureInfo("es-ES")) + "** \u00B7 " + body + "\n";
+                string entry = (fresh ? I18n.T("# Notas\n\n", "# Notes\n\n") : "") + "- [ ] **" + DateTime.Now.ToString("d/M/yyyy H:mm", CultureInfo.GetCultureInfo("es-ES")) + "** \u00B7 " + body + "\n";
                 File.AppendAllText(NotesPath, entry, new UTF8Encoding(false));
                 Log("Nota apuntada");
                 return true;
@@ -297,7 +297,7 @@ namespace Stackshot
         public void OpenNotes()
         {
             if (!File.Exists(NotesPath))
-                try { Directory.CreateDirectory(settings.SaveFolder); File.WriteAllText(NotesPath, "# Notas\n\n", new UTF8Encoding(false)); }
+                try { Directory.CreateDirectory(settings.SaveFolder); File.WriteAllText(NotesPath, I18n.T("# Notas\n\n", "# Notes\n\n"), new UTF8Encoding(false)); }
                 catch (Exception ex) { Log("Notas: " + ex.Message); }
             OpenViewerFile(NotesPath);
         }
@@ -333,10 +333,10 @@ namespace Stackshot
             int n = pics + vids + docs;
             // Folders kept as quick links: said first (with the files opened, if any).
             if (kept > 0)
-                return (kept == 1 ? I18n.Fmt("\u00A1Apuntada! \u00AB{0}\u00BB ya est\u00E1 en mis accesos r\u00E1pidos.", "Noted! \u00AB{0}\u00BB is now in my quick links.", folder) : I18n.Fmt("\u00A1Apuntadas {0} carpetas en mis accesos r\u00E1pidos!", "Noted {0} folders in my quick links!", kept)) +
+                return (kept == 1 ? I18n.Fmt("\u00A1Apuntada! \u00AB{0}\u00BB ya est\u00E1 en mis accesos r\u00E1pidos.", "Noted! \u201C{0}\u201D is now in my quick links.", folder) : I18n.Fmt("\u00A1Apuntadas {0} carpetas en mis accesos r\u00E1pidos!", "Noted {0} folders in my quick links!", kept)) +
                        (n > 0 ? " " + (n == 1 ? I18n.T("Y te abro el archivo.", "And I'll open the file for you.") : I18n.Fmt("Y te abro los {0} archivos.", "And I'll open the {0} files for you.", n)) : "");
             if (why != null && n == 0) return why;
-            if (n == 0) return skipped != null ? I18n.Fmt("No s\u00E9 qu\u00E9 hacer con \u00AB{0}\u00BB. Su\u00E9ltame im\u00E1genes, v\u00EDdeos, XML o Markdown.", "I don't know what to do with \u00AB{0}\u00BB. Drop images, videos, XML or Markdown.", skipped) : null;
+            if (n == 0) return skipped != null ? I18n.Fmt("No s\u00E9 qu\u00E9 hacer con \u00AB{0}\u00BB. Su\u00E9ltame im\u00E1genes, v\u00EDdeos, XML o Markdown.", "I don't know what to do with \u201C{0}\u201D. Drop images, videos, XML or Markdown.", skipped) : null;
             if (n > 1) return I18n.Fmt("\u00A1Abro {0} archivos!", "Opening {0} files!", n);
             return pics == 1 ? I18n.T("\u00A1Al editor!", "To the editor!") : vids == 1 ? I18n.T("\u00A1A verlo!", "Let's watch it!") : I18n.T("\u00A1Te lo abro!", "Opening it for you!");
         }

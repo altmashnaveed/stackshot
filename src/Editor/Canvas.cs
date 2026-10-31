@@ -1724,7 +1724,7 @@ namespace Stackshot
         {
             if (box == null) return;
             Rectangle before = BoxLabelRect();
-            string t = box.Text.Length > 0 ? box.Text : "Escribe aqu\u00ED";
+            string t = box.Text.Length > 0 ? box.Text : I18n.T("Escribe aqu\u00ED", "Type here");
             if (t.EndsWith("\n")) t += " "; // a new, still empty line counts too
             // Measured on a DC like the box's own: TextRenderer's default measuring DC comes out about 10% wider.
             if (measureDc == null) measureDc = Graphics.FromImage(new Bitmap(1, 1));

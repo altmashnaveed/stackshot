@@ -462,8 +462,8 @@ namespace Stackshot
     internal sealed class PassWatch : IDisposable
     {
         public const int DefaultStallMs = 90000;
-        public const string CancelledText = "Has cancelado el guardado.";
-        public const string StalledText = "La conversi\u00F3n se ha quedado parada (FFmpeg dej\u00F3 de avanzar).";
+        public static string CancelledText { get { return I18n.T("Has cancelado el guardado.", "You cancelled the save."); } }
+        public static string StalledText { get { return I18n.T("La conversi\u00F3n se ha quedado parada (FFmpeg dej\u00F3 de avanzar).", "The conversion got stuck (FFmpeg stopped making progress)."); } }
 
         readonly object sync = new object();
         readonly int stallMs;
@@ -682,7 +682,7 @@ namespace Stackshot
 
         public static string Gb(long bytes)
         {
-            return (bytes / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',') + " GB";
+            return (bytes / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture).Replace('.', I18n.IsSpanish ? ',' : '.') + " GB";
         }
     }
 
@@ -727,7 +727,7 @@ namespace Stackshot
 
         static string Num(double d)
         {
-            return d.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',');
+            return d.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', I18n.IsSpanish ? ',' : '.');
         }
 
         static string Join(List<string> items, int max)
@@ -868,6 +868,7 @@ namespace Stackshot
         CineSink sink;
         CineReport report;
         string stopReason, stamp, masterTemp;
+        bool stopForPace;
         DateTime startedAt;
         long queued, repeatedFailed, black, queuePeak, discarded, nextDiskCheck, lastDeadline;
         Bitmap poster;
@@ -946,7 +947,8 @@ namespace Stackshot
                           : ScreenSource.Open(area, large, cameraShape > 0);
             // E_ACCESSDENIED: a secure desktop (lock screen, UAC) is showing; the GDI fallback would only record black.
             if (cine && !source.Gpu && source.Description.Contains("0x80070005"))
-                throw new InvalidOperationException("Windows no deja capturar la pantalla ahora mismo (pantalla bloqueada o un aviso de seguridad). Vuelve a intentarlo en el escritorio.");
+                throw new InvalidOperationException(I18n.T("Windows no deja capturar la pantalla ahora mismo (pantalla bloqueada o un aviso de seguridad). Vuelve a intentarlo en el escritorio.",
+                                                           "Windows does not allow screen capture right now (locked screen or a security prompt). Try again from the desktop."));
             if ((cine && !CineSourceAccepted()) || quitting)
             {
                 source.Dispose();
@@ -1048,7 +1050,7 @@ namespace Stackshot
             }
             else if (source.OutputCount > 1)
             {
-                string hz = (source.RefreshNum / (double)source.RefreshDen).ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
+                string hz = (source.RefreshNum / (double)source.RefreshDen).ToString("0.##", CultureInfo.InvariantCulture).Replace('.', I18n.IsSpanish ? ',' : '.');
                 string cadence = source.MixedRefresh
                     ? I18n.T(" y la otra va a otra frecuencia, as\u00ED que su parte puede verse a saltos.", " and the other runs at a different refresh rate, so its portion may appear choppy.")
                     : I18n.T("; si una se mueve a otro ritmo, su parte puede verse a saltos.", "; if one runs at a different rate, its portion may appear choppy.");
@@ -1564,7 +1566,7 @@ namespace Stackshot
                             if (late > lateMs) lateFrames++;
                         }
                         // A second behind: the screen images of these frames are long gone, it would only add wrong ones.
-                        if (cine && late > 1000) { Halt("El equipo no ha podido seguir el ritmo de la pantalla"); break; }
+                        if (cine && late > 1000) { Halt(I18n.T("El equipo no ha podido seguir el ritmo de la pantalla", "The computer could not keep up with the screen"), true); break; }
                         if (!Emit(Cut(n, period, cutPhase, locked), locked ? display / 2 : 0)) break;
                         n++;
                     }
@@ -1588,7 +1590,7 @@ namespace Stackshot
             }
             catch (Exception ex)
             {
-                if (!cancelled && error == null) error = "La captura de pantalla ha fallado: " + ex.Message;
+                if (!cancelled && error == null) error = I18n.T("La captura de pantalla ha fallado: ", "Screen capture failed: ") + ex.Message;
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
             }
             acquired = true;
@@ -1659,8 +1661,9 @@ namespace Stackshot
                     buf = pool.TryTake();
                     if (buf == IntPtr.Zero)
                     {
-                        Halt(pool.OutOfMemory ? "No queda memoria libre para seguir grabando sin p\u00E9rdidas"
-                                              : "El equipo no ha podido codificar sin p\u00E9rdidas al ritmo de la pantalla");
+                        Halt(pool.OutOfMemory ? I18n.T("No queda memoria libre para seguir grabando sin p\u00E9rdidas", "No free memory left to keep recording losslessly")
+                                              : I18n.T("El equipo no ha podido codificar sin p\u00E9rdidas al ritmo de la pantalla", "The computer could not encode losslessly at the screen's pace"),
+                             !pool.OutOfMemory);
                         return false;
                     }
                     int used = pool.InUse;
@@ -1687,10 +1690,13 @@ namespace Stackshot
         }
 
         // The recording ends here and keeps what it has (saved as if Stop was pressed; the reason is told at the end).
-        void Halt(string reason)
+        // pace: the computer could not keep up, which CineOutcome follows with what to try instead (never told by the text,
+        // which is in the user's language).
+        void Halt(string reason, bool pace = false)
         {
             if (halted) return;
             stopReason = reason;
+            stopForPace = pace;
             halted = true;
             ShotStack.Log("Grabaci\u00F3n: se detiene sola: " + reason);
             Ui(delegate { if (!stopping) Stop(); });
@@ -1700,7 +1706,7 @@ namespace Stackshot
         // being written plus what the final pass will write. When little is left the bar says how many minutes.
         void CheckHealth()
         {
-            if (source.GeometryChanged) { Halt("La resoluci\u00F3n o la orientaci\u00F3n de la pantalla ha cambiado"); return; }
+            if (source.GeometryChanged) { Halt(I18n.T("La resoluci\u00F3n o la orientaci\u00F3n de la pantalla ha cambiado", "The screen's resolution or orientation changed")); return; }
             long now = Stopwatch.GetTimestamp();
             if (now < nextDiskCheck) return;
             nextDiskCheck = now + Stopwatch.Frequency;
@@ -1773,12 +1779,12 @@ namespace Stackshot
             if (t == 0)
             {
                 title = a.Computer ? I18n.T("Sonido del equipo recuperado", "System audio restored") : I18n.T("Micr\u00F3fono recuperado", "Microphone restored");
-                text = I18n.Fmt("Vuelve a grabarse desde \u00AB{0}\u00BB.", "Recording resumed from \"{0}\".", a.DeviceName);
+                text = I18n.Fmt("Vuelve a grabarse desde \u00AB{0}\u00BB.", "Recording resumed from \u201C{0}\u201D.", a.DeviceName);
             }
             else if (t == 1)
             {
                 title = a.Computer ? I18n.T("La salida de sonido elegida no est\u00E1", "Selected audio output is unavailable") : I18n.T("El micr\u00F3fono elegido se ha desconectado", "Selected microphone disconnected");
-                text = I18n.Fmt("Se graba con \u00AB{0}\u00BB, el de Windows, hasta que vuelva.", "Recording with \"{0}\", default Windows device, until it returns.", a.DeviceName);
+                text = I18n.Fmt("Se graba con \u00AB{0}\u00BB, el de Windows, hasta que vuelva.", "Recording with \u201C{0}\u201D, default Windows device, until it returns.", a.DeviceName);
             }
             else
             {
@@ -1823,7 +1829,7 @@ namespace Stackshot
                     if (!writeFailed && !feedCut && !WriteFrame(data, size))
                     {
                         writeFailed = true;
-                        if (!cancelled && !feedCut && error == null) error = "FFmpeg se ha cerrado durante la grabaci\u00F3n. " + Tail();
+                        if (!cancelled && !feedCut && error == null) error = I18n.T("FFmpeg se ha cerrado durante la grabaci\u00F3n. ", "FFmpeg closed during the recording. ") + Tail();
                         // Ends the recording if it still runs; a stop already under way must not read as a second press.
                         Ui(delegate { if (!stopping) Stop(); });
                     }
@@ -1904,7 +1910,7 @@ namespace Stackshot
                         if (!ok)
                         {
                             writeFailed = true;
-                            if (!cancelled && error == null) error = "FFmpeg se ha cerrado durante la grabaci\u00F3n. " + Tail();
+                            if (!cancelled && error == null) error = I18n.T("FFmpeg se ha cerrado durante la grabaci\u00F3n. ", "FFmpeg closed during the recording. ") + Tail();
                             Ui(delegate { if (!stopping) Stop(); });
                         }
                     }
@@ -1924,7 +1930,7 @@ namespace Stackshot
             try { Complete(); }
             catch (Exception ex)
             {
-                if (!cancelled && error == null) error = "No se pudo guardar la grabaci\u00F3n: " + ex.Message;
+                if (!cancelled && error == null) error = I18n.T("No se pudo guardar la grabaci\u00F3n: ", "Could not save the recording: ") + ex.Message;
                 ShotStack.Log("Grabaci\u00F3n: " + ex);
                 // Whatever it had not released yet (each of these can be released twice).
                 if (proc != null)
@@ -2009,7 +2015,7 @@ namespace Stackshot
                     writer.Join(5000);
                     finishDirect = false;
                 }
-                if (error == null && !cancelled && !saveCancelled) error = "FFmpeg ha dejado de responder.";
+                if (error == null && !cancelled && !saveCancelled) error = I18n.T("FFmpeg ha dejado de responder.", "FFmpeg stopped responding.");
             }
             if (cancelled)
             {
@@ -2022,11 +2028,11 @@ namespace Stackshot
                 // job) finishes the file where it is.
                 if (!direct) Kill(proc);
                 else if (finishDirect && saveCancelled) { try { proc.WaitForExit(10000); } catch { } }
-                if (error == null && !saveCancelled) error = "FFmpeg no termin\u00F3 de guardar el v\u00EDdeo.";
+                if (error == null && !saveCancelled) error = I18n.T("FFmpeg no termin\u00F3 de guardar el v\u00EDdeo.", "FFmpeg did not finish saving the video.");
             }
             bool exited;
             try { exited = proc.HasExited; } catch { exited = true; }
-            if (error == null && !cancelled && !saveCancelled && exited && proc.ExitCode != 0) error = "FFmpeg no pudo guardar el v\u00EDdeo. " + Tail();
+            if (error == null && !cancelled && !saveCancelled && exited && proc.ExitCode != 0) error = I18n.T("FFmpeg no pudo guardar el v\u00EDdeo. ", "FFmpeg could not save the video. ") + Tail();
             double seconds = frames * (double)fpsDen / fpsNum;
             long samples = (long)Math.Round(seconds * AudioCapture.Rate);
             if (sys != null) sys.Finish(samples);
@@ -2062,11 +2068,11 @@ namespace Stackshot
             {
                 sink.Kill();
                 writer.Join(5000);
-                if (error == null && !cancelled && !saveCancelled) error = "FFmpeg ha dejado de responder.";
+                if (error == null && !cancelled && !saveCancelled) error = I18n.T("FFmpeg ha dejado de responder.", "FFmpeg stopped responding.");
             }
             int code;
             bool closed = sink.Close(cancelled ? 3000 : saveCancelled ? 15000 : 300000, out code);
-            if (error == null && !cancelled && !saveCancelled && (!closed || code != 0)) error = "FFmpeg no pudo guardar el v\u00EDdeo. " + Tail();
+            if (error == null && !cancelled && !saveCancelled && (!closed || code != 0)) error = I18n.T("FFmpeg no pudo guardar el v\u00EDdeo. ", "FFmpeg could not save the video. ") + Tail();
             frames = sink.Frames;
             double seconds = frames * (double)fpsDen / fpsNum;
             long samples = Cine.AudioFramesFor(frames, fpsNum, fpsDen);
@@ -2077,7 +2083,7 @@ namespace Stackshot
             if (!cancelled)
             {
                 report = BuildReport();
-                if (error == null && frames == 0) error = "No se ha grabado ning\u00FAn fotograma.";
+                if (error == null && frames == 0) error = I18n.T("No se ha grabado ning\u00FAn fotograma.", "No frames were recorded.");
                 if (error == null && saveCancelled) error = PassWatch.CancelledText;
                 if (error == null) MakeCine(seconds);
                 else if (frames > 0) RescueOnError();
@@ -2127,8 +2133,8 @@ namespace Stackshot
             r.OverlayFrames = overlay != null ? overlay.DrawnFrames : 0;
             r.AudioConverted = (sys != null && sys.Converted) || (mic != null && mic.Converted);
             r.AudioNotes = new List<string>();
-            AudioNote(r.AudioNotes, "Sonido del equipo", sys);
-            AudioNote(r.AudioNotes, "Micr\u00F3fono", mic);
+            AudioNote(r.AudioNotes, I18n.T("Sonido del equipo", "Computer sound"), sys);
+            AudioNote(r.AudioNotes, I18n.T("Micr\u00F3fono", "Microphone"), mic);
             r.Saturation = Saturation(sys, mic);
             return r;
         }
@@ -2136,6 +2142,7 @@ namespace Stackshot
         internal static void AudioNote(List<string> notes, string name, AudioCapture a)
         {
             if (a == null) return;
+            if (!I18n.IsSpanish) { AudioNoteEn(notes, name, a); return; }
             if (a.ClipEvents > 0)
                 notes.Add(name + ": " + ClipText(a) + ". La grabaci\u00F3n lo guarda tal cual; si se oye distorsionado, baja el volumen de esa fuente antes de grabar.");
             if (a.OverlapFrames > 0 || a.Duplicated > 0 || a.Removed > 0 || a.Converted)
@@ -2153,16 +2160,39 @@ namespace Stackshot
                           AudioCapture.JoinFrames * 1000 / AudioCapture.Rate + " ms para que el corte no se oiga.");
         }
 
+        static void AudioNoteEn(List<string> notes, string name, AudioCapture a)
+        {
+            if (a.ClipEvents > 0)
+                notes.Add(name + ": " + ClipText(a) + ". The recording keeps it as it is; if it sounds distorted, turn that source down before recording.");
+            if (a.OverlapFrames > 0 || a.Duplicated > 0 || a.Removed > 0 || a.Converted)
+            {
+                string t = name + ": ";
+                if (a.OverlapFrames > 0) t += a.OverlapFrames + " overlapping samples discarded. ";
+                if (a.Duplicated + a.Removed > 0) t += "Sound clock adjustment: " + a.Duplicated + " samples duplicated and " + a.Removed + " removed. ";
+                if (a.Converted) t += "The device does not deliver 48 kHz floating-point stereo: Stackshot converted it (not an exact copy). ";
+                notes.Add(t.Trim());
+            }
+            if (a.SilenceFrames > 0)
+                notes.Add(name + ": " + (a.SilenceFrames / (double)AudioCapture.Rate).ToString("0.0", CultureInfo.InvariantCulture) + " s of silence inserted (gaps, or nothing playing).");
+            if (a.Joins > 0)
+                notes.Add(name + ": when resuming after " + (a.Joins == 1 ? "the pause" : "each of the " + a.Joins + " pauses") + ", the sound fades for " +
+                          AudioCapture.JoinFrames * 1000 / AudioCapture.Rate + " ms so the cut is not heard.");
+        }
+
         // "saturó en 3 momentos (el primero a 0:12, 40 ms a fondo de escala)"
         internal static string ClipText(AudioCapture a)
         {
             double total = a.ClipFrames / (double)AudioCapture.Rate;
             int first = (int)Math.Max(0, a.FirstClipSeconds);
-            string held = total < 0.9995 ? Math.Max(1, (int)Math.Round(total * 1000)) + " ms" : total.ToString("0.0", CultureInfo.CurrentCulture) + " s";
+            string held = total < 0.9995 ? Math.Max(1, (int)Math.Round(total * 1000)) + " ms"
+                                         : total.ToString("0.0", I18n.IsSpanish ? CultureInfo.CurrentCulture : CultureInfo.InvariantCulture) + " s";
             string when = first >= 3600 ? (first / 3600) + ":" + (first / 60 % 60).ToString("00") + ":" + (first % 60).ToString("00")
                                         : (first / 60) + ":" + (first % 60).ToString("00");
-            return (I18n.IsSpanish ? "satur\u00F3 " : "clipped ") + (a.ClipEvents == 1 ? (I18n.IsSpanish ? "una vez" : "once") : (I18n.IsSpanish ? "en " + a.ClipEvents + " momentos" : a.ClipEvents + " times")) +
-                   " (" + (a.ClipEvents == 1 ? (I18n.IsSpanish ? "a " : "at ") : (I18n.IsSpanish ? "el primero a " : "first at ")) + when + ", " + held + (I18n.IsSpanish ? " a fondo de escala)" : " peak)");
+            if (!I18n.IsSpanish)
+                return "clipped " + (a.ClipEvents == 1 ? "once" : a.ClipEvents + " times") + " (" + (a.ClipEvents == 1 ? "at " : "first at ") + when +
+                       ", held at full scale for " + held + ")";
+            return "satur\u00F3 " + (a.ClipEvents == 1 ? "una vez" : "en " + a.ClipEvents + " momentos") +
+                   " (" + (a.ClipEvents == 1 ? "a " : "el primero a ") + when + ", " + held + " a fondo de escala)";
         }
 
         // One line for the notice when a source clipped, or null.
@@ -2192,7 +2222,7 @@ namespace Stackshot
             {
                 TryDelete(temp);
                 masterTemp = null;
-                error = watch.Cancelled ? PassWatch.CancelledText : "No se pudo crear el m\u00E1ster sin p\u00E9rdidas. " + failure;
+                error = watch.Cancelled ? PassWatch.CancelledText : I18n.T("No se pudo crear el m\u00E1ster sin p\u00E9rdidas. ", "Could not create the lossless master. ") + failure;
                 RescueOnError();
                 return;
             }
@@ -2212,8 +2242,10 @@ namespace Stackshot
             if (!v.Passed)
             {
                 dest = ShotStack.Unique(Path.ChangeExtension(output, null) + " (sin verificar)" + Cine.Extension);
-                warning = watch.Cancelled ? "Has cancelado la comprobaci\u00F3n: el archivo se ha guardado sin verificar como \u00AB" + Path.GetFileName(dest) + "\u00BB."
-                                          : "La comprobaci\u00F3n ha encontrado diferencias: el archivo se ha guardado como \u00AB" + Path.GetFileName(dest) + "\u00BB.";
+                warning = watch.Cancelled ? I18n.Fmt("Has cancelado la comprobaci\u00F3n: el archivo se ha guardado sin verificar como \u00AB{0}\u00BB.",
+                                                     "You cancelled the check: the file was saved unverified as \u201C{0}\u201D.", Path.GetFileName(dest))
+                                          : I18n.Fmt("La comprobaci\u00F3n ha encontrado diferencias: el archivo se ha guardado como \u00AB{0}\u00BB.",
+                                                     "The check found differences: the file was saved as \u201C{0}\u201D.", Path.GetFileName(dest));
             }
             else if (File.Exists(dest)) dest = ShotStack.Unique(dest);
             File.Move(temp, dest);
@@ -2275,9 +2307,9 @@ namespace Stackshot
             }
             if (moved) rescueDir = dir;
             ShotStack.Log("Grabaci\u00F3n: archivos de trabajo conservados: " + string.Join(", ", kept.ToArray()));
-            string text = "Lo grabado no se ha borrado.";
-            if (moved) text += " Est\u00E1 en:\n" + dir;
-            if (stuck.Count > 0) text += "\nNo se ha podido mover y sigue donde estaba:\n" + string.Join("\n", stuck.ToArray());
+            string text = I18n.T("Lo grabado no se ha borrado.", "What was recorded has not been deleted.");
+            if (moved) text += I18n.T(" Est\u00E1 en:\n", " It is in:\n") + dir;
+            if (stuck.Count > 0) text += I18n.T("\nNo se ha podido mover y sigue donde estaba:\n", "\nCould not be moved and is still where it was:\n") + string.Join("\n", stuck.ToArray());
             return text;
         }
 
@@ -2303,7 +2335,7 @@ namespace Stackshot
         void RescueOnError()
         {
             string where = Rescue(true);
-            if (where != null) error = (error ?? "No se pudo guardar la grabaci\u00F3n.") + "\n\n" + where;
+            if (where != null) error = (error ?? I18n.T("No se pudo guardar la grabaci\u00F3n.", "Could not save the recording.")) + "\n\n" + where;
         }
 
         void SaveReport()
@@ -2466,7 +2498,7 @@ namespace Stackshot
             string text = report.Summary();
             if (warning != null) text = warning + "\n\n" + text;
             if (health != null && health.Bad) text += "\n\n" + health.Text;
-            else if (stopReason != null && stopReason.StartsWith("El equipo no ha podido", StringComparison.Ordinal))
+            else if (stopReason != null && stopForPace)
                 text += I18n.T("\n\nPrueba a grabar a 30 fps, un \u00E1rea m\u00E1s peque\u00F1a o con m\u00E1s memoria para picos de movimiento (Grabaci\u00F3n > Cine).",
                                "\n\nTry recording at 30 fps, smaller area or more memory for motion peaks (Recording > Cinema).");
             Dialogs.Show(text, "Stackshot", MessageBoxButtons.OK, MessageBoxIcon.Warning);

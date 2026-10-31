@@ -37,7 +37,7 @@ namespace Stackshot
         {
             "Small files, ready to send in seconds.",
             "60 fps with rich detail; saves instantly.",
-            "Lossless while recording and high quality MP4 when finished; takes a moment to save.",
+            "Lossless while recording and very high quality MP4 when finished; takes a moment to save.",
             "Lossless master verified frame by frame (.mkv); takes up significant space."
         };
         static string[] QualityNotes { get { return I18n.IsSpanish ? QualityNotesEs : QualityNotesEn; } }
@@ -47,7 +47,7 @@ namespace Stackshot
         {
             if (quality == Recorder.Maximum && Recorder.LargeArea(area.Width, area.Height, 60))
                 return I18n.T("Calidad muy alta al grabar (en un \u00E1rea tan grande no es sin p\u00E9rdidas) y MP4 de muy alta calidad al terminar; tarda un poco en guardar.",
-                              "Very high quality while recording (lossless not supported on an area this large) and high quality MP4 when finished; takes a moment to save.");
+                              "Very high quality while recording (lossless not supported on an area this large) and very high quality MP4 when finished; takes a moment to save.");
             return QualityNotes[Array.IndexOf(QualityOrder, quality)];
         }
 
@@ -149,7 +149,7 @@ namespace Stackshot
 
             if (!gif)
             {
-                MacSegmented q = new MacSegmented(new string[] { I18n.T("Est\u00E1ndar", "Standard"), I18n.T("Alta", "High"), I18n.T("M\u00E1xima", "Maximum"), "Cine" }, Array.IndexOf(QualityOrder, quality));
+                MacSegmented q = new MacSegmented(new string[] { I18n.T("Est\u00E1ndar", "Standard"), I18n.T("Alta", "High"), I18n.T("M\u00E1xima", "Maximum"), I18n.T("Cine", "Cinema") }, Array.IndexOf(QualityOrder, quality));
                 q.Changed += delegate(int i) { quality = QualityOrder[i]; Build(); };
                 Row(rows, I18n.T("Calidad", "Quality"), q, QualityNote(quality, area));
                 if (quality == Recorder.Standard)

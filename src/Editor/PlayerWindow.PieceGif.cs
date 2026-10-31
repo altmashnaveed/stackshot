@@ -122,7 +122,7 @@ namespace Stackshot
         {
             double f = GifRate;
             return I18n.Fmt("Crear un GIF con el tramo marcado (E y S) \u00B7 {0}  (G)", "Create a GIF from marked clip (E & S) \u00B7 {0}  (G)",
-                (f > 0 ? f.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',') + " fps" : I18n.T("al ritmo del GIF", "at GIF frame rate")));
+                (f > 0 ? f.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', I18n.IsSpanish ? ',' : '.') + " fps" : I18n.T("al ritmo del GIF", "at GIF frame rate")));
         }
 
         // In Mas opciones, greyed out until there is a piece.
@@ -136,7 +136,7 @@ namespace Stackshot
         bool LongGifWanted(double seconds)
         {
             string text = I18n.Fmt("El tramo dura {0}: un GIF tan largo pesa mucho y tarda en crearse. Para un trozo as\u00ED suele ir mejor \u00ABExportar tramo\u00BB (MP4).\n\n\u00BFCrear el GIF igualmente?",
-                                   "Clip is {0} long: such a long GIF has a large file size and takes time to create. For such a clip, \"Export clip\" (MP4) is usually better.\n\nCreate GIF anyway?",
+                                   "Clip is {0} long: such a long GIF has a large file size and takes time to create. For such a clip, \u201CExport clip\u201D (MP4) is usually better.\n\nCreate GIF anyway?",
                                    PlayerKit.Clock(Math.Round(seconds)));
             Func<string, bool> ask = AskLongGif;
             if (ask != null) return ask(text);
@@ -178,7 +178,7 @@ namespace Stackshot
             ExportAbort ab = new ExportAbort();
             exportAbort = ab;
             exportOut = output;
-            exportText = "Creando el GIF\u2026 0 %  \u00B7  Esc cancela";
+            exportText = I18n.T("Creando el GIF\u2026 0 %  \u00B7  Esc cancela", "Creating the GIF\u2026 0%  \u00B7  Esc cancels");
             Invalidate();
             ShotStack.Log("Reproductor: creando " + Path.GetFileName(output) + " (" + size.Width + "x" + size.Height + ", " +
                           (fps > 0 ? fps.ToString("0.##", CultureInfo.InvariantCulture) + " fps" : "ritmo del GIF") + ", " + dur.ToString("0.###", CultureInfo.InvariantCulture) + " s)");
@@ -196,13 +196,13 @@ namespace Stackshot
                     {
                         ShotStack.Log("Reproductor: paleta del GIF otra vez, sin progreso (" + code + "): " + Tail(err));
                         code = VideoExport.Run(ff, PieceGif.PlainPaletteArgs(src, a, b, size, fps, palette), timeout, delegate(string line) { }, out err);
-                        if (code == 0 && !PieceGif.PaletteOk(palette)) { code = -1; err = "La paleta del GIF no es v\u00E1lida."; }
+                        if (code == 0 && !PieceGif.PaletteOk(palette)) { code = -1; err = I18n.T("La paleta del GIF no es v\u00E1lida.", "The GIF palette is not valid."); }
                     }
                     if (!ab.Set && code == 0)
                         code = VideoExport.Run(ff, PieceGif.GifArgs(src, a, b, size, fps, palette, output), timeout, GifProgress(ab, dur, 1), out err);
                     if (!ab.Set && code == 0 && File.Exists(output))
                     {
-                        OnUi(delegate { if (exportAbort == ab) { exportText = "Comprobando el GIF\u2026  \u00B7  Esc cancela"; Invalidate(); } });
+                        OnUi(delegate { if (exportAbort == ab) { exportText = I18n.T("Comprobando el GIF\u2026  \u00B7  Esc cancela", "Checking the GIF\u2026  \u00B7  Esc cancels"); Invalidate(); } });
                         rep = ShareCheck.Validate(ff, output, expect);
                     }
                 }
@@ -224,7 +224,7 @@ namespace Stackshot
                 TimeSpan ts;
                 if (!TimeSpan.TryParse(line.Substring(9).Trim(), CultureInfo.InvariantCulture, out ts)) return;
                 int pc = (int)Math.Round((run + Math.Max(0, Math.Min(1, ts.TotalSeconds / dur))) / 2 * 100);
-                OnUi(delegate { if (exportAbort == ab) { exportText = "Creando el GIF\u2026 " + pc + " %  \u00B7  Esc cancela"; Invalidate(); } });
+                OnUi(delegate { if (exportAbort == ab) { exportText = I18n.Fmt("Creando el GIF\u2026 {0} %  \u00B7  Esc cancela", "Creating the GIF\u2026 {0}%  \u00B7  Esc cancels", pc); Invalidate(); } });
             };
         }
 

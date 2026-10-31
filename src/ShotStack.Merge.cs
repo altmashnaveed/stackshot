@@ -55,7 +55,7 @@ namespace Stackshot
             if (!dropped || from.Leaving || from.IsDisposed || cards.IndexOf(from) < 0) return false;
             Card on = CardAt(Control.MousePosition, from);
             if (on == null) return false;
-            if (on.IsMedia || from.IsMedia) { on.Say("Solo im\u00E1genes", false); return true; }
+            if (on.IsMedia || from.IsMedia) { on.Say(I18n.T("Solo im\u00E1genes", "Images only"), false); return true; }
             // The older one goes first (top or left).
             bool fromFirst = cards.IndexOf(from) < cards.IndexOf(on);
             Merge(fromFirst ? from : on, fromFirst ? on : from);

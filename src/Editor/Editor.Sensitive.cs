@@ -62,7 +62,8 @@ namespace Stackshot
                 catch (Exception ex)
                 {
                     ShotStack.Log("Datos sensibles (editor): " + ex);
-                    error = ex is OutOfMemoryException ? "No hay memoria suficiente para una imagen tan grande." : "No se ha podido leer la imagen.";
+                    error = ex is OutOfMemoryException ? I18n.T("No hay memoria suficiente para una imagen tan grande.", "Not enough memory for such a large image.")
+                                                       : I18n.T("No se ha podido leer la imagen.", "Could not read the image.");
                     found = null;
                 }
                 try { BeginInvoke((Action)delegate { SensitiveFound(found, error, origin); }); }

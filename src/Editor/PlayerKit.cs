@@ -24,7 +24,7 @@ namespace Stackshot
         public static readonly string[] EditorFormats = ShotStack.VideoExtensions;
         public static string CineDir = Path.Combine(Settings.DataDir, "cine");   // tests point it elsewhere
 
-        static string Dec(double v, string f) { return v.ToString(f, CultureInfo.InvariantCulture).Replace('.', ','); }
+        static string Dec(double v, string f) { return v.ToString(f, CultureInfo.InvariantCulture).Replace('.', I18n.IsSpanish ? ',' : '.'); }
 
         // 1:07 or 1:02:03.
         public static string Clock(double seconds)
@@ -336,7 +336,7 @@ namespace Stackshot
             if (m.Audio.Count == 0) r.Add(new string[] { "Audio", I18n.T("Sin sonido", "No audio") });
             for (int i = 0; i < m.Audio.Count; i++)
             {
-                string title = string.IsNullOrEmpty(m.Audio[i].Title) ? I18n.Fmt("Pista {0}", "Track {0}", i + 1) : m.Audio[i].Title;
+                string title = string.IsNullOrEmpty(m.Audio[i].Title) ? I18n.Fmt("Pista {0}", "Track {0}", i + 1) : Cine.TrackName(m.Audio[i].Title);
                 string detail = "";
                 if (i < au.Count)
                 {

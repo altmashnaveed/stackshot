@@ -825,7 +825,7 @@ namespace Stackshot
             if (result == null) return;
             ShotStack.Log("Captura con desplazamiento: " + result.Width + "x" + result.Height);
             bool plain = result.Height <= area.Height;
-            owner.SaveCapture(result, "Desplazamiento");
+            owner.SaveCapture(result, I18n.T("Desplazamiento", "Scrolling"));
             // Auto ended without the page moving: say why it is only one screen, and what usually helps.
             if (plain && !plainOk)
                 owner.Notify(I18n.T("Captura con desplazamiento", "Scrolling capture"), I18n.T("La zona no se ha movido, as\u00ED que se ha guardado como una captura normal. Elige solo la parte que se desplaza (la lista o el texto), sin la cabecera fija.", "The area did not scroll, so it was saved as a normal capture. Choose only the part that scrolls (the list or text), without the fixed header."));
