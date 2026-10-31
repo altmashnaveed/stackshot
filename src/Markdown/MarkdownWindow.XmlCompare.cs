@@ -249,7 +249,7 @@ namespace Stackshot
                             string perr;
                             int l, c;
                             if (!XmlDoc.Parse(d.Text, stop, out om, out perr, out l, out c))
-                                err = perr != null ? I18n.Fmt("\u00AB{0}\u00BB no es un XML bien formado. {1}", "\u00AB{0}\u00BB is not well-formed XML. {1}", System.IO.Path.GetFileName(oldPath), perr) : null;
+                                err = perr != null ? I18n.Fmt("\u00AB{0}\u00BB no es un XML bien formado. {1}", "\u201C{0}\u201D is not well-formed XML. {1}", System.IO.Path.GetFileName(oldPath), perr) : null;
                             else
                             {
                                 XmlDoc.ExpandInner(om);

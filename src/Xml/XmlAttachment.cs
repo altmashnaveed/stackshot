@@ -16,8 +16,10 @@ namespace Stackshot
     public sealed class AttachType
     {
         public AttachKind Kind;
-        public string Ext = ".bin", Label = "tipo desconocido";
+        public string Ext = ".bin", Label;
         public bool Partial;    // typed from the first bytes only: a ZIP may still turn out to be a Word or Excel file
+
+        public AttachType() { Label = I18n.T("tipo desconocido", "unknown type"); }
 
         public bool Image { get { return Kind == AttachKind.Png || Kind == AttachKind.Jpeg || Kind == AttachKind.Gif || Kind == AttachKind.Bmp || Kind == AttachKind.Tiff; } }
         // Opened with the app Windows has for them, after asking.

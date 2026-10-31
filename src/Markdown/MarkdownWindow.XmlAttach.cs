@@ -74,7 +74,7 @@ namespace Stackshot
                         {
                             doc = DocFile.FromBytes(data, t.Kind == AttachKind.Xml);
                             err = t.Kind == AttachKind.Xml ? XmlDoc.CheckText(doc.Text) : MarkdownTools.Validate(doc.Text);
-                            if (err != null) { err += " " + I18n.T("Usa \u00ABGuardar el adjunto como\u2026\u00BB.", "Use \u00ABSave attachment as\u2026\u00BB."); doc = null; }
+                            if (err != null) { err += " " + I18n.T("Usa \u00ABGuardar el adjunto como\u2026\u00BB.", "Use \u201CSave attachment as\u2026\u201D."); doc = null; }
                         }
                         if (!XmlAttachment.Blocked(t, hint) && (t.Image || t.Document))
                         {
@@ -104,7 +104,7 @@ namespace Stackshot
         void Opened(byte[] data, AttachType t, string hint, string path, DocFile doc, string err)
         {
             if (data == null) { Say(err ?? I18n.T("No he podido leer el adjunto.", "Could not read attachment."), true); return; }
-            string saveIt = I18n.T("usa \u00ABGuardar el adjunto como\u2026\u00BB", "use \u00ABSave attachment as\u2026\u00BB");
+            string saveIt = I18n.T("usa \u00ABGuardar el adjunto como\u2026\u00BB", "use \u201CSave attachment as\u2026\u201D");
             if (XmlAttachment.Blocked(t, hint)) { Say(I18n.Fmt("Por seguridad no abro programas, scripts ni accesos directos: {0}.", "For security reasons programs, scripts and shortcuts are not opened: {0}.", saveIt), true); return; }
             if (t.Readable)
             {
@@ -134,9 +134,10 @@ namespace Stackshot
                 return;
             }
             string ext = t.Ext;
-            string what = (t.Kind == AttachKind.Excel || t.Kind == AttachKind.PowerPoint ? "Es una " : "Es un ") + t.Label;
-            int r = DocAlert.Ask(this, I18n.Fmt("\u00BFAbrir el adjunto \u00AB{0}\u00BB?", "Open attachment \u00AB{0}\u00BB?", shown),
-                                 I18n.Fmt("{0} que viene dentro del XML. Se abrir\u00E1 con el programa que Windows tenga para los archivos {1}.", "{0} that is inside the XML. It will open with the default Windows program for {1} files.", what, ext),
+            string what = I18n.IsSpanish ? (t.Kind == AttachKind.Excel || t.Kind == AttachKind.PowerPoint ? "Es una " : "Es un ") + t.Label
+                                         : (t.Label.Length > 0 && "AEIOUaeiou".IndexOf(t.Label[0]) >= 0 ? "an " : "a ") + t.Label;
+            int r = DocAlert.Ask(this, I18n.Fmt("\u00BFAbrir el adjunto \u00AB{0}\u00BB?", "Open attachment \u201C{0}\u201D?", shown),
+                                 I18n.Fmt("{0} que viene dentro del XML. Se abrir\u00E1 con el programa que Windows tenga para los archivos {1}.", "It's {0} that came inside the XML. It will open with the program Windows uses for {1} files.", what, ext),
                                  new string[] { I18n.T("Abrir", "Open"), I18n.T("Cancelar", "Cancel") }, 0, 1);
             if (r != 0) return;
             bool done = false;
@@ -151,7 +152,7 @@ namespace Stackshot
                 }
             }
             catch (Exception ex) { ShotStack.Log("Abrir adjunto: " + ex.Message); }
-            if (!done) Say(I18n.Fmt("No he podido abrir \u00AB{0}\u00BB: quiz\u00E1 no haya ning\u00FAn programa para los archivos {1}.", "Could not open \u00AB{0}\u00BB: perhaps there is no program for {1} files.", shown, ext), true);
+            if (!done) Say(I18n.Fmt("No he podido abrir \u00AB{0}\u00BB: quiz\u00E1 no haya ning\u00FAn programa para los archivos {1}.", "Could not open \u201C{0}\u201D: perhaps there is no program for {1} files.", shown, ext), true);
         }
 
         // XML or text from a field: a new document that is not a file yet (Guardar asks where), after the usual question

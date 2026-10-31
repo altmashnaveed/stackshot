@@ -150,7 +150,7 @@ namespace Stackshot
             }
         }
 
-        static string Hidden(int n) { return "\u22EF " + n.ToString("N0") + (n == 1 ? " nodo sin cambios" : " nodos sin cambios"); }
+        static string Hidden(int n) { return "\u22EF " + n.ToString("N0") + (n == 1 ? I18n.T(" nodo sin cambios", " unchanged node") : I18n.T(" nodos sin cambios", " unchanged nodes")); }
 
         public static List<DiffPiece> Pieces(DiffRow r, bool full)
         {
@@ -213,12 +213,12 @@ namespace Stackshot
                         o.Add(new DiffPiece(">", Seg.Punct, 0));
                         o.Add(new DiffPiece(" \u2026 ", Seg.Hint, 0));
                         o.Add(new DiffPiece("</", Seg.Punct, 0)); Name(o, n); o.Add(new DiffPiece(">", Seg.Punct, 0));
-                        o.Add(new DiffPiece("  " + d.Kids.Count.ToString("N0") + (d.Kids.Count == 1 ? " nodo" : " nodos") + (n.Inner ? " \u00B7 XML interno" : ""), Seg.Hint, 0));
+                        o.Add(new DiffPiece("  " + d.Kids.Count.ToString("N0") + (d.Kids.Count == 1 ? I18n.T(" nodo", " node") : I18n.T(" nodos", " nodes")) + (n.Inner ? I18n.T(" \u00B7 XML interno", " \u00B7 inner XML") : ""), Seg.Hint, 0));
                     }
                     else
                     {
                         o.Add(new DiffPiece(">", Seg.Punct, 0));
-                        if (n.Inner) o.Add(new DiffPiece("   XML interno", Seg.Hint, 0));
+                        if (n.Inner) o.Add(new DiffPiece(I18n.T("   XML interno", "   inner XML"), Seg.Hint, 0));
                     }
                     break;
                 default:
@@ -413,8 +413,8 @@ namespace Stackshot
 
             StackPanel e = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 460, Margin = new Thickness(28), IsHitTestVisible = false };
             e.Children.Add(new GlyphView("check", 30, pal.Green) { HorizontalAlignment = HorizontalAlignment.Center });
-            e.Children.Add(new TextBlock { Text = I18n.T("Los dos XML son iguales", "Both XMLs are identical"), FontFamily = Ds.Display, FontWeight = FontWeights.SemiBold, FontSize = 17, Foreground = Ds.Brush(pal.Label), Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Center });
-            e.Children.Add(new TextBlock { Text = I18n.T("No cuentan los espacios en blanco, el orden de los atributos ni los prefijos de los espacios de nombres.", "Whitespace, attribute order, and namespace prefixes are not counted."), FontSize = 12.5, Foreground = Ds.Brush(pal.Label2), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 8, 0, 0) });
+            e.Children.Add(new TextBlock { Text = I18n.T("Los dos XML son iguales", "The two XML files are the same"), FontFamily = Ds.Display, FontWeight = FontWeights.SemiBold, FontSize = 17, Foreground = Ds.Brush(pal.Label), Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Center });
+            e.Children.Add(new TextBlock { Text = I18n.T("No cuentan los espacios en blanco, el orden de los atributos ni los prefijos de los espacios de nombres.", "Whitespace, attribute order and namespace prefixes don't count."), FontSize = 12.5, Foreground = Ds.Brush(pal.Label2), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 8, 0, 0) });
             empty = e;
             Children.Add(empty);
 

@@ -174,7 +174,7 @@ namespace Stackshot
         bool FolderForImages(string title)
         {
             if (DocumentFolder() != null) return true;
-            int r = DocAlert.Ask(this, title, I18n.Fmt("Las im\u00E1genes se guardan en la carpeta \u00AB{0}\u00BB, junto al documento.", "Images are saved in the \u00AB{0}\u00BB folder, next to the document.", MdImages.Folder),
+            int r = DocAlert.Ask(this, title, I18n.Fmt("Las im\u00E1genes se guardan en la carpeta \u00AB{0}\u00BB, junto al documento.", "Images are saved in the \u201C{0}\u201D folder, next to the document.", MdImages.Folder),
                                  new string[] { I18n.T("Guardar como\u2026", "Save as\u2026"), I18n.T("Cancelar", "Cancel") }, 0, 1);
             return r == 0 && Save(true) && DocumentFolder() != null;
         }

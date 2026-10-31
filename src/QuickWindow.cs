@@ -77,7 +77,7 @@ namespace Stackshot
 
             StackPanel head = new StackPanel { Orientation = Orientation.Horizontal };
             head.Children.Add(note ? new IconTile("memo", 36, Ds.Rgb(255, 214, 10), Ds.Rgb(255, 159, 10)) : new IconTile("clock", 36, Ds.Rgb(90, 200, 250), Ds.Rgb(0, 122, 255)));
-            head.Children.Add(Text(note ? I18n.T("\u00BFQu\u00E9 apunto?", "What should I note?") : I18n.T("\u00BFQu\u00E9 te recuerdo?", "What should I remind you?"), Ds.Title, 18, pal.Label, new Thickness(12, 0, 0, 0)));
+            head.Children.Add(Text(note ? I18n.T("\u00BFQu\u00E9 apunto?", "What should I note?") : I18n.T("\u00BFQu\u00E9 te recuerdo?", "What should I remind you of?"), Ds.Title, 18, pal.Label, new Thickness(12, 0, 0, 0)));
             page.Children.Add(head);
 
             string hint = note ? I18n.T("Lo que quieras apuntar", "Whatever you want to note") : I18n.T("Por ejemplo: llamar a Laura", "For example: call Laura");
@@ -104,7 +104,7 @@ namespace Stackshot
                     int p = Math.Max(0, Math.Min(after.Length, ed.SelStart));
                     b.Select(p, Math.Max(0, Math.Min(after.Length - p, ed.SelLength)));
                 };
-                page.Children.Add(Text(I18n.T("Empieza una l\u00EDnea con \u00AB- [ ] \u00BB para una lista de tareas.", "Start a line with \u00AB- [ ] \u00BB for a task list."), Ds.Regular, 11.5, pal.Label3, new Thickness(2, 6, 0, 0)));
+                page.Children.Add(Text(I18n.T("Empieza una l\u00EDnea con \u00AB- [ ] \u00BB para una lista de tareas.", "Start a line with \u201C- [ ] \u201D for a task list."), Ds.Regular, 11.5, pal.Label3, new Thickness(2, 6, 0, 0)));
             }
 
             if (!note)
@@ -174,14 +174,14 @@ namespace Stackshot
                             ToolTip = n.Done ? I18n.T("Marcar como pendiente", "Mark as pending") : I18n.T("Marcar como hecha", "Mark as done"), VerticalAlignment = VerticalAlignment.Center
                         };
                         if (n.Done) tick.Child = new GlyphView("check", 11, pal.High ? pal.Window : Colors.White, 2) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                        Action flip = delegate { Keep(); if (!owner.NoteDone(it, !it.Done)) Say(I18n.T("Esa nota ha cambiado en Notas.md: \u00E1brela para verla.", "That note changed in Notas.md: open it to view.")); else Build(); };
+                        Action flip = delegate { Keep(); if (!owner.NoteDone(it, !it.Done)) Say(I18n.T("Esa nota ha cambiado en Notas.md: \u00E1brela para verla.", "That note changed in Notas.md: open it to see it.")); else Build(); };
                         tick.MouseLeftButtonUp += delegate { flip(); };
                         Access.Clickable(tick, flip);
                         DockPanel.SetDock(tick, Dock.Left);
                         row.Children.Add(tick);
                         TapBorder x = new TapBorder { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Brushes.Transparent, Cursor = Cursors.Hand, Label = I18n.T("Borrar esta nota", "Delete this note"), ToolTip = I18n.T("Borrar", "Delete"), Margin = new Thickness(8, 0, 0, 0) };
                         x.Child = new GlyphView("close", 11, pal.Label2, 1.8) { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                        Action drop = delegate { Keep(); if (!owner.DeleteNote(it)) Say(I18n.T("Esa nota ha cambiado en Notas.md: \u00E1brela para verla.", "That note changed in Notas.md: open it to view.")); else Build(); };
+                        Action drop = delegate { Keep(); if (!owner.DeleteNote(it)) Say(I18n.T("Esa nota ha cambiado en Notas.md: \u00E1brela para verla.", "That note changed in Notas.md: open it to see it.")); else Build(); };
                         x.MouseLeftButtonUp += delegate { drop(); };
                         Access.Clickable(x, drop);
                         DockPanel.SetDock(x, Dock.Right);
@@ -241,7 +241,7 @@ namespace Stackshot
         void Save()
         {
             Keep();
-            if (text.Trim().Length == 0) { Say(note ? I18n.T("Escribe lo que quieres apuntar.", "Type what you want to note.") : I18n.T("Escribe qu\u00E9 te recuerdo.", "Type what I should remind you.")); return; }
+            if (text.Trim().Length == 0) { Say(note ? I18n.T("Escribe lo que quieres apuntar.", "Type what you want to note.") : I18n.T("Escribe qu\u00E9 te recuerdo.", "Type what I should remind you of.")); return; }
             if (note)
             {
                 if (SaveNote()) Close();
@@ -265,7 +265,7 @@ namespace Stackshot
         bool SaveNote()
         {
             if (!owner.AddNote(text)) return false;
-            owner.Told(I18n.T("Apuntado en tus notas.", "Noted in your notes."));
+            owner.Told(I18n.T("Apuntado en tus notas.", "Added to your notes."));
             return true;
         }
 

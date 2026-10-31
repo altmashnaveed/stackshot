@@ -94,7 +94,7 @@ namespace Stackshot
             if (!Safe(target)) return I18n.T("Esa direcci\u00F3n o ruta no se puede usar.", "That address or path cannot be used.");
             if (links == null) LoadLinks();
             foreach (QuickLink l in links)
-                if (string.Equals(l.Target, target, StringComparison.OrdinalIgnoreCase)) return I18n.Fmt("Ya lo tienes en tus accesos r\u00E1pidos: \u00AB{0}\u00BB.", "You already have it in your quick links: \u00AB{0}\u00BB.", l.Name);
+                if (string.Equals(l.Target, target, StringComparison.OrdinalIgnoreCase)) return I18n.Fmt("Ya lo tienes en tus accesos r\u00E1pidos: \u00AB{0}\u00BB.", "You already have it in your quick links: \u201C{0}\u201D.", l.Name);
             if (links.Count >= MaxLinks) return I18n.Fmt("Ya tienes {0} accesos: quita alguno para a\u00F1adir otro.", "You already have {0} links: remove one to add another.", MaxLinks);
             name = LinkText(name);
             if (name.Length == 0) name = LinkText(LinkName(target));
@@ -130,7 +130,7 @@ namespace Stackshot
             catch (Exception ex)
             {
                 Log("Acceso r\u00E1pido: " + ex.Message);
-                return l.Web ? I18n.T("No he podido abrir el navegador.", "Could not open browser.") : I18n.Fmt("No he podido abrir \u00AB{0}\u00BB: puede que ya no exista.", "Could not open \u00AB{0}\u00BB: it may no longer exist.", l.Name);
+                return l.Web ? I18n.T("No he podido abrir el navegador.", "Could not open browser.") : I18n.Fmt("No he podido abrir \u00AB{0}\u00BB: puede que ya no exista.", "Could not open \u201C{0}\u201D: it may no longer exist.", l.Name);
             }
         }
 

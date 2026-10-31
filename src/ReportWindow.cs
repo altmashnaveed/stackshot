@@ -125,7 +125,7 @@ namespace Stackshot
             head.Children.Add(new IconTile("bell", 40, Ds.Rgb(255, 159, 10), Ds.Rgb(255, 69, 58)));
             head.Children.Add(Text(I18n.T("Cu\u00E9ntanos qu\u00E9 pasa", "Tell us what happened"), Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
             page.Children.Add(head);
-            page.Children.Add(Para((Relay ? I18n.T("Llega directamente a quien hace Stackshot, sin cuentas ni correos. ", "Goes directly to who builds Stackshot, without accounts or emails. ") : I18n.T("Al continuar se abre GitHub con todo lo que escribas ya rellenado. ", "Continuing opens GitHub with everything you wrote prefilled. ")) +
+            page.Children.Add(Para((Relay ? I18n.T("Llega directamente a quien hace Stackshot, sin cuentas ni correos. ", "It goes straight to the people who make Stackshot, with no accounts or emails. ") : I18n.T("Al continuar se abre GitHub con todo lo que escribas ya rellenado. ", "Continuing opens GitHub with everything you wrote prefilled. ")) +
                                    I18n.T("Se publica en GitHub, que es p\u00FAblico: no pongas datos personales, contrase\u00F1as ni nada de tu empresa.", "It is published on GitHub, which is public: do not include personal data, passwords or company info."), pal.Label2, new Thickness(0, 14, 0, 0)));
 
             MacSegmented seg = new MacSegmented(new string[] { I18n.T("Algo falla", "Something's broken"), I18n.T("Tengo una idea", "I have an idea") }, kind) { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 20, 0, 0) };
@@ -186,7 +186,7 @@ namespace Stackshot
             Grid buttons = new Grid { Margin = new Thickness(0, 20, 0, 0) };
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             send = new MacButton(!Relay ? I18n.T("Continuar en GitHub", "Continue on GitHub") : sending ? I18n.T("Enviando\u2026", "Sending\u2026") : failed ? I18n.T("Reintentar", "Retry") : I18n.T("Enviar", "Send"), ButtonKind.Primary, Relay ? "share" : "open", null, 32);
-            send.ToolTip = "Ctrl + Intro";
+            send.ToolTip = I18n.T("Ctrl + Intro", "Ctrl + Enter");
             send.Click += Send;
             // While the button can't be pressed, it says what is missing.
             missing = Text("", Ds.Regular, 12, pal.Label3, new Thickness(0, 0, 12, 0));
@@ -218,7 +218,7 @@ namespace Stackshot
             head.Children.Add(new IconTile("check", 40, Ds.Rgb(52, 199, 89), Ds.Rgb(0, 160, 90)));
             head.Children.Add(Text(I18n.T("Enviado. Gracias", "Sent. Thank you"), Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
             page.Children.Add(head);
-            page.Children.Add(Para(I18n.Fmt("Tu reporte es el n\u00FAmero {0}. En \u00ABMis reportes\u00BB ver\u00E1s c\u00F3mo avanza y las respuestas, aqu\u00ED mismo y sin cuenta.", "Your report is number {0}. Under \u00ABMy reports\u00BB you will see its progress and replies, right here with no account.", sentNumber), pal.Label2, new Thickness(0, 14, 0, 0)));
+            page.Children.Add(Para(I18n.Fmt("Tu reporte es el n\u00FAmero {0}. En \u00ABMis reportes\u00BB ver\u00E1s c\u00F3mo avanza y las respuestas, aqu\u00ED mismo y sin cuenta.", "Your report is number {0}. Under \u201CMy reports\u201D you will see its progress and replies, right here with no account.", sentNumber), pal.Label2, new Thickness(0, 14, 0, 0)));
             Grid buttons = new Grid { Margin = new Thickness(0, 22, 0, 0) };
             StackPanel right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             MacButton see = new MacButton(I18n.T("Mis reportes", "My reports"), ButtonKind.Secondary, "history", null, 32) { Margin = new Thickness(8, 0, 0, 0) };
@@ -321,14 +321,14 @@ namespace Stackshot
             head.Children.Add(new IconTile("history", 40, Ds.Rgb(90, 200, 250), Ds.Rgb(0, 122, 255)));
             head.Children.Add(Text(I18n.T("Mis reportes", "My reports"), Ds.Title, 20, pal.Label, new Thickness(14, 0, 0, 0)));
             page.Children.Add(head);
-            page.Children.Add(Para(I18n.T("Lo que has enviado desde este equipo, c\u00F3mo va y las respuestas que recibas. No hace falta ninguna cuenta.", "What you sent from this computer, how it's progressing, and responses received. No account needed."), pal.Label2, new Thickness(0, 14, 0, 0)));
+            page.Children.Add(Para(I18n.T("Lo que has enviado desde este equipo, c\u00F3mo va y las respuestas que recibas. No hace falta ninguna cuenta.", "What you sent from this computer, how it's going and the replies you get. No account needed."), pal.Label2, new Thickness(0, 14, 0, 0)));
 
             List<ReportHistory.Entry> list = ReportHistory.Load();
             if (list.Count == 0)
                 page.Children.Add(Para(I18n.T("Todav\u00EDa no has enviado nada desde este equipo. Cuando lo hagas, aparecer\u00E1 aqu\u00ED.", "You haven't sent anything from this computer yet. When you do, it will appear here."), pal.Label3, new Thickness(0, 22, 0, 4)));
             else
             {
-                string note = loading ? I18n.T("Consultando c\u00F3mo van\u2026", "Checking status\u2026") : statesError;
+                string note = loading ? I18n.T("Consultando c\u00F3mo van\u2026", "Checking how they're doing\u2026") : statesError;
                 if (note != null)
                 {
                     TextBlock t = Para(note, statesError != null && !loading ? pal.Error : pal.Label3, new Thickness(0, 12, 0, 0));
@@ -405,7 +405,7 @@ namespace Stackshot
             Grid.SetColumn(chips, 1);
             top.Children.Add(chips);
             body.Children.Add(top);
-            body.Children.Add(Text(I18n.Fmt("N.\u00BA {0}  \u00B7  {1}  \u00B7  enviado el {2}", "#{0}  \u00B7  {1}  \u00B7  sent on {2}", e.Number, e.Idea ? I18n.T("Idea", "Idea") : I18n.T("Fallo", "Bug"), e.SentUtc.ToLocalTime().ToString("d/M/yyyy")),
+            body.Children.Add(Text(I18n.Fmt("N.\u00BA {0}  \u00B7  {1}  \u00B7  enviado el {2}", "#{0}  \u00B7  {1}  \u00B7  sent on {2}", e.Number, e.Idea ? I18n.T("Idea", "Idea") : I18n.T("Fallo", "Bug"), I18n.IsSpanish ? e.SentUtc.ToLocalTime().ToString("d/M/yyyy") : e.SentUtc.ToLocalTime().ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)),
                                    Ds.Regular, 12, pal.Label3, new Thickness(23, 3, 0, 0)));
             if (s != null)
                 foreach (ReportHistory.Reply r in s.Replies)
@@ -417,7 +417,7 @@ namespace Stackshot
                         BorderBrush = Ds.Brush(pal.Hairline), BorderThickness = new Thickness(pal.High ? 1 : 0)
                     };
                     StackPanel rs = new StackPanel();
-                    rs.Children.Add(Text((r.Team ? I18n.T("Respuesta de Stackshot", "Reply from Stackshot") : I18n.T("Comentario", "Comment")) + "  \u00B7  " + r.AtUtc.ToLocalTime().ToString("d/M/yyyy HH:mm"),
+                    rs.Children.Add(Text((r.Team ? I18n.T("Respuesta de Stackshot", "Reply from Stackshot") : I18n.T("Comentario", "Comment")) + "  \u00B7  " + (I18n.IsSpanish ? r.AtUtc.ToLocalTime().ToString("d/M/yyyy HH:mm") : r.AtUtc.ToLocalTime().ToString("MMM d, yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)),
                                          Ds.Semibold, 11.5, r.Team ? pal.Label : pal.Label2, new Thickness(0)));
                     TextBlock rt = Para(r.Text.Trim(), pal.Label, new Thickness(0, 4, 0, 0));
                     rt.FontSize = 12.5;
@@ -449,7 +449,7 @@ namespace Stackshot
             Need(titleNeed, t, 4);
             Need(whatNeed, w, 10);
             if (missing == null) return;
-            string field = kind == 0 ? I18n.T("\u00AB\u00BFQu\u00E9 ha pasado?\u00BB", "\u00ABWhat happened?\u00BB") : I18n.T("\u00AB\u00BFQu\u00E9 te gustar\u00EDa?\u00BB", "\u00ABWhat would you like?\u00BB");
+            string field = kind == 0 ? I18n.T("\u00AB\u00BFQu\u00E9 ha pasado?\u00BB", "\u201CWhat happened?\u201D") : I18n.T("\u00AB\u00BFQu\u00E9 te gustar\u00EDa?\u00BB", "\u201CWhat would you like?\u201D");
             missing.Text = sending ? "" : t == 0 && w == 0 ? I18n.Fmt("Escribe un t\u00EDtulo y {0}.", "Type a title and {0}.", field)
                          : t < 4 ? I18n.Fmt("El t\u00EDtulo necesita {0} m\u00E1s.", "Title needs {0} more.", Letters(4 - t))
                          : w < 10 ? I18n.Fmt("{0} necesita {1} m\u00E1s.", "{0} needs {1} more.", field, Letters(10 - w)) : "";
@@ -622,7 +622,7 @@ namespace Stackshot
                     text = r.ReadToEnd();
                 }
             }
-            catch { return "(sin registro)"; }
+            catch { return I18n.T("(sin registro)", "(no log)"); }
             string[] lines = text.Replace("\r", "").Split('\n');
             // Read from the middle of the file, the first line is a partial one.
             int from = Math.Max(mid ? 1 : 0, lines.Length - 150);

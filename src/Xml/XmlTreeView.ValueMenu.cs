@@ -30,7 +30,7 @@ namespace Stackshot
                 if (a >= 0)
                 {
                     string key = n.Attrs[a].Key, val = n.Attrs[a].Value;
-                    m.Add(MenuEntry.Item(I18n.Fmt("Copiar valor de \u00AB{0}\u00BB", "Copy value of \u00AB{0}\u00BB", key), "copy", false, delegate { Ask(val, I18n.T("Valor copiado.", "Value copied.")); }));
+                    m.Add(MenuEntry.Item(I18n.Fmt("Copiar valor de \u00AB{0}\u00BB", "Copy value of \u201C{0}\u201D", key), "copy", false, delegate { Ask(val, I18n.T("Valor copiado.", "Value copied.")); }));
                 }
             }
             if (n.Kind == XKind.Element || n.Kind == XKind.Text || n.Kind == XKind.CData)

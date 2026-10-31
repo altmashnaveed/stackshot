@@ -262,13 +262,13 @@ namespace Stackshot
                         o.Add(new Piece(">", Seg.Punct));
                         o.Add(new Piece(" \u2026 ", Seg.Hint));
                         o.Add(new Piece("</", Seg.Punct)); Name(o, n); o.Add(new Piece(">", Seg.Punct));
-                        o.Add(new Piece("  " + n.Kids.Count + (n.Kids.Count == 1 ? " nodo" : " nodos") + (n.Inner ? " \u00B7 XML interno" : ""), Seg.Hint));
+                        o.Add(new Piece("  " + n.Kids.Count + (n.Kids.Count == 1 ? I18n.T(" nodo", " node") : I18n.T(" nodos", " nodes")) + (n.Inner ? I18n.T(" \u00B7 XML interno", " \u00B7 inner XML") : ""), Seg.Hint));
                     }
                     else
                     {
                         o.Add(new Piece(">", Seg.Punct));
                         // XML that travels escaped in this field, shown opened (XmlDoc.ExpandInner).
-                        if (n.Inner) o.Add(new Piece("   XML interno", Seg.Hint));
+                        if (n.Inner) o.Add(new Piece(I18n.T("   XML interno", "   inner XML"), Seg.Hint));
                     }
                     break;
             }
@@ -893,7 +893,7 @@ namespace Stackshot
                 StackPanel sp = new StackPanel { Width = W };
                 for (int i = 0; i < n; i++) sp.Children.Add(new XmlRowView(ForExport(rows[i], look)));
                 if (n < rows.Count)
-                    sp.Children.Add(new TextBlock { Text = I18n.Fmt("\u2026 y {0} l\u00EDneas m\u00E1s (contrae lo que no necesites para verlas)", "\u2026 and {0} more lines (collapse unneeded items to view them)", (rows.Count - n).ToString("N0")), Foreground = look.Hint, FontSize = 12.5, Margin = new Thickness(XmlRowView.Gutter, 8, 0, 0) });
+                    sp.Children.Add(new TextBlock { Text = I18n.Fmt("\u2026 y {0} l\u00EDneas m\u00E1s (contrae lo que no necesites para verlas)", "\u2026 and {0} more lines (collapse what you don't need to see them)", (rows.Count - n).ToString("N0")), Foreground = look.Hint, FontSize = 12.5, Margin = new Thickness(XmlRowView.Gutter, 8, 0, 0) });
                 page = new Border { Background = Ds.Brush(look.Dark ? Ds.Rgb(30, 30, 32) : Colors.White), Padding = new Thickness(28, 26, 28, 28), Width = W + 56, UseLayoutRounding = true, Child = sp };
                 TextOptions.SetTextFormattingMode(page, TextFormattingMode.Ideal);
                 TextOptions.SetTextRenderingMode(page, TextRenderingMode.Grayscale);

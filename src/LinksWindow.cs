@@ -161,7 +161,7 @@ namespace Stackshot
             string why = owner.AddLink(name, target);
             if (why != null) { Say(why); return; }
             List<QuickLink> list = owner.Links;
-            owner.Told(I18n.Fmt("\u00A1Listo! \u00AB{0}\u00BB ya est\u00E1 en mi men\u00FA.", "Ready! \u00AB{0}\u00BB is now in my menu.", list[list.Count - 1].Name));
+            owner.Told(I18n.Fmt("\u00A1Listo! \u00AB{0}\u00BB ya est\u00E1 en mi men\u00FA.", "Done! \u201C{0}\u201D is now in my menu.", list[list.Count - 1].Name));
             name = target = "";
             Build();
             if (targetBox != null) targetBox.Focus();
