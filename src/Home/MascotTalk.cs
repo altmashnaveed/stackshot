@@ -119,9 +119,9 @@ namespace Stackshot
                     Hotkeys.Split(s.HotScroll).Count > 0 ? Hotkeys.Display(s.HotScroll) + " captures a whole page by scrolling it."
                                                          : "Scrolling capture takes a whole page; you can assign a shortcut in Shortcuts.",
                     Hotkeys.Split(s.HotText).Count > 0 ? Hotkeys.Display(s.HotText) + " copies text from anywhere on the screen, without saving a capture."
-                                                       : "Copy text from screen grabs text anywhere; you can assign a shortcut in Shortcuts.",
+                                                       : "Copy screen text grabs text from anywhere; you can assign a shortcut in Shortcuts.",
                     Hotkeys.Split(s.HotRepeat).Count > 0 ? Hotkeys.Display(s.HotRepeat) + " captures the last area again, without selecting it."
-                                                         : "\"Repeat area\" in the tray recaptures the last area; you can assign a shortcut in Shortcuts.",
+                                                         : "\u201CRepeat area\u201D in the tray recaptures the last area; you can assign a shortcut in Shortcuts.",
                     "The Backdrop button in the editor gets your captures ready for presentation.",
                     "To cover private data, use Redact in the editor: a solid cover cannot be undone.",
                     "In the Mascot section you can change my hat, clothes and even species.",
