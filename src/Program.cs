@@ -273,7 +273,7 @@ namespace Stackshot
                 Version failed;
                 if (Version.TryParse(Value("--update-failed") ?? "", out failed)) Updater.FailedBefore(failed);
                 // After an update it comes back quietly; one asked for by hand reopens on Acerca de, with the new version.
-                bool show = (!Has("--background") && !updated && !test && view == null && (command == null || command == CliCommand.Home)) || Has("--home") || Has("--open-home");
+                bool show = (!Has("--background") && !updated && !test && view == null && command == null) || Has("--home");
                 Application.Run(new ShotStack(s, Has("--welcome-done"), show, updated && Has("--home") ? "about" : null));
                 ShotStack.Log("Cerrada");
             }
