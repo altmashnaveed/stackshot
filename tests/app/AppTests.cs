@@ -912,6 +912,7 @@ namespace Stackshot.Tests
                     I18n.Apply("es");
                 }
             });
+            AppTestsI18n.Suite();
         }
     }
 }
