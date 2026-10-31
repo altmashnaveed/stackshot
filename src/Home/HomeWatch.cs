@@ -12,7 +12,7 @@ namespace Stackshot
 {
     public partial class HomeWindow
     {
-        static readonly CultureInfo WatchEs = CultureInfo.GetCultureInfo("es-ES");
+        static CultureInfo WatchEs { get { return CultureInfo.GetCultureInfo(I18n.IsSpanish ? "es-ES" : "en-US"); } }
         bool watchHooked;
 
         // Once per window: a reading refreshes what shows it.

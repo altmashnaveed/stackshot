@@ -377,7 +377,7 @@ namespace Stackshot
         {
             title = title.Trim();
             // A folder row's title is the folder's path: it is found by what it is.
-            if (icon == "folder") extra = extra == null ? "carpeta" : extra + " carpeta";
+            if (icon == "folder") extra = extra == null ? I18n.T("carpeta", "folder") : extra + I18n.T(" carpeta", " folder");
             int same = 0;
             foreach (SearchEntry o in into)
                 if (o.Group == group && o.Title == title)

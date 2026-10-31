@@ -49,7 +49,7 @@ namespace Stackshot
 
         static volatile bool connecting, cancel;
         public static bool Connecting { get { return connecting; } }
-        public const string Cancelled = "Has cancelado la conexi\u00F3n.";
+        public static string Cancelled { get { return I18n.T("Has cancelado la conexi\u00F3n.", "You cancelled the connection."); } }
 
         // Stops waiting for the browser (the sign-in tab was closed or left half done).
         public static void Cancel() { if (connecting) cancel = true; }
@@ -58,7 +58,7 @@ namespace Stackshot
         // it worked.
         public static void Connect(Action<string> done)
         {
-            if (!Available) { done("Falta configurar la conexi\u00F3n con Google Health."); return; }
+            if (!Available) { done(I18n.T("Falta configurar la conexi\u00F3n con Google Health.", "The Google Health connection is not set up.")); return; }
             if (connecting) return;
             connecting = true;
             cancel = false;
@@ -125,7 +125,7 @@ namespace Stackshot
                     {
                         if (got == "access_denied")
                         {
-                            Answer(s, 200, Mark.Off, I18n.T("Conex\u00F3n cancelada", "Connection cancelled"), null, I18n.T("No se ha conectado nada. Puedes cerrar esta pesta\u00F1a y, cuando quieras, volver a intentarlo desde Stackshot.", "Nothing was connected. You can close this tab and try again whenever you like from Stackshot."));
+                            Answer(s, 200, Mark.Off, I18n.T("Conexi\u00F3n cancelada", "Connection cancelled"), null, I18n.T("No se ha conectado nada. Puedes cerrar esta pesta\u00F1a y, cuando quieras, volver a intentarlo desde Stackshot.", "Nothing was connected. You can close this tab and try again whenever you like from Stackshot."));
                             return Cancelled;
                         }
                         Answer(s, 200, Mark.Fail, I18n.T("No se ha podido conectar", "Could not connect"), null, I18n.Fmt("Google ha respondido \u00AB{0}\u00BB. Cierra esta pesta\u00F1a y vuelve a intentarlo desde Stackshot.", "Google returned \u201C{0}\u201D. Close this tab and try again from Stackshot.", got));
@@ -154,7 +154,7 @@ namespace Stackshot
         static void Answer(NetworkStream s, int code, Mark mark, string title, string word, string text)
         {
             string icon = mark == Mark.Ok ? "M5 12.5l4.5 4.5L19 7.5" : mark == Mark.Off ? "M7.5 7.5l9 9M16.5 7.5l-9 9" : "M12 6.5v7M12 17.5v.01";
-            string html = "<!doctype html><html lang=es><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Stackshot</title><style>" +
+            string html = "<!doctype html><html lang=" + I18n.T("es", "en") + "><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Stackshot</title><style>" +
                 ":root{color-scheme:light dark;--bg:#f5f5f7;--card:#fff;--ink:#1d1d1f;--sub:#6e6e73;--line:#0000000f;--shade:#0000001a;--g1:#8b5cf6;--g2:#4f7bff;--g3:#0891cc}" +
                 "@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#161618;--ink:#f5f5f7;--sub:#98989d;--line:#ffffff14;--shade:#00000080;--g1:#a78bfa;--g2:#6d8bff;--g3:#22c3ee}}" +
                 "*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--ink);" +
@@ -209,18 +209,18 @@ namespace Stackshot
                 int code = res != null ? (int)res.StatusCode : 0;
                 if (res != null) res.Close();
                 // A refresh key that no longer works (revoked, or the week of a project still in testing): signed out.
-                if (code == 400 || code == 401) { Forget(); return "Google ya no acepta la conexi\u00F3n: vuelve a conectar el reloj."; }
-                if (code == 503) return "Falta la clave de Google en el intermediario.";
-                return code != 0 ? "Google no responde (" + code + ")." : "No hay conexi\u00F3n con Google.";
+                if (code == 400 || code == 401) { Forget(); return I18n.T("Google ya no acepta la conexi\u00F3n: vuelve a conectar el reloj.", "Google no longer accepts the connection: connect your watch again."); }
+                if (code == 503) return I18n.T("Falta la clave de Google en el intermediario.", "The relay is missing the Google key.");
+                return code != 0 ? I18n.Fmt("Google no responde ({0}).", "Google is not responding ({0}).", code) : I18n.T("No hay conexi\u00F3n con Google.", "No connection to Google.");
             }
-            if (r == null || !r.ContainsKey("access_token")) return "Google no ha dado las claves.";
+            if (r == null || !r.ContainsKey("access_token")) return I18n.T("Google no ha dado las claves.", "Google did not provide the keys.");
             lock (gate)
             {
                 access = r["access_token"] as string;
                 if (r.ContainsKey("refresh_token")) refresh = r["refresh_token"] as string;
                 int secs = r.ContainsKey("expires_in") ? Convert.ToInt32(r["expires_in"]) : 3600;
                 expiresUtc = DateTime.UtcNow.AddSeconds(Math.Max(60, secs - 120));
-                if (refresh == null) return "Google no ha dado una clave duradera: vuelve a conectar.";
+                if (refresh == null) return I18n.T("Google no ha dado una clave duradera: vuelve a conectar.", "Google did not provide a lasting key: connect again.");
                 Save();
             }
             return null;
@@ -287,7 +287,7 @@ namespace Stackshot
             lock (gate)
             {
                 Load();
-                if (refresh == null) { error = "Sin conectar."; return null; }
+                if (refresh == null) { error = I18n.T("Sin conectar.", "Not connected."); return null; }
                 key = access;
             }
             if (key == null || DateTime.UtcNow >= expiresUtc)
@@ -303,7 +303,7 @@ namespace Stackshot
                         token = refresh;
                         still = key == null || DateTime.UtcNow >= expiresUtc;
                     }
-                    if (token == null) { error = "Sin conectar."; return null; }
+                    if (token == null) { error = I18n.T("Sin conectar.", "Not connected."); return null; }
                     if (still)
                     {
                         error = Token("grant_type=refresh_token&refresh_token=" + Uri.EscapeDataString(token));
@@ -358,8 +358,8 @@ namespace Stackshot
             int code = res != null ? (int)res.StatusCode : 0;
             if (res != null) res.Close();
             if (code == 401) lock (gate) expiresUtc = DateTime.MinValue;   // refreshed at the next reading
-            if (code == 403) return "Google no deja leer los datos: revisa que el reloj est\u00E9 vinculado en la app Google Health.";
-            return code == 429 ? "Google pide esperar un poco." : code != 0 ? "Google no responde (" + code + ")." : "No hay conexi\u00F3n con Google.";
+            if (code == 403) return I18n.T("Google no deja leer los datos: revisa que el reloj est\u00E9 vinculado en la app Google Health.", "Google won't let Stackshot read the data: check that the watch is linked in the Google Health app.");
+            return code == 429 ? I18n.T("Google pide esperar un poco.", "Google asks to wait a moment.") : code != 0 ? I18n.Fmt("Google no responde ({0}).", "Google is not responding ({0}).", code) : I18n.T("No hay conexi\u00F3n con Google.", "No connection to Google.");
         }
 
         // Today's total of one data type, from midnight to midnight in local time.

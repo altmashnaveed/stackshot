@@ -423,7 +423,7 @@ namespace Stackshot
         {
             return Policy.AutoForced ? Policy.Managed
                  : !installed ? I18n.T("Solo con Stackshot instalado; esta copia no puede instalarse sola.", "Only with installed Stackshot; portable copy cannot self-update.")
-                 : !checking ? I18n.T("Necesita \u00ABBuscar actualizaciones autom\u00E1ticamente\u00BB.", "Requires \"Check for updates automatically\".")
+                 : !checking ? I18n.T("Necesita \u00ABBuscar actualizaciones autom\u00E1ticamente\u00BB.", "Requires \u201CCheck for updates automatically\u201D.")
                  : I18n.T("Se descargan, se comprueba su firma y se instalan cuando no est\u00E9s usando el equipo.", "Downloaded, verified, and installed when system is idle.");
         }
 

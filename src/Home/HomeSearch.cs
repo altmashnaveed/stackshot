@@ -239,7 +239,7 @@ namespace Stackshot
         // While the results show, the toolbar names them (a sub-page's back button waits).
         void SearchToolbar()
         {
-            toolbarTitle.Text = "Resultados";
+            toolbarTitle.Text = I18n.T("Resultados", "Results");
             toolbarTitle.Margin = new Thickness(40, 0, 0, 0);
             foreach (UIElement c in toolbarRow.Children) if (c != toolbarTitle) c.Visibility = Visibility.Collapsed;
         }
@@ -298,7 +298,7 @@ namespace Stackshot
             if (q != searchShownQuery) searchScroller.ScrollToVerticalOffset(0);
             searchShownQuery = q;
             searchList.Children.Add(Label(I18n.T("Resultados", "Results"), Ds.Title, 26, pal.Label, new Thickness(0, 58, 0, 0)));
-            string quoted = "\u00AB" + q + "\u00BB";
+            string quoted = I18n.IsSpanish ? "\u00AB" + q + "\u00BB" : "\u201C" + q + "\u201D";
             if (hits.Count == 0)
             {
                 searchList.Children.Add(complete ? SearchNothing(quoted) : SearchWaiting());
@@ -366,7 +366,7 @@ namespace Stackshot
             t.TextAlignment = TextAlignment.Center;
             t.HorizontalAlignment = HorizontalAlignment.Center;
             p.Children.Add(t);
-            string helpMsg = I18n.IsSpanish ? "Prueba con otras palabras o con menos letras, como \u00ABcarpeta\u00BB, \u00ABsonido\u00BB o \u00ABatajo\u00BB." : "Try different words or fewer letters, such as \"folder\", \"sound\" or \"shortcut\".";
+            string helpMsg = I18n.IsSpanish ? "Prueba con otras palabras o con menos letras, como \u00ABcarpeta\u00BB, \u00ABsonido\u00BB o \u00ABatajo\u00BB." : "Try different words or fewer letters, such as \u201Cfolder\u201D, \u201Csound\u201D or \u201Cshortcut\u201D.";
             TextBlock h = Paragraph(helpMsg, 12.5, pal.Label2);
             h.TextAlignment = TextAlignment.Center;
             h.Margin = new Thickness(0, 6, 0, 0);

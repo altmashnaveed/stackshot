@@ -126,7 +126,7 @@ namespace Stackshot
         {
             Func<bool> on = delegate { return settings.WellOn; };
             Group(I18n.T("Pausas saludables", "Healthy breaks"),
-                new ToggleRow(I18n.T("Recordarme hacer pausas", "Remind me to take breaks"), I18n.T("Te avisa para beber agua, descansar la vista, moverte y respirar, y las hace contigo.", "Reminds you to drink water, rest eyes, stretch, and breathe — and joins in with you."), "heart", Mac.Pink, Mac.Red,
+                new ToggleRow(I18n.T("Recordarme hacer pausas", "Remind me to take breaks"), I18n.T("Te avisa para beber agua, descansar la vista, moverte y respirar, y las hace contigo.", "Reminds you to drink water, rest eyes, stretch, and breathe \u2014 and joins in with you."), "heart", Mac.Pink, Mac.Red,
                               delegate { return settings.WellOn; }, delegate(bool v) { settings.WellOn = v; }),
                 WellRow(I18n.T("Beber agua", "Drink water"), I18n.T("Se toma un vaso contigo.", "Drinks a glass of water with you."), "drop", Mac.Blue, Mac.Teal, new int[] { 0, 30, 45, 60, 90 },
                         delegate { return settings.WellWater; }, delegate(int m) { settings.WellWater = m; }, on),
@@ -143,7 +143,7 @@ namespace Stackshot
                  "Puedes hacer una pausa cuando quieras desde su men\u00FA en el escritorio (\u00ABUna pausa conmigo\u00BB).",
                  "Only counts active time at the PC: if you step away for 5 minutes, your eyes and body have rested and timer resets. " +
                  "Never interrupts during calls, presentations, recordings, full screen, or Windows Focus Assist: waits until you finish. " +
-                 "Take a break anytime from the desktop mascot menu ('Take a break with me')."));
+                 "Take a break anytime from the desktop mascot menu (\u201CTake a break with me\u201D)."));
         }
 
         // ---- Focus mode (Pomodoro), in the mascot settings
@@ -176,7 +176,7 @@ namespace Stackshot
             Note(I18n.T("Empieza desde aqu\u00ED o desde el men\u00FA de la mascota en el escritorio (\u00ABConcentrarme\u00BB). Mientras dura un bloque, la mascota lee a tu lado sin hablar, " +
                  "lleva el reloj encima de la cabeza y las pausas saludables esperan al descanso, donde te propone la que toque. Si te levantas m\u00E1s de 5 minutos, " +
                  "el reloj se para y al volver te pregunta si sigues. Sin la mascota en el escritorio, todo sigue solo y te avisa con notificaciones.",
-                 "Start from here or from the mascot desktop menu ('Focus'). During focus, mascot quietly reads by your side without speaking, " +
+                 "Start from here or from the mascot desktop menu (\u201CFocus\u201D). During focus, mascot quietly reads by your side without speaking, " +
                  "wearing a timer on its head. Healthy breaks wait until rest periods. If you step away for 5+ minutes, timer pauses. " +
                  "Without the mascot on desktop, runs quietly and notifies via system toasts."));
         }
@@ -190,7 +190,7 @@ namespace Stackshot
             int water = owner.WaterToday();
             rows.Add(new SegRow(I18n.T("Objetivo de agua", "Daily water goal"),
                                 I18n.Fmt("Vasos al d\u00EDa. Cuentan los que bebes con la mascota y \u00AB+1 vaso\u00BB en su men\u00FA. Hoy: {0} {1}.",
-                                         "Glasses per day. Counts water with mascot and '+1 glass' in menu. Today: {0} {1}.",
+                                         "Glasses per day. The ones you drink with the mascot and \u201C+1 glass\u201D in its menu count. Today: {0} {1}.",
                                          water, water == 1 ? I18n.T("vaso", "glass") : I18n.T("vasos", "glasses")),
                                 "drop", Mac.Blue, Mac.Teal,
                                 I18n.IsSpanish ? new string[] { "Sin objetivo", "6 vasos", "8 vasos", "10 vasos" } : new string[] { "No goal", "6 glasses", "8 glasses", "10 glasses" },
@@ -228,13 +228,13 @@ namespace Stackshot
             names.Add(I18n.T("Concentraci\u00F3n", "Focus")); bits.Add(Settings.SummaryFocus);
             names.Add(I18n.T("Capturas", "Captures")); bits.Add(Settings.SummaryCaptures);
             if (GoogleHealth.Connected) { names.Add(I18n.T("Pasos", "Steps")); bits.Add(Settings.SummarySteps); }
-            rows.Add(new ChipsRow(I18n.T("Qu\u00E9 incluye el resumen", "Summary contents"), I18n.T("Toca para quitar o poner. Vale tambi\u00E9n para \u00AB\u00BFQu\u00E9 tal el d\u00EDa?\u00BB de su men\u00FA.", "Click to toggle. Also applies to 'How was the day?' in mascot menu."), "check", Mac.Green, Mac.Teal,
+            rows.Add(new ChipsRow(I18n.T("Qu\u00E9 incluye el resumen", "Summary contents"), I18n.T("Toca para quitar o poner. Vale tambi\u00E9n para \u00AB\u00BFQu\u00E9 tal el d\u00EDa?\u00BB de su men\u00FA.", "Click to toggle. Also applies to \u201CHow's your day going?\u201D in the mascot's menu."), "check", Mac.Green, Mac.Teal,
                                   names.ToArray(), bits.ToArray(), delegate { return settings.SummaryParts; }, delegate(int v) { settings.SummaryParts = v; }));
             if (GoogleHealth.Available)
             {
                 bool on = GoogleHealth.Connected;
                 rows.Add(new WatchBenefitsRow());
-                rows.Add(new ButtonRow("Pixel Watch / Fitbit",
+                rows.Add(new ButtonRow(I18n.T("Pixel Watch o Fitbit", "Pixel Watch or Fitbit"),
                                        GoogleHealth.Connecting ? I18n.T("Conectando\u2026 Termina de iniciar sesi\u00F3n en la pesta\u00F1a que se ha abierto en tu navegador y vuelve aqu\u00ED.", "Connecting\u2026 Finish signing in on the browser tab and return here.")
                                        : on ? I18n.T("Conectado con tu cuenta de Google.", "Connected with your Google account.")
                                        : I18n.T("Pasos, sue\u00F1o y minutos activos de tu reloj, para que la mascota te acompa\u00F1e mejor. Inicias sesi\u00F3n en el navegador, una vez.", "Sync steps, sleep, and active minutes from your smartwatch. One-time browser login."),
@@ -250,7 +250,7 @@ namespace Stackshot
                     rows.Add(new WatchRow());
                     int[] steps = { 6000, 8000, 10000, 12000, 15000 };
                     rows.Add(new SegRow(I18n.T("Objetivo de pasos", "Daily step goal"), I18n.T("Lo que cuenta la barra, la mascota y el resumen del d\u00EDa.", "Used for the status bar, mascot speech, and daily summary."), "walk", Mac.Green, Mac.Teal,
-                                        new string[] { "6,000", "8,000", "10,000", "12,000", "15,000" },
+                                        I18n.IsSpanish ? new string[] { "6.000", "8.000", "10.000", "12.000", "15.000" } : new string[] { "6,000", "8,000", "10,000", "12,000", "15,000" },
                                         delegate { int i = Array.IndexOf(steps, settings.StepsGoal); return i < 0 ? 2 : i; },
                                         delegate(int i) { settings.StepsGoal = steps[Math.Max(0, Math.Min(steps.Length - 1, i))]; }));
                 }
@@ -277,11 +277,11 @@ namespace Stackshot
             List<Reminder> pending = owner.Reminders;
             string next = pending.Count == 0 ? I18n.T("Ninguno pendiente.", "None pending.") :
                           I18n.Fmt(pending.Count == 1 ? "{0} pendiente" : "{0} pendientes", pending.Count == 1 ? "{0} pending" : "{0} pending", pending.Count) +
-                          I18n.Fmt("; el pr\u00F3ximo {0}: \u00AB{1}\u00BB.", "; next {0}: \"{1}\".", ShotStack.WhenText(pending[0].DueUtc.ToLocalTime()), pending[0].Text);
+                          I18n.Fmt("; el pr\u00F3ximo {0}: \u00AB{1}\u00BB.", "; next {0}: \u201C{1}\u201D.", ShotStack.WhenText(pending[0].DueUtc.ToLocalTime()), pending[0].Text);
             Group(I18n.T("Ayudante", "Assistant"),
-                new ButtonRow(I18n.T("Recordatorios", "Reminders"), I18n.T("\u00ABRecu\u00E9rdame algo\u2026\u00BB en el men\u00FA de la mascota. ", "'Remind me of something\u2026' in mascot menu. ") + next, "bell", Mac.Blue, Mac.Indigo, I18n.T("Nuevo\u2026", "New\u2026"),
+                new ButtonRow(I18n.T("Recordatorios", "Reminders"), I18n.T("\u00ABRecu\u00E9rdame algo\u2026\u00BB en el men\u00FA de la mascota. ", "\u201CRemind me of something\u2026\u201D in the mascot's menu. ") + next, "bell", Mac.Blue, Mac.Indigo, I18n.T("Nuevo\u2026", "New\u2026"),
                               delegate { QuickWindow.Remind(owner); }),
-                new ButtonRow(I18n.T("Notas", "Notes"), I18n.T("\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas; en esa misma ventana marcas las hechas o las borras.", "'Note something\u2026' in menu or drag text onto mascot. Saved to Notes.md in captures folder; check off or delete items there."), "memo", Mac.Orange, Mac.Pink, I18n.T("Ver", "View"),
+                new ButtonRow(I18n.T("Notas", "Notes"), I18n.T("\u00ABApunta algo\u2026\u00BB en su men\u00FA, o suelta un texto encima de ella. Van a Notas.md, en tu carpeta de capturas; en esa misma ventana marcas las hechas o las borras.", "\u201CNote something\u2026\u201D in its menu, or drop text onto the mascot. Saved to Notas.md in captures folder; check off or delete items there."), "memo", Mac.Orange, Mac.Pink, I18n.T("Ver", "View"),
                               delegate { owner.OpenNotes(); }),
                 new ButtonRow(I18n.T("Accesos r\u00E1pidos", "Quick links"), LinksSub(), "open", Mac.Indigo, Mac.Blue, I18n.T("Editar\u2026", "Edit\u2026"), delegate { LinksWindow.Show(owner); }),
                 new ToggleRow(I18n.T("Avisarme de los XML con fallo", "Notify on failed XML files"), I18n.T("Cuando llega a la carpeta vigilada un XML con SOAP Fault, te lo dice con un bot\u00F3n para abrirlo.", "Alerts with an open button when an XML with a SOAP Fault arrives in the monitored folder."), "warning", Mac.Red, Mac.Orange,
@@ -291,14 +291,14 @@ namespace Stackshot
                  "You can also drag & drop files onto the mascot: images go to editor, videos to player, XML/Markdown to viewer, text to notes, folders to quick links. Reminders wait until you are active, and overdue reminders alert upon wake."));
         }
 
-        // "Intranet, Proyectos y 2 más en el menú de la mascota."
+        // "Intranet, Proyectos y 2 m\u00E1s en el men\u00FA de la mascota."
         string LinksSub()
         {
             List<QuickLink> l = owner.Links;
             if (l.Count == 0) return I18n.T("Webs, carpetas, archivos o programas que la mascota te abre desde su men\u00FA. Tambi\u00E9n puedes soltarle una carpeta encima.", "Websites, folders, files, or apps opened from mascot menu. You can also drop a folder on it.");
-            string names = l.Count == 1 ? "\u00AB" + l[0].Name + "\u00BB" : l.Count == 2 ? I18n.Fmt("\u00AB{0}\u00BB y \u00AB{1}\u00BB", "\"{0}\" and \"{1}\"", l[0].Name, l[1].Name)
-                         : I18n.Fmt("\u00AB{0}\u00BB, \u00AB{1}\u00BB y {2} m\u00E1s", "\"{0}\", \"{1}\" and {2} more", l[0].Name, l[1].Name, l.Count - 2);
-            return I18n.Fmt("{0} en el men\u00FA de la mascota.", "{0} in the mascot menu.", names);
+            string names = l.Count == 1 ? I18n.Fmt("\u00AB{0}\u00BB", "\u201C{0}\u201D", l[0].Name) : l.Count == 2 ? I18n.Fmt("\u00AB{0}\u00BB y \u00AB{1}\u00BB", "\u201C{0}\u201D and \u201C{1}\u201D", l[0].Name, l[1].Name)
+                         : I18n.Fmt("\u00AB{0}\u00BB, \u00AB{1}\u00BB y {2} m\u00E1s", "\u201C{0}\u201D, \u201C{1}\u201D and {2} more", l[0].Name, l[1].Name, l.Count - 2);
+            return I18n.Fmt("{0} en el men\u00FA de la mascota.", "{0} in the mascot's menu.", names);
         }
 
         // A summary time other than 17:00, 18:00 and 19:00.

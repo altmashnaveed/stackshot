@@ -104,14 +104,8 @@ namespace Stackshot
 
         void OnLanguageChanged()
         {
-            ActionNames = I18n.IsSpanish ? ActionNamesEs : ActionNamesEn;
-            ActionShort = I18n.IsSpanish ? ActionShortEs : ActionShortEn;
-            ActionShortest = I18n.IsSpanish ? ActionShortestEs : ActionShortestEn;
-            Dispatcher.BeginInvoke((Action)delegate
-            {
-                RefreshNav();
-                SetPage(page, false);
-            });
+            // As for a theme change: the sidebar (version, search box) is built once, so it is built again with the page.
+            Dispatcher.BeginInvoke((Action)delegate { BuildSidebar(); Build(); });
         }
 
         void Center()
@@ -211,6 +205,7 @@ namespace Stackshot
 
         void BuildSidebar()
         {
+            ((TapPanel)navList).Label = I18n.T("Secciones", "Sections");
             sidebar.Children.Clear();
             sidebar.RowDefinitions.Clear();
             sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(78 + SearchBand) });
@@ -1227,7 +1222,7 @@ namespace Stackshot
         // Still in a window and in charge of the mascot.
         public bool Live { get { return attached && PresentationSource.FromVisual(this) != null; } }
 
-        protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new ActionPeer(this, delegate { Action h = Poked; if (h != null) h(); }, "Mascota"); }
+        protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new ActionPeer(this, delegate { Action h = Poked; if (h != null) h(); }, I18n.T("Mascota", "Mascot")); }
 
         // The bubble lives outside the slot. A slot pulled up with a negative margin (the sidebar card) would otherwise be
         // clipped to its own box by layout and the bubble would never show.

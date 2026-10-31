@@ -17,11 +17,11 @@ namespace Stackshot
     {
         internal static readonly string[] ActionNamesEs = { "Capturar un \u00E1rea", "Repetir la \u00FAltima \u00E1rea", "Capturar la pantalla", "Capturar la ventana activa", "Captura con desplazamiento", "Copiar texto de la pantalla", "Grabar v\u00EDdeo", "Grabar GIF", "Ver y ordenar Markdown", "Capturar con temporizador" };
         internal static readonly string[] ActionNamesEn = { "Capture an area", "Repeat last area", "Capture full screen", "Capture active window", "Scrolling capture", "Copy screen text", "Record video", "Record GIF", "View and sort Markdown", "Timed capture" };
-        internal static string[] ActionNames = I18n.IsSpanish ? ActionNamesEs : ActionNamesEn;
+        internal static string[] ActionNames { get { return I18n.IsSpanish ? ActionNamesEs : ActionNamesEn; } }
 
         internal static readonly string[] ActionShortEs = { "Un \u00E1rea", "La \u00FAltima \u00E1rea", "Pantalla completa", "Una ventana", "Con desplazamiento", "Copiar texto", "V\u00EDdeo", "GIF animado", "Markdown", "Con temporizador" };
         internal static readonly string[] ActionShortEn = { "An area", "Last area", "Full screen", "A window", "Scrolling", "Copy text", "Video", "Animated GIF", "Markdown", "With timer" };
-        internal static string[] ActionShort = I18n.IsSpanish ? ActionShortEs : ActionShortEn;
+        internal static string[] ActionShort { get { return I18n.IsSpanish ? ActionShortEs : ActionShortEn; } }
         static readonly string[] ActionIcons = { "area", "update", "screen", "window", "scroll", "textscan", "video", "gif", "markdown", "clock" };
         static readonly D.Color[,] ActionColors =
         {
@@ -403,7 +403,7 @@ namespace Stackshot
                         foreach (string c in Hotkeys.Split(W.settings.HotkeysFor(Settings.Actions[i])))
                             if (Hotkeys.Same(c, taken)) { other = ActionNames[i]; break; }
                     }
-                    Sub = Hotkeys.DisplayOne(taken) + (other != null ? " tambi\u00E9n es de \u00AB" + other + "\u00BB" : " lo est\u00E1 usando otro programa");
+                    Sub = Hotkeys.DisplayOne(taken) + (other != null ? I18n.Fmt(" tambi\u00E9n es de \u00AB{0}\u00BB", " is also used by \u201C{0}\u201D", other) : I18n.T(" lo est\u00E1 usando otro programa", " is being used by another program"));
                 }
                 base.Build();
                 if (taken != null && SubText != null) SubText.Foreground = Ds.Brush(Ds.Brushes.Warn);
@@ -500,7 +500,7 @@ namespace Stackshot
                     return;
                 }
                 field.ToolTip = null;
-                if (m == ModifierKeys.None) { field.Child = Center(Label("Pulsa la combinaci\u00F3n\u2026", Ds.Semibold, 12.5, pal.Link)); return; }
+                if (m == ModifierKeys.None) { field.Child = Center(Label(I18n.T("Pulsa la combinaci\u00F3n\u2026", "Press the combination\u2026"), Ds.Semibold, 12.5, pal.Link)); return; }
                 string held = Hotkeys.DisplayMods((m & ModifierKeys.Control) != 0, (m & ModifierKeys.Shift) != 0, (m & ModifierKeys.Alt) != 0, (m & ModifierKeys.Windows) != 0);
                 FrameworkElement k = Fit(new Keycaps(held + " + \u2026", 20), HorizontalAlignment.Center);
                 k.Margin = new Thickness(6, 0, 6, 0);
@@ -599,8 +599,8 @@ namespace Stackshot
                         w.keysMoved = I18n.IsSpanish
                             ? (Hotkeys.DisplayOne(combo) + " era de \u00AB" + ActionNames[i] + "\u00BB" +
                                (others.Count == 0 ? ", que se ha quedado sin atajo." : "; ahora es de \u00AB" + Title + "\u00BB."))
-                            : (Hotkeys.DisplayOne(combo) + " was assigned to \"" + ActionNames[i] + "\"" +
-                               (others.Count == 0 ? ", which now has no shortcut." : "; now belongs to \"" + Title + "\"."));
+                            : (Hotkeys.DisplayOne(combo) + " was assigned to \u201C" + ActionNames[i] + "\u201D" +
+                               (others.Count == 0 ? ", which now has no shortcut." : "; it now belongs to \u201C" + Title + "\u201D."));
                     }
                 }
                 w.settings.SetHotkeys(action, string.Join(", ", list.ToArray()));
@@ -767,7 +767,7 @@ namespace Stackshot
             }
             // "Respecto a este perfil": most people never chose it, it came selected.
             profileNote.Inlines.Add(new System.Windows.Documents.Run(I18n.Fmt("Has cambiado {0} respecto a este perfil. ", "You changed {0} relative to this profile. ", Listed(changed))));
-            profileNote.Inlines.Add(InlineLink(I18n.Fmt("Volver a aplicar \u00AB{0}\u00BB", "Reapply \"{0}\"", ProfileNames[p]), delegate
+            profileNote.Inlines.Add(InlineLink(I18n.Fmt("Volver a aplicar \u00AB{0}\u00BB", "Reapply \u201C{0}\u201D", ProfileNames[p]), delegate
             {
                 ApplyProfile(p);
                 Changed();
@@ -819,6 +819,7 @@ namespace Stackshot
                            delegate(int i) {
                                string lang = i == 1 ? "es" : i == 2 ? "en" : "auto";
                                settings.Language = lang;
+                               settings.LanguageOffered = true;   // chosen by hand: nothing left to offer
                                settings.Save();
                                I18n.Apply(lang);
                            }),
@@ -858,7 +859,7 @@ namespace Stackshot
             Group(I18n.T("Recientes", "Recents"),
                 new ToggleRow(I18n.T("Mostrar capturas recientes en Inicio", "Show recent captures on Home"), I18n.T("Desact\u00EDvalo y Inicio no muestra ni carga miniaturas.", "Disable to hide thumbnails on Home."), "photo", Mac.Blue, Mac.Indigo,
                               delegate { return settings.ShowRecent; }, delegate(bool v) { settings.ShowRecent = v; Recents.Forget(); }),
-                new ToggleRow(I18n.T("Buscar por el texto de las capturas", "Search captures by OCR text"), I18n.T("Stackshot lee el texto de cada captura en tu equipo para que el Historial la encuentre por lo que pon\u00EDa.", "Reads text in captures locally so History can find them by content."), "search", Mac.Indigo, Mac.Blue,
+                new ToggleRow(PolicyTitles.Search, I18n.T("Stackshot lee el texto de cada captura en tu equipo para que el Historial la encuentre por lo que pon\u00EDa.", "Reads text in captures locally so History can find them by content."), "search", Mac.Indigo, Mac.Blue,
                               delegate { return settings.HistorySearch; }, delegate(bool v) { settings.HistorySearch = v; HistoryIndex.Apply(settings); }),
                 HistoryIndexRowIfAny(),
                 new SegRow(I18n.T("Guardar las temporales", "Temporary captures retention"), I18n.T("Cu\u00E1nto duran las capturas que no guardas en tu carpeta.", "How long unsaved captures remain."), "stack", Mac.Teal, Mac.Blue,
@@ -889,9 +890,9 @@ namespace Stackshot
                               delegate { return settings.CaptureCursor; }, delegate(bool v) { settings.CaptureCursor = v; }),
                 print);
             Group(I18n.T("Datos sensibles", "Sensitive data"),
-                new ToggleRow(I18n.T("Tapar los datos sensibles al capturar", "Auto-redact sensitive data on capture"), I18n.T("DNI, NIE, n\u00FAmero de la Seguridad Social, IBAN, tarjetas, correos y tel\u00E9fonos se tapan solos en cada captura. Se leen en tu equipo; nada sale de \u00E9l.", "National IDs, SSN, IBAN, card numbers, emails and phone numbers are automatically redacted."), "redact!", Mac.Red, Mac.Orange,
+                new ToggleRow(PolicyTitles.Sensitive, I18n.T("DNI, NIE, n\u00FAmero de la Seguridad Social, IBAN, tarjetas, correos y tel\u00E9fonos se tapan solos en cada captura. Se leen en tu equipo; nada sale de \u00E9l.", "National IDs, Social Security numbers, IBANs, cards, emails and phone numbers are covered automatically in every capture. They are read on your computer; nothing leaves it."), "redact!", Mac.Red, Mac.Orange,
                               delegate { return settings.SensitiveAuto; }, delegate(bool v) { settings.SensitiveAuto = v; }));
-            Note(I18n.T("Apagado, decides t\u00FA: en el editor, \u00ABDatos sensibles\u00BB los tapa con marcas que puedes quitar.", "When off, you decide: in the editor, 'Sensitive data' covers them with removable redaction marks."));
+            Note(I18n.T("Apagado, decides t\u00FA: en el editor, \u00ABDatos sensibles\u00BB los tapa con marcas que puedes quitar.", "When off, you decide: in the editor, \u201CSensitive data\u201D covers them with marks you can remove."));
             Group(I18n.T("Capturas guardadas", "Saved captures"),
                 new ToggleRow(I18n.T("Guardar todas las capturas", "Automatically save all captures"), I18n.T("Cada captura y grabaci\u00F3n va tambi\u00E9n a tu carpeta. Apagado, solo las que guardas con Guardar.", "Every capture and recording is saved to your folder. When off, only those manually kept."), "folder", Mac.Blue, Mac.Teal,
                               delegate { return settings.SaveAll; }, delegate(bool v) { settings.SaveAll = v; }),
@@ -910,7 +911,7 @@ namespace Stackshot
                     { SubNow = XmlWatchNote },
                 new XmlFolderRow { When = delegate { return settings.XmlWatch; } });
             Note(I18n.T("Pensado para programas que dejan cada mensaje SOAP como un archivo XML en una carpeta. En el visor, [ y ] pasan al XML anterior o al siguiente, y \u00ABM\u00E1s opciones\u00BB lista los \u00FAltimos que han llegado.",
-                        "Designed for programs that save SOAP messages as XML files in a folder. In the viewer, [ and ] navigate between XML files, and 'More options' lists recent ones."));
+                        "Designed for programs that save SOAP messages as XML files in a folder. In the viewer, [ and ] navigate between XML files, and \u201CMore options\u201D lists the latest ones that arrived."));
         }
 
         string XmlWatchNote()
@@ -968,9 +969,9 @@ namespace Stackshot
             if (!FileAssoc.Enable(k)) return;
             if (FileAssoc.IsDefault(k)) return;
             string ext = k.Exts[0];
-            DocAlert.Ask(this, "Stackshot ya aparece entre las aplicaciones que pueden abrir " + ext + ".",
-                         "Elige Stackshot para " + ext + " en la ventana de Windows que se abre ahora: Windows pide que esa decisi\u00F3n la tomes t\u00FA.",
-                         new string[] { "Abrir esa ventana" }, 0, 0);
+            DocAlert.Ask(this, I18n.Fmt("Stackshot ya aparece entre las aplicaciones que pueden abrir {0}.", "Stackshot now appears among the apps that can open {0}.", ext),
+                         I18n.Fmt("Elige Stackshot para {0} en la ventana de Windows que se abre ahora: Windows pide que esa decisi\u00F3n la tomes t\u00FA.", "Choose Stackshot for {0} in the Windows window that opens now: Windows asks you to make that choice yourself.", ext),
+                         new string[] { I18n.T("Abrir esa ventana", "Open that window") }, 0, 0);
             FileAssoc.OpenDefaultApps();
         }
 
@@ -1011,17 +1012,17 @@ namespace Stackshot
         Row[] UpdateRows()
         {
             bool msi = Installer.ManagedByMsi, installed = Installer.RunningInstalled;
-            ToggleRow auto = new ToggleRow(I18n.T("Instalar actualizaciones autom\u00E1ticamente", "Install updates automatically"),
+            ToggleRow auto = new ToggleRow(PolicyTitles.Auto,
                                            I18n.T("Se descargan, se comprueba su firma y se instalan solas cuando no est\u00E9s usando el equipo.", "Downloaded, signature verified and installed automatically when your PC is idle."),
                                            "save", Mac.Green, D.Color.FromArgb(0, 160, 90),
                                            delegate { return settings.AutoUpdate; }, delegate(bool v) { settings.AutoUpdate = v; Updater.SettingsChanged(); });
             auto.When = delegate { return !msi && installed && settings.CheckUpdates; };
             auto.WhenOff = msi ? I18n.T("En este equipo las instala inform\u00E1tica: Stackshot solo te avisar\u00E1 de cada versi\u00F3n nueva.", "Managed by IT on this PC: Stackshot will only notify you of new versions.")
                          : !installed ? I18n.T("Solo con Stackshot instalado; esta copia no puede instalarse sola.", "Only with Stackshot installed; portable copy cannot self-install.")
-                         : I18n.T("Necesita \u00ABBuscar actualizaciones\u00BB: sin buscarlas no puede instalarlas.", "Requires \"Check for updates\": cannot install without checking.");
+                         : I18n.T("Necesita \u00ABBuscar actualizaciones\u00BB: sin buscarlas no puede instalarlas.", "Requires \u201CCheck for updates\u201D: cannot install without checking.");
             return new Row[]
             {
-                new ToggleRow(I18n.T("Buscar actualizaciones", "Check for updates"), I18n.T("Al abrir Stackshot y cada 3 horas pregunta a GitHub si hay una versi\u00F3n nueva. No env\u00EDa nada tuyo.", "Checks GitHub for new versions on launch and every 3 hours. Does not send any personal data."), "update", Mac.Teal, Mac.Blue,
+                new ToggleRow(PolicyTitles.Checks, I18n.T("Al abrir Stackshot y cada 3 horas pregunta a GitHub si hay una versi\u00F3n nueva. No env\u00EDa nada tuyo.", "Checks GitHub for new versions on launch and every 3 hours. Does not send any personal data."), "update", Mac.Teal, Mac.Blue,
                               delegate { return settings.CheckUpdates; }, delegate(bool v) { settings.CheckUpdates = v; Updater.SettingsChanged(); }),
                 auto
             };
@@ -1034,7 +1035,7 @@ namespace Stackshot
             Header(I18n.T("Ajustes de la mascota", "Mascot settings"), I18n.T("Su forma de ser, qu\u00E9 te dice y si te acompa\u00F1a tambi\u00E9n por el escritorio.", "Personality, dialogue, and roaming the desktop."));
             Func<bool> shown = delegate { return settings.MascotOn; };
             Group(I18n.T("Car\u00E1cter", "Character"),
-                new ToggleRow(I18n.T("Mostrar la mascota", "Show mascot"), I18n.T("En Inicio y abajo en la barra lateral.", "On Home and at the bottom of the sidebar."), "bot", Mac.Blue, Mac.Purple,
+                new ToggleRow(PolicyTitles.Mascot, I18n.T("En Inicio y abajo en la barra lateral.", "On Home and at the bottom of the sidebar."), "bot", Mac.Blue, Mac.Purple,
                               delegate { return settings.MascotOn; },
                               delegate(bool v)
                               {
@@ -1051,7 +1052,7 @@ namespace Stackshot
                                LookChanged(l, null);
                                if (settings.MascotTalks) mascot.Say(MascotTalk.Hello(settings), 3000);
                            }) { When = shown },
-                new ToggleRow(I18n.T("Saludos y consejos", "Greetings and tips"), I18n.T("De vez en cuando te cuenta trucos de Stackshot.", "Occasionally shares tips and tricks about Stackshot."), "sparkle", Mac.Orange, Mac.Pink,
+                new ToggleRow(PolicyTitles.Greetings, I18n.T("De vez en cuando te cuenta trucos de Stackshot.", "Occasionally shares tips and tricks about Stackshot."), "sparkle", Mac.Orange, Mac.Pink,
                               delegate { return settings.MascotTalks; }, delegate(bool v) { settings.MascotTalks = v; if (!v) mascot.Bubble = null; }) { When = shown },
                 new ToggleRow(I18n.T("Disfraz de temporada", "Seasonal costume"), I18n.T("Sin gorro, se pone la calabaza en Halloween y el de Pap\u00E1 Noel en Navidad.", "Without a hat, wears a pumpkin on Halloween and Santa hat at Christmas."), "sparkle", Mac.Orange, Mac.Red,
                               delegate { return settings.MascotSeasonal; },
@@ -1063,12 +1064,12 @@ namespace Stackshot
             Section("salud", BuildHealth);
             Section("asistente", BuildAssist);
             Group(I18n.T("En el escritorio", "On desktop"),
-                new ToggleRow(I18n.T("Mascota en el escritorio", "Mascot on desktop"), I18n.T("Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "Walks along taskbar, looks around, plays and naps."), "screen", Mac.Indigo, Mac.Purple,
+                new ToggleRow(PolicyTitles.Desktop, I18n.T("Pasea junto a la barra de tareas, te mira, juega y se echa la siesta.", "Walks along taskbar, looks around, plays and naps."), "screen", Mac.Indigo, Mac.Purple,
                               delegate { return settings.MascotDesktop; }, delegate(bool v) { settings.MascotDesktop = v; owner.MascotChanged(); })
                     {
                         // Completo's alone: below it the switch is off and says where to get it (the profile is never changed here).
                         When = delegate { return settings.MascotOn && settings.Profile == 2; },
-                        WhenOff = settings.Profile != 2 ? I18n.T("Solo con el perfil Completo (en General \u203A Perfil).", "Only with Full profile (in General \u203A Profile).") : I18n.T("Activa antes \u00ABMostrar la mascota\u00BB.", "Enable \"Show mascot\" first.")
+                        WhenOff = settings.Profile != 2 ? I18n.T("Solo con el perfil Completo (en General \u203A Perfil).", "Only with Full profile (in General \u203A Profile).") : I18n.T("Activa antes \u00ABMostrar la mascota\u00BB.", "Enable \u201CShow mascot\u201D first.")
                     },
                 new ToggleRow(I18n.T("Sube a las ventanas", "Climb on windows"), I18n.T("De vez en cuando salta a la ventana que tienes delante y pasea por encima. Si la mueves, viaja con ella.", "Occasionally jumps onto active window and walks on top. Moves along with it."), "window", Mac.Teal, Mac.Blue,
                               delegate { return settings.MascotClimb; }, delegate(bool v) { settings.MascotClimb = v; owner.MascotChanged(); })

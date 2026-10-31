@@ -453,7 +453,7 @@ namespace Stackshot
             if (Hotkeys.Split(combo).Count > 0)
             {
                 it.Caps = Hotkeys.Display(combo).Split(new string[] { " + " }, StringSplitOptions.None);
-                for (int i = 0; i < it.Caps.Length; i++) if (it.Caps[i] == "May\u00FAs") it.Caps[i] = ShiftKey;
+                for (int i = 0; i < it.Caps.Length; i++) if (it.Caps[i] == "May\u00FAs" || it.Caps[i] == "Shift") it.Caps[i] = ShiftKey;
                 it.Caps[it.Caps.Length - 1] = KeyCap(Hotkeys.Split(combo)[0], it.Caps[it.Caps.Length - 1]);
             }
             return it;
@@ -467,7 +467,7 @@ namespace Stackshot
             uint mods;
             Keys key;
             if (!Hotkeys.TryParse(combo, out mods, out key)) return shown;
-            if (key == Keys.Space) return "Espacio";
+            if (key == Keys.Space) return I18n.T("Espacio", "Space");
             if ((key >= Keys.D0 && key <= Keys.D9) || (key >= Keys.F1 && key <= Keys.F24) || key == Keys.PrintScreen || key == Keys.Escape) return shown;
             uint ch = MapVirtualKey((uint)key, 2) & 0x7FFFFFFF; // MAPVK_VK_TO_CHAR; the top bit marks dead keys
             return ch > 32 ? char.ToUpper((char)ch, CultureInfo.CurrentCulture).ToString() : shown;
@@ -930,7 +930,7 @@ namespace Stackshot
         void PaintStrip(M.DrawingContext dc, Item it)
         {
             Palette pal = Ds.Brushes;
-            M.FormattedText t = Ink.Px("Recientes", Ds.Semibold, U(11), pal.Label2);
+            M.FormattedText t = Ink.Px(I18n.T("Recientes", "Recent"), Ds.Semibold, U(11), pal.Label2);
             dc.DrawText(t, new W.Point(thumbR[0].X, Math.Round(thumbR[0].Y - Px(19))));
             double rr = Px(5);
             for (int i = 0; i < Recent && i < recent.Count; i++)
@@ -970,9 +970,9 @@ namespace Stackshot
         {
             DateTime d = t.Date, now = DateTime.Today;
             string hm = t.ToString("HH:mm", Es);
-            if (d == now) return "Hoy, " + hm;
-            if (d == now.AddDays(-1)) return "Ayer, " + hm;
-            return t.ToString("d MMM", Es).TrimEnd('.') + ", " + hm;
+            if (d == now) return I18n.T("Hoy, ", "Today, ") + hm;
+            if (d == now.AddDays(-1)) return I18n.T("Ayer, ", "Yesterday, ") + hm;
+            return (I18n.IsSpanish ? t.ToString("d MMM", Es).TrimEnd('.') : t.ToString("MMM d", CultureInfo.GetCultureInfo("en-US"))) + ", " + hm;
         }
 
         // ---- Hover, keyboard and clicks
@@ -1208,6 +1208,7 @@ namespace Stackshot
             if (disposing)
             {
                 Ds.Changed -= OnTheme;
+                I18n.Changed -= OnTheme;
                 watch.Dispose();
                 if (dib != null) { dib.Dispose(); dib = null; }
             }

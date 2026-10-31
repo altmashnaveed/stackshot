@@ -135,10 +135,11 @@ namespace Stackshot
                 Grid.SetColumnSpan(below, 2);
                 WrapPanel chips = new WrapPanel();
                 string[] tips = TokenTips(DateTime.Now);
-                for (int i = 0; i < NameTemplate.Tokens.Length; i++) chips.Children.Add(Chip(NameTemplate.Tokens[i], tips[i]));
+                string[] tokens = NameTemplate.Tokens;
+                for (int i = 0; i < tokens.Length; i++) chips.Children.Add(Chip(tokens[i], tips[i]));
                 reset = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 4), FontFamily = Ds.Text, FontSize = 12 };
-                reset.Inlines.Add(InlineLink(I18n.T("Restablecer", "Reset"), delegate { SetText(Settings.DefaultNameTemplate); Commit(); }));
-                reset.ToolTip = (I18n.IsSpanish ? "Volver a " : "Reset to ") + Settings.DefaultNameTemplate;
+                reset.Inlines.Add(InlineLink(I18n.T("Restablecer", "Reset"), delegate { SetText(NameTemplate.DefaultShown); Commit(); }));
+                reset.ToolTip = I18n.Fmt("Volver a {0}", "Reset to {0}", NameTemplate.DefaultShown);
                 chips.Children.Add(reset);
                 below.Children.Add(chips);
                 hint = Label("", Ds.Regular, 11.5, pal.Label2, new Thickness(0, 2, 0, 0));
@@ -158,7 +159,7 @@ namespace Stackshot
                 };
                 box = new TextBox
                 {
-                    Text = W.settings.FileNameTemplate, MaxLength = 200, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
+                    Text = NameTemplate.IsDefault(W.settings.FileNameTemplate) ? NameTemplate.DefaultShown : W.settings.FileNameTemplate, MaxLength = 200, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
                     Padding = new Thickness(0), Margin = new Thickness(9, 0, 9, 1), FontFamily = Ds.Text, FontSize = 12.5,
                     Foreground = Ds.Brush(pal.Label), CaretBrush = Ds.Brush(pal.Accent), SelectionBrush = Ds.Brush(pal.Accent),
                     VerticalContentAlignment = VerticalAlignment.Center, Template = DockFieldTemplate()
@@ -258,7 +259,7 @@ namespace Stackshot
             void Typed()
             {
                 string t = box.Text.Trim();
-                W.settings.FileNameTemplate = t.Length > 0 ? t : Settings.DefaultNameTemplate;
+                W.settings.FileNameTemplate = t.Length > 0 ? t : NameTemplate.DefaultShown;
                 if (SubText != null) SubText.Text = NamePreview(box.Text);
                 Refresh();
             }
@@ -278,8 +279,10 @@ namespace Stackshot
             {
                 if (box == null || W == null) return;
                 string t = box.Text.Trim();
-                if (t.Length == 0) t = Settings.DefaultNameTemplate;
+                if (t.Length == 0) t = NameTemplate.DefaultShown;
                 SetText(t);
+                // The default in the other language is the same default: nothing to write.
+                if (NameTemplate.IsDefault(t) && NameTemplate.IsDefault(committed)) { W.settings.FileNameTemplate = committed; return; }
                 W.settings.FileNameTemplate = t;
                 if (t == committed) return;
                 committed = t;

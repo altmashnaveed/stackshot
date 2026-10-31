@@ -1035,7 +1035,7 @@ namespace Stackshot
             Grid row = RecRow(1);
             TextBlock sub;
             StackPanel p = RecPanel(row, 0, "edit", pal.Accent, I18n.T("Despu\u00E9s de grabar", "After recording"),
-                     I18n.T("\u00ABEditar\u00BB en la miniatura abre el editor de v\u00EDdeo: recorta el principio y el final, cambia la velocidad, el tama\u00F1o o el formato, a\u00F1ade marcas y ponle fondo. El sonido se mantiene.", "\"Edit\" on the thumbnail opens the video editor: trim start and end, change speed, size or format, add highlights and backdrops. Audio is preserved."), out sub);
+                     I18n.T("\u00ABEditar\u00BB en la miniatura abre el editor de v\u00EDdeo: recorta el principio y el final, cambia la velocidad, el tama\u00F1o o el formato, a\u00F1ade marcas y ponle fondo. El sonido se mantiene.", "\u201CEdit\u201D on the thumbnail opens the video editor: trim start and end, change speed, size or format, add highlights and backdrops. Audio is preserved."), out sub);
 
             // The same switch as General > Copiar cada captura: a finished recording goes to the clipboard as a file.
             Border tile = new Border { CornerRadius = new CornerRadius(12), Background = Ds.Brush(RecTile(false)), Padding = new Thickness(13, 11, 13, 11), Margin = new Thickness(0, 14, 0, 0) };
@@ -1047,7 +1047,7 @@ namespace Stackshot
             StackPanel words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(11, 0, 12, 0) };
             words.Children.Add(Label(I18n.T("Copiar el archivo al terminar", "Copy file when finished"), Ds.Semibold, 13, pal.Label));
             // One setting for both: saying so avoids switching off the copy of captures by surprise.
-            TextBlock wl = Paragraph(I18n.T("Listo para pegar en un chat o un correo nada m\u00E1s parar. Es el mismo ajuste que \u00ABCopiar cada captura\u00BB, en General.", "Ready to paste into chat or email right after stopping. Same setting as \"Copy each capture\" in General."), 12, pal.Label2);
+            TextBlock wl = Paragraph(I18n.T("Listo para pegar en un chat o un correo nada m\u00E1s parar. Es el mismo ajuste que \u00ABCopiar cada captura\u00BB, en General.", "Ready to paste into chat or email right after stopping. Same setting as \u201CCopy each capture\u201D in General."), 12, pal.Label2);
             wl.Margin = new Thickness(0, 2, 0, 0);
             words.Children.Add(wl);
             Grid.SetColumn(words, 1);
@@ -1098,7 +1098,7 @@ namespace Stackshot
             // Videos and GIF use the same backdrop as captures when presented.
             StackPanel lk = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
                                            Cursor = Cursors.Hand, Background = Brushes.Transparent, Role = Access.Link, Do = delegate { SetPage("editor", true); } };
-            TextBlock lt = Label(I18n.T("Elegir el fondo de \u00ABPresentar\u00BB", "Choose \"Present\" backdrop"), Ds.Medium, 12, pal.Link);
+            TextBlock lt = Label(I18n.T("Elegir el fondo de \u00ABPresentar\u00BB", "Choose \u201CPresent\u201D backdrop"), Ds.Medium, 12, pal.Link);
             lk.Children.Add(lt);
             lk.Children.Add(new GlyphView("right", 11, pal.Link, 1.6) { Margin = new Thickness(3, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center });
             lk.MouseEnter += delegate { lt.TextDecorations = TextDecorations.Underline; };

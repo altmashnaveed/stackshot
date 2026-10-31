@@ -321,7 +321,7 @@ namespace Stackshot
 
         internal static readonly string[] ActionShortestEs = { "\u00C1rea", "Repetir", "Pantalla", "Ventana", "Desplazar", "Texto", "V\u00EDdeo", "GIF", "Markdown", "Temporizador" };
         internal static readonly string[] ActionShortestEn = { "Area", "Repeat", "Screen", "Window", "Scroll", "Text", "Video", "GIF", "Markdown", "Timer" };
-        internal static string[] ActionShortest = I18n.IsSpanish ? ActionShortestEs : ActionShortestEn;
+        internal static string[] ActionShortest { get { return I18n.IsSpanish ? ActionShortestEs : ActionShortestEn; } }
 
         // The capture modes in one capsule. A blue pill stays on the main mode (or Vídeo while recording); the mode under
         // the mouse or the keyboard gets a soft tint that fades in and out in place, so moving across the bar never sends
@@ -394,7 +394,7 @@ namespace Stackshot
                     int a = HomeModeIndex[i];
                     string action = Settings.Actions[a];
                     bool stop = action == "video" && Recorder.Recording;
-                    string text = stop ? "Detener" : ActionShortest[a];
+                    string text = stop ? I18n.T("Detener", "Stop") : ActionShortest[a];
                     icons[i] = stop ? "stop" : ActionIcons[a];
                     ink[i] = Ink.Text(text, Ds.Medium, 13, pal.Label);
                     white[i] = Ink.Text(text, Ds.Medium, 13, pal.OnAccent);
@@ -417,7 +417,7 @@ namespace Stackshot
                 glow.Freeze();
 
                 // Transparent cells on top take the mouse; the drawing below follows them.
-                StackPanel cells = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(Pad, Pad, 0, Pad), Interactive = false, Role = Access.List, Label = "Modos de captura" };
+                StackPanel cells = new TapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(Pad, Pad, 0, Pad), Interactive = false, Role = Access.List, Label = I18n.T("Modos de captura", "Capture modes") };
                 for (int i = 0; i < count; i++)
                 {
                     int k = i;

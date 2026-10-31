@@ -20,7 +20,7 @@ namespace Stackshot
         void BuildEditor()
         {
             Palette pal = Ds.Brushes;
-            Header(I18n.T("Fondo y editor", "Backdrop & editor"), I18n.T("Como en CleanShot X: tus capturas, listas para presentar con un fondo bonito, margen y sombra. En el editor, bot\u00F3n Fondo (o la tecla B); tambi\u00E9n para v\u00EDdeos y GIF con \u00ABPresentar\u00BB.", "Like CleanShot X: your captures ready to present with a beautiful backdrop, padding, and shadow. In the editor, use the Backdrop button (or key B); also for videos and GIFs with \"Present\"."));
+            Header(I18n.T("Fondo y editor", "Backdrop & editor"), I18n.T("Como en CleanShot X: tus capturas, listas para presentar con un fondo bonito, margen y sombra. En el editor, bot\u00F3n Fondo (o la tecla B); tambi\u00E9n para v\u00EDdeos y GIF con \u00ABPresentar\u00BB.", "Like CleanShot X: your captures ready to present with a beautiful backdrop, padding, and shadow. In the editor, use the Backdrop button (or key B); also for videos and GIFs with \u201CPresent\u201D."));
 
             Grid shell = new Grid { Height = 250, Margin = new Thickness(0, 0, 0, 26) };
             shell.Children.Add(CardShadow(16, 0.07, 14, 2, 1));

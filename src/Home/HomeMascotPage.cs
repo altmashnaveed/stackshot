@@ -307,13 +307,13 @@ namespace Stackshot
             GlyphView bot = new GlyphView("bot", 58, pal.Label3, 1.4);
             bot.HorizontalAlignment = HorizontalAlignment.Center;
             off.Children.Add(bot);
-            TextBlock t = Label("Escondido", Ds.Title, 22, pal.Label, new Thickness(0, 10, 0, 0));
+            TextBlock t = Label(I18n.T("Escondido", "Hidden"), Ds.Title, 22, pal.Label, new Thickness(0, 10, 0, 0));
             t.HorizontalAlignment = HorizontalAlignment.Center;
             off.Children.Add(t);
-            TextBlock s = Label(Policy.MascotForced ? Policy.Managed + "." : "Descansa hasta que lo llames.", Ds.Regular, 12.5, pal.Label2, new Thickness(0, 3, 0, 0));
+            TextBlock s = Label(Policy.MascotForced ? Policy.Managed + "." : I18n.T("Descansa hasta que lo llames.", "Resting until you call it."), Ds.Regular, 12.5, pal.Label2, new Thickness(0, 3, 0, 0));
             s.HorizontalAlignment = HorizontalAlignment.Center;
             off.Children.Add(s);
-            MacButton show = new MacButton("Mostrar la mascota", ButtonKind.Primary, null, null, 30);
+            MacButton show = new MacButton(I18n.T("Mostrar la mascota", "Show the mascot"), ButtonKind.Primary, null, null, 30);
             show.HorizontalAlignment = HorizontalAlignment.Center;
             show.Margin = new Thickness(0, 16, 0, 0);
             show.Click += ShowMascotAgain;
@@ -495,7 +495,7 @@ namespace Stackshot
             for (int i = 0; i < MascotParts.StyleNames.Length; i++)
             {
                 MascotParts.ApplyStyle(t, i);
-                if (SameCostume(t, l) && t.Accessory == l.Accessory) { name = MascotParts.StyleNames[i]; from = null; role = "Estilo"; return; }
+                if (SameCostume(t, l) && t.Accessory == l.Accessory) { name = MascotParts.StyleNames[i]; from = null; role = I18n.T("Estilo", "Style"); return; }
             }
             name = MascotParts.Kinds[l.Kind];
             from = null;
@@ -512,14 +512,14 @@ namespace Stackshot
             bool d = pal.Dark;
             switch (role)
             {
-                case "Protagonista": case "Coprotagonista": return d ? Ds.Rgb(243, 201, 107) : Ds.Rgb(158, 104, 0);
-                case "Compa\u00F1ero": case "Compa\u00F1era": case "Aliado": case "Mascota": return d ? Ds.Rgb(128, 182, 255) : Ds.Rgb(28, 98, 200);
-                case "Mentor": case "Capit\u00E1n": case "L\u00EDder": case "Guardi\u00E1n": case "Rey": case "Hechicero": return d ? Ds.Rgb(196, 166, 255) : Ds.Rgb(112, 70, 196);
-                case "Rival": case "Antih\u00E9roe": return d ? Ds.Rgb(255, 176, 100) : Ds.Rgb(186, 92, 0);
-                case "Villano": case "Villana": case "Enemigo": case "Monstruo": case "Tit\u00E1n": return d ? Ds.Rgb(255, 128, 128) : Ds.Rgb(190, 40, 46);
-                case "Superh\u00E9roe": case "Vengador": case "Vengadora": return d ? Ds.Rgb(110, 214, 236) : Ds.Rgb(0, 118, 148);
-                case "Legendario": case "Singular": case "Pseudolegendario": return d ? Ds.Rgb(244, 148, 222) : Ds.Rgb(164, 40, 140);
-                case "Inicial": case "Original": return d ? Ds.Rgb(143, 211, 168) : Ds.Rgb(30, 122, 72);
+                case "Protagonista": case "Coprotagonista": case "Protagonist": case "Co-protagonist": return d ? Ds.Rgb(243, 201, 107) : Ds.Rgb(158, 104, 0);
+                case "Compa\u00F1ero": case "Compa\u00F1era": case "Aliado": case "Mascota": case "Companion": case "Ally": case "Pet": return d ? Ds.Rgb(128, 182, 255) : Ds.Rgb(28, 98, 200);
+                case "Mentor": case "Capit\u00E1n": case "L\u00EDder": case "Guardi\u00E1n": case "Rey": case "Hechicero": case "Captain": case "Leader": case "Guardian": case "King": case "Sorcerer": return d ? Ds.Rgb(196, 166, 255) : Ds.Rgb(112, 70, 196);
+                case "Rival": case "Antih\u00E9roe": case "Antihero": return d ? Ds.Rgb(255, 176, 100) : Ds.Rgb(186, 92, 0);
+                case "Villano": case "Villana": case "Enemigo": case "Monstruo": case "Tit\u00E1n": case "Villain": case "Enemy": case "Monster": case "Titan": return d ? Ds.Rgb(255, 128, 128) : Ds.Rgb(190, 40, 46);
+                case "Superh\u00E9roe": case "Vengador": case "Vengadora": case "Superhero": case "Avenger": return d ? Ds.Rgb(110, 214, 236) : Ds.Rgb(0, 118, 148);
+                case "Legendario": case "Singular": case "Pseudolegendario": case "Legendary": case "Mythical": case "Pseudo-legendary": return d ? Ds.Rgb(244, 148, 222) : Ds.Rgb(164, 40, 140);
+                case "Inicial": case "Original": case "Starter": return d ? Ds.Rgb(143, 211, 168) : Ds.Rgb(30, 122, 72);
                 default: return pal.Label2;
             }
         }
@@ -575,7 +575,7 @@ namespace Stackshot
             stagePersona = Label("", Ds.Medium, 12, pal.Label, new Thickness(0, 0, 0, 1));
             row.Children.Add(stagePersona);
             row.Children.Add(new GlyphView("down", 12, pal.Label3, 1.8) { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 1, 0, 0) });
-            Border pill = StagePill(row, "Cambiar su forma de ser");
+            Border pill = StagePill(row, I18n.T("Cambiar su forma de ser", "Change its personality"));
             pill.Padding = new Thickness(10, 0, 10, 0);
             Press(pill, delegate { PersonalityMenu(pill); });
             return pill;
@@ -606,7 +606,7 @@ namespace Stackshot
             int love = Math.Max(0, settings.MascotLove), level = MascotParts.Level(love), left;
             MascotParts.Progress(love, out left);
             return MascotParts.LevelNames[level] + "  \u00B7  " + love + (love == 1 ? (I18n.IsSpanish ? " captura juntos" : " capture together") : (I18n.IsSpanish ? " capturas juntos" : " captures together")) +
-                   (left > 0 ? (I18n.IsSpanish ? "  \u00B7  faltan " + left + " para \u00AB" + MascotParts.LevelNames[level + 1].ToLowerInvariant() + "\u00BB" : "  \u00B7  " + left + " needed for \u00AB" + MascotParts.LevelNames[level + 1].ToLowerInvariant() + "\u00BB") : (I18n.IsSpanish ? "  \u00B7  nivel m\u00E1ximo" : "  \u00B7  max level"));
+                   (left > 0 ? (I18n.IsSpanish ? "  \u00B7  faltan " + left + " para \u00AB" + MascotParts.LevelNames[level + 1].ToLowerInvariant() + "\u00BB" : "  \u00B7  " + left + " to go for \u201C" + MascotParts.LevelNames[level + 1] + "\u201D") : (I18n.IsSpanish ? "  \u00B7  nivel m\u00E1ximo" : "  \u00B7  max level"));
         }
 
         // A capture while the page is open: the hearts fill up in place and whatever the new level brings opens up
@@ -902,8 +902,8 @@ namespace Stackshot
         {
             if (level <= 0) return null;
             List<string> r = new List<string>();
-            for (int i = 0; i < MascotParts.ColorNames.Length; i++) if (MascotParts.ColorUnlock(i) == level) r.Add(I18n.T("color ", "color ") + MascotParts.ColorNames[i].ToLowerInvariant());
-            for (int i = 0; i < MascotParts.HatNames.Length; i++) if (MascotParts.HatUnlock(i) == level) r.Add(MascotParts.HatNames[i].ToLowerInvariant());
+            for (int i = 0; i < MascotParts.ColorNames.Length; i++) if (MascotParts.ColorUnlock(i) == level) r.Add(I18n.Fmt("color {0}", "{0} color", LowerName(MascotParts.ColorNames[i])));
+            for (int i = 0; i < MascotParts.HatNames.Length; i++) if (MascotParts.HatUnlock(i) == level) r.Add(LowerName(MascotParts.HatNames[i]));
             return r.Count > 0 ? (I18n.IsSpanish ? "Desbloquea " : "Unlocks ") + string.Join(", ", r.ToArray()) : null;
         }
 
@@ -1535,7 +1535,7 @@ namespace Stackshot
 
         static string DockCaption(MItem it)
         {
-            if (it.Saved != null) return MascotParts.Kinds[it.Saved.Kind] + " " + MascotParts.ColorNames[it.Saved.Color].ToLowerInvariant();
+            if (it.Saved != null) return KindAndColor(it.Saved.Kind, it.Saved.Color);
             if (it.Slot == SlotAction) return MascotCmd.Short[it.Index];
             if (it.Slot == SlotAnime) return MascotParts.AnimeCaption(it.Index);
             return it.Name;
@@ -1646,10 +1646,13 @@ namespace Stackshot
         }
 
         static string[][] slotFind;
+        static bool slotFindSpanish;
         static string SlotFind(int slot, int i)
         {
-            if (slotFind == null)
+            // Built in the language it searches: after a switch, "pirate" finds the pirate, not only "pirata".
+            if (slotFind == null || slotFindSpanish != I18n.IsSpanish)
             {
+                slotFindSpanish = I18n.IsSpanish;
                 slotFind = new string[Slots.Length][];
                 for (int s = 0; s < Slots.Length; s++)
                 {
@@ -1727,11 +1730,11 @@ namespace Stackshot
             bool none = searching && shown == 0;
             if (none && dockEmptyText != null)
             {
-                dockEmptyText.Text = "Nada con \u00AB" + dockQuery.Trim() + "\u00BB en " + DockTabNames[dockTab];
+                dockEmptyText.Text = I18n.Fmt("Nada con \u00AB{0}\u00BB en {1}", "Nothing with \u201C{0}\u201D in {1}", dockQuery.Trim(), DockTabNames[dockTab]);
                 int best = -1;
                 for (int t = 0; t < counts.Length; t++) if (t != dockTab && counts[t] > 0 && (best < 0 || counts[t] > counts[best])) best = t;
                 dockEmptyTarget = best;
-                dockEmptyLink.Text = best >= 0 ? "Ver " + counts[best] + " en " + DockTabNames[best] : "Prueba con otra palabra";
+                dockEmptyLink.Text = best >= 0 ? I18n.Fmt("Ver {0} en {1}", "See {0} in {1}", counts[best], DockTabNames[best]) : I18n.T("Prueba con otra palabra", "Try another word");
                 dockEmptyLink.Foreground = Ds.Brush(best >= 0 ? Ds.Brushes.Link : Ds.Brushes.Label3);
                 dockEmptyLink.Cursor = best >= 0 ? Cursors.Hand : Cursors.Arrow;
             }
@@ -1910,12 +1913,29 @@ namespace Stackshot
 
         static string DescribeLook(MascotLook l)
         {
-            string s = MascotParts.Kinds[l.Kind] + " " + MascotParts.ColorNames[l.Color].ToLowerInvariant();
-            if (l.Hat > 0) s += ", " + MascotParts.HatNames[l.Hat].ToLowerInvariant();
-            if (l.Outfit > 0) s += ", " + MascotParts.OutfitNames[l.Outfit].ToLowerInvariant();
-            if (l.Face > 0) s += ", " + MascotParts.FaceNames[l.Face].ToLowerInvariant();
-            if (l.Accessory > 0) s += ", " + MascotParts.AccessoryNames[l.Accessory].ToLowerInvariant();
+            string s = KindAndColor(l.Kind, l.Color);
+            if (l.Hat > 0) s += ", " + LowerName(MascotParts.HatNames[l.Hat]);
+            if (l.Outfit > 0) s += ", " + LowerName(MascotParts.OutfitNames[l.Outfit]);
+            if (l.Face > 0) s += ", " + LowerName(MascotParts.FaceNames[l.Face]);
+            if (l.Accessory > 0) s += ", " + LowerName(MascotParts.AccessoryNames[l.Accessory]);
             return s;
+        }
+
+        // "Gato menta" in Spanish, "Mint cat" in English.
+        static string KindAndColor(int kind, int color)
+        {
+            if (I18n.IsSpanish) return MascotParts.Kinds[kind] + " " + MascotParts.ColorNames[color].ToLowerInvariant();
+            return MascotParts.ColorNames[color] + " " + LowerName(MascotParts.Kinds[kind]);
+        }
+
+        // A part's name inside a sentence: all lower case in Spanish (as always); in English only the first letter, and
+        // not at all for a name that belongs to someone ("Gojo's hair") or has capitals of its own.
+        static string LowerName(string s)
+        {
+            if (I18n.IsSpanish) return s.ToLowerInvariant();
+            if (string.IsNullOrEmpty(s) || s.IndexOf('\'') >= 0) return s;
+            for (int i = 1; i < s.Length; i++) if (char.IsUpper(s[i])) return s;
+            return char.ToLowerInvariant(s[0]) + s.Substring(1);
         }
 
         static void ApplyItem(MItem it, MascotLook l)
@@ -1953,7 +1973,7 @@ namespace Stackshot
             if (it.Locked)
             {
                 int lv = Math.Max(0, Math.Min(MascotParts.LevelNames.Length - 1, it.Level));
-                s += I18n.IsSpanish ? ("  \u00B7  llega con \u00AB" + MascotParts.LevelNames[lv].ToLowerInvariant() + "\u00BB (" + MascotParts.UnlockLove(lv) + " capturas)") : ("  \u00B7  unlocked at \u00AB" + MascotParts.LevelNames[lv].ToLowerInvariant() + "\u00BB (" + MascotParts.UnlockLove(lv) + " captures)");
+                s += I18n.IsSpanish ? ("  \u00B7  llega con \u00AB" + MascotParts.LevelNames[lv].ToLowerInvariant() + "\u00BB (" + MascotParts.UnlockLove(lv) + " capturas)") : ("  \u00B7  unlocked at \u201C" + MascotParts.LevelNames[lv] + "\u201D (" + MascotParts.UnlockLove(lv) + " captures)");
             }
             return s;
         }
@@ -2156,8 +2176,8 @@ namespace Stackshot
                 MSlot s = Slots[it.Slot];
                 if (!s.Whole && s.Get(l) == it.Index) return;
                 s.Apply(l, it.Index);
-                if (it.Slot == SlotAnime) reaction = I18n.T("\u00A1Hoy soy ", "Today I am ") + it.Name + "!";
-                else if (it.Slot == SlotStyle) reaction = I18n.T("\u00A1Modo ", "Mode ") + it.Name.ToLowerInvariant() + I18n.T(" activado!", " activated!");
+                if (it.Slot == SlotAnime) reaction = I18n.Fmt("\u00A1Hoy soy {0}!", "Today I'm {0}!", it.Name);
+                else if (it.Slot == SlotStyle) reaction = I18n.IsSpanish ? "\u00A1Modo " + it.Name.ToLowerInvariant() + " activado!" : it.Name + " mode on!";
                 else if (it.Slot == SlotEyes) reaction = I18n.T("\u00BFQu\u00E9 tal me ves as\u00ED?", "How do I look like this?");
                 else reaction = it.Index > 0 ? (I18n.IsSpanish ? ("\u00A1" + it.Name + "! \u00BFQu\u00E9 tal me queda?") : (it.Name + "! How does it look on me?")) : null;
             }

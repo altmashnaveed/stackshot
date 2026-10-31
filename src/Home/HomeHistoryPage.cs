@@ -23,7 +23,8 @@ namespace Stackshot
         static readonly string[] HistoryFiltersEs = { "Todo", "Capturas", "V\u00EDdeos", "GIF" };
         static readonly string[] HistoryFiltersEn = { "All", "Captures", "Videos", "GIF" };
         static string[] HistoryFilters { get { return I18n.IsSpanish ? HistoryFiltersEs : HistoryFiltersEn; } }
-        static readonly CultureInfo HistoryEs = new CultureInfo("es-ES");
+        static readonly CultureInfo HistoryEsCulture = new CultureInfo("es-ES");
+        static CultureInfo HistoryEs { get { return I18n.IsSpanish ? HistoryEsCulture : CultureInfo.GetCultureInfo("en-US"); } }
 
         string historyQuery = "";
         int historyFilter;
@@ -404,17 +405,17 @@ namespace Stackshot
             {
                 if (historyWords.Length > 0)
                 {
-                    title = I18n.IsSpanish ? ("Nada coincide con \u00AB" + historyQuery.Trim() + "\u00BB") : ("Nothing matches \"" + historyQuery.Trim() + "\"");
+                    title = I18n.IsSpanish ? ("Nada coincide con \u00AB" + historyQuery.Trim() + "\u00BB") : ("Nothing matches \u201C" + historyQuery.Trim() + "\u201D");
                     sub = !settings.HistorySearch ? I18n.T("Solo se busca por el nombre: la b\u00FAsqueda por texto est\u00E1 desactivada.", "Searching by name only: text search is disabled.")
                         : HistoryReading ? I18n.T("Todav\u00EDa se est\u00E1 leyendo el texto de algunas capturas: prueba otra vez dentro de un momento.", "Still reading text from some captures: try again in a moment.")
-                        : historyFilter != 0 ? I18n.T("Prueba con otras palabras o con \u00ABTodo\u00BB.", "Try different words or switch to \"All\".")
+                        : historyFilter != 0 ? I18n.T("Prueba con otras palabras o con \u00ABTodo\u00BB.", "Try different words or switch to \u201CAll\u201D.")
                         : I18n.T("Prueba con otras palabras: se busca en el texto de cada captura y en su nombre.", "Try different words: searching in both text and file names.");
                 }
                 else
                 {
                     icon = historyFilter == 2 ? "video" : historyFilter == 3 ? "gif" : "photo";
                     title = historyFilter == 2 ? I18n.T("No hay v\u00EDdeos", "No videos") : historyFilter == 3 ? I18n.T("No hay GIF", "No GIFs") : I18n.T("No hay capturas", "No captures");
-                    sub = I18n.T("Prueba con \u00ABTodo\u00BB.", "Try \"All\".");
+                    sub = I18n.T("Prueba con \u00ABTodo\u00BB.", "Try \u201CAll\u201D.");
                 }
             }
             historyNotice.Visibility = title != null ? Visibility.Visible : Visibility.Collapsed;
@@ -623,8 +624,8 @@ namespace Stackshot
                 string day = t.ToString("dddd", HistoryEs);
                 return char.ToUpper(day[0], HistoryEs) + day.Substring(1) + ", " + hm;
             }
-            if (t.Year == DateTime.Now.Year) return t.ToString("d MMM", HistoryEs).Replace(".", "") + ", " + hm;
-            return t.ToString("d MMM yyyy", HistoryEs).Replace(".", "");
+            if (t.Year == DateTime.Now.Year) return t.ToString(I18n.IsSpanish ? "d MMM" : "MMM d", HistoryEs).Replace(".", "") + ", " + hm;
+            return t.ToString(I18n.IsSpanish ? "d MMM yyyy" : "MMM d, yyyy", HistoryEs).Replace(".", "");
         }
 
         sealed class HistoryTile : TapPanel
@@ -731,7 +732,7 @@ namespace Stackshot
                 if (pos < sn.Text.Length) s.Inlines.Add(new Run(sn.Text.Substring(pos)));
                 t.Children.Add(s);
             }
-            t.ToolTip = it.Name + "\n" + it.When.ToString("dddd, d 'de' MMMM 'de' yyyy, HH:mm", HistoryEs);
+            t.ToolTip = it.Name + "\n" + it.When.ToString(I18n.IsSpanish ? "dddd, d 'de' MMMM 'de' yyyy, HH:mm" : "dddd, MMMM d, yyyy, HH:mm", HistoryEs);
             ToolTipService.SetInitialShowDelay(t, 700);
             bool pressed = false;
             t.MouseEnter += delegate { HomeGlide(ring, OpacityProperty, 1, 120, null); };
@@ -862,7 +863,7 @@ namespace Stackshot
         {
             const double Gap = 12, MinCell = 148, HeadH = 40, Overscan = 500;
 
-            protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new RolePeer(this, Access.List, "Capturas"); }
+            protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return new RolePeer(this, Access.List, I18n.T("Capturas", "Captures")); }
 
             sealed class Line
             {
